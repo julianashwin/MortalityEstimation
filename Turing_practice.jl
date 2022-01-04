@@ -1,5 +1,5 @@
 """
-Example Kalman Filter
+Example HMC with Turing.jl
 """
 
 if occursin("jashwin", pwd())
