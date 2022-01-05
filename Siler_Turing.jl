@@ -1,5 +1,5 @@
 """
-Ue HMC from Turing.jl to estimate Siler model on mortality data
+Use MCMC from Turing.jl to estimate Siler model on mortality data
 """
 
 if occursin("jashwin", pwd())
@@ -32,45 +32,97 @@ function siler(b0,b1,c0,c1,d, ages)
 
     return mort
 end
+function gompertz(a,b,c, ages)
 
-plot(siler(0.7494, 5.1240, 0.2916, 1.5719, 0.3386, ages))
+    mort = exp.(a .+ b .* ages) .+ c
 
-data = rand(Bernoulli(p_true), last(Ns))
-
-plot(InverseGamma(2, 3),xlim =(0,100))
-plot(Normal(0, 0.01))
+    return mort
+end
 
 
 m_dist= m_data[1]
-# Declare our Turing model.
+plot(gompertz(-11, 0.11, 0.001, ages),ylim = (-0.1,0.5))
+plot(siler(-2.8560, 1.7643, -7.3629, 0.0652, 0.0003, ages),ylim = (-0.1,0.5))
+plot!(gompertz(-7.4391, 0.0659, 0.0015, ages),ylim = (-0.1,0.5))
+scatter!(m_dist,ylim = (-0.1,0.5))
+
+
+# Mean of IG is b/(a-1)
+plot(InverseGamma(2, 0.01), xlim=(0,1))
+plot(InverseGamma(2, 0.1), xlim=(0,1))
+plot(InverseGamma(2, 6), xlim=(0,100))
+plot(truncated(Normal(0.1, 0.1),0.0,1.0))
+
+@model function gompertz_static(m_dist)
+    # Our prior beliefs
+    c0 ~ Normal(0, 10)
+    c1 ~ InverseGamma(2, 0.1)
+    d ~ InverseGamma(2, 0.01)
+    σ ~ InverseGamma(2, 0.001)
+    # The number of observations.
+    N = length(m_dist)
+    for nn in 1:N
+        # Find mean using the gompertz mortality function
+        m_mean = exp(c0 + c1 * (nn-1)) + d
+        # Draw from truncated normal dist
+        m_dist[nn] ~ truncated(Normal(m_mean, σ), 0.0, 1.0)
+    end
+end
+
+iterations = 10000
+chain_hmc = sample(gompertz_static(m_dist), HMC(ϵ, τ), iterations)
+display(chain_hmc)
+chain_smc = sample(gompertz_static(m_dist), SMC(), iterations)
+display(chain_smc)
+chain_nuts = sample(gompertz_static(m_dist), NUTS(0.65), iterations,chn=2)
+display(chain_nuts)
+
+chain = chain_nuts
+histogram(chain[:c0])
+histogram(chain[:c1])
+histogram(chain[:d])
+histogram(chain[:σ])
+
+
+# Declare our Turing model for Siler
 @model function siler_static(m_dist)
-    # Our prior belief about the probability of heads in a coin.
-    b0 ~ InverseGamma(2, 3)
-    b1 ~ InverseGamma(2, 3)
-    c0 ~ InverseGamma(2, 3)
-    c1 ~ InverseGamma(2, 3)
-    d ~ InverseGamma(2, 3)
+    # Our prior beliefs
+    b0 ~ Normal(0, 10)
+    b1 ~ InverseGamma(2, 0.1)
+    c0 ~ Normal(0, 10)
+    c1 ~ InverseGamma(2, 0.1)
+    d ~ InverseGamma(2, 0.001)
+    σ ~ InverseGamma(2, 0.001)
 
     # The number of observations.
     N = length(m_dist)
     for nn in 1:N
-        # Heads or tails of a coin are drawn from a Bernoulli distribution.
-        m_dist[nn] ~ exp(b0 - b1* (nn-1)) + exp(c0 + c1 * (nn-1)) + d + Normal(0,0.01)
+        # Find mean using the siler mortality function
+        m_mean = exp(b0 - b1* (nn-1)) + exp(c0 + c1 * (nn-1)) + d
+        # Draw from truncated normal dist
+        m_dist[nn] ~ truncated(Normal(m_mean, σ), 0.0, 1.0)
     end
 end
 
 # Settings of the Hamiltonian Monte Carlo (HMC) sampler.
-iterations = 10000
+
 ϵ = 0.05
 τ = 10
 
 # Start sampling.
-chain = sample(siler_static(m_dist), HMC(ϵ, τ), iterations)
-chain = sample(siler_static(m_dist), SMC(), iterations)
+chain_hmc = sample(siler_static(m_dist), HMC(ϵ, τ), iterations)
+display(chain_hmc)
+chain_smc = sample(siler_static(m_dist), SMC(), iterations)
+display(chain_smc)
+chain_nuts = sample(siler_static(m_dist), NUTS(0.65), iterations,chn=2)
+display(chain_nuts)
+
 
 # Plot a summary of the sampling process for the parameter p, i.e. the probability of heads in a coin.
+chain = chain_nuts
 histogram(chain[:b0])
 histogram(chain[:b1])
 histogram(chain[:c0])
 histogram(chain[:c1])
 histogram(chain[:d])
+histogram(chain[:σ])
