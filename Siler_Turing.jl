@@ -10,7 +10,7 @@ end
 
 # Import libraries.
 using Turing, StatsPlots, Random
-using CSV, DataFrames, TableView, StatsPlots
+using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
 
 # Import the mortality data
 mort_df = CSV.read("data/clean/USA_life.csv", DataFrame, ntasks = 1)
@@ -47,11 +47,20 @@ plot!(gompertz(-7.4391, 0.0659, 0.0015, ages),ylim = (-0.1,0.5))
 scatter!(m_dist,ylim = (-0.1,0.5))
 
 
+"""
+Plot priors
+"""
 # Mean of IG is b/(a-1)
-plot(InverseGamma(2, 0.01), xlim=(0,1))
-plot(InverseGamma(2, 0.1), xlim=(0,1))
-plot(InverseGamma(2, 6), xlim=(0,100))
-plot(truncated(Normal(0.1, 0.1),0.0,1.0))
+plot(layout = (2,3), yticks = false, size = (800,400))
+plot!(Normal(0, 10), title = L"b_{0,t}", label = false, subplot = 1)
+plot!(InverseGamma(2, 0.1), xlim=(0,1), title = L"b_{1,t}", label = false, subplot = 2)
+plot!(Normal(0, 10), title = L"c_{0,t}", label = false, subplot = 4)
+plot!(InverseGamma(2, 0.1), xlim=(0,1), title = L"c_{1,t}", label = false, subplot = 5)
+plot!(InverseGamma(2, 0.001), title = L"d_{t}", label = false, subplot = 3)
+plot!(InverseGamma(2, 0.001), title = L"\sigma_{t}", label = false, subplot = 6)
+savefig("figures/siler_priors.pdf")
+
+
 
 @model function gompertz_static(m_dist)
     # Our prior beliefs
@@ -126,3 +135,27 @@ histogram(chain[:c0])
 histogram(chain[:c1])
 histogram(chain[:d])
 histogram(chain[:σ])
+
+
+
+# Declare our Turing model for dynamic Siler equation
+@model function siler_static(m_data)
+    T = length(m_data)
+
+    # Our prior beliefs
+    b0 ~ fillldist(Normal(0, 10))
+    b1 ~ InverseGamma(2, 0.1)
+    c0 ~ Normal(0, 10)
+    c1 ~ InverseGamma(2, 0.1)
+    d ~ InverseGamma(2, 0.001)
+    σ ~ InverseGamma(2, 0.001)
+
+    # The number of observations.
+    N = length(m_dist)
+    for nn in 1:N
+        # Find mean using the siler mortality function
+        m_mean = exp(b0 - b1* (nn-1)) + exp(c0 + c1 * (nn-1)) + d
+        # Draw from truncated normal dist
+        m_dist[nn] ~ truncated(Normal(m_mean, σ), 0.0, 1.0)
+    end
+end
