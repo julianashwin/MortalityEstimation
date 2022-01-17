@@ -2,6 +2,25 @@ setwd("/Users/julianashwin/Documents/GitHub/MortalityEstimation/")
 rm(list=ls())
 
 require(ggplot2)
+require(HMDHFDplus)
+
+"
+Import data directly from HMB with readHMD
+"
+US_lt <- read.hmd("julianashwin@gmail.com", "pp@G..Jr7Rfa..i",
+                 country = ("U.S.A"), sex = c("m", "f", "b" ), 
+                 HMDurl='http://www.mortality.org/hmd', dataType = "lt", 
+                 ltCol = c('m', 'q', 'a', 'l', 'd', 'L', 'T', 'e'))
+      
+
+
+
+
+
+
+
+
+
 
 "
 Sweden
@@ -41,6 +60,21 @@ ggplot(lifetab_df[lifetab_df$Year > 1900,], aes(x = Age, y = mx)) +
   xlab("Age") + ylab("Mortality Rate") + theme_bw() +
   ggtitle("USA Mortality Rates over time")
 ggsave("figures/USA/mortality_rates.pdf", width = 6, height = 4)
+
+
+deaths_df <- read.csv("data/raw/USA_deaths.csv", stringsAsFactors = FALSE)
+pop_df <- read.csv("data/raw/USA_population.csv", stringsAsFactors = FALSE)
+
+
+pop_df <- pop_df[which(pop_df$Age > 100),]
+pop_df <- pop_df[which(pop_df$Age != "TOT"),]
+pop_df$Age <- as.numeric(pop_df$Age)
+
+ggplot(pop_df[pop_df$Year > 1900,], aes(x = Age, y = Population)) + 
+  geom_line(aes(group = Year, color = Year)) +
+  xlab("Age") + ylab("Mortality Rate") + theme_bw() +
+  ggtitle("US Population over time")
+ggsave("figures/USA/population.pdf", width = 6, height = 4)
 
 
 # Save the cleaned up data
