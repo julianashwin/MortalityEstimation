@@ -7,6 +7,9 @@ require(HMDHFDplus)
 "
 Import data directly from HMB with readHMD
 "
+
+readHMDweb("USA", "julianashwin@gmail.com", "pp@G..Jr7Rfa..i")
+
 US_lt <- read.hmd("julianashwin@gmail.com", "pp@G..Jr7Rfa..i",
                  country = ("U.S.A"), sex = c("m", "f", "b" ), 
                  HMDurl='http://www.mortality.org/hmd', dataType = "lt", 
