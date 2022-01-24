@@ -19,7 +19,7 @@ workers()
 
 # Import libraries.
 using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra, Optim
-using TruncatedDistributions
+using TruncatedDistributions, PDMats
 using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
 
 include("helpers.jl")
@@ -63,8 +63,8 @@ plot!(InverseGamma(2, 10), title = L"B_{t} \sim \mathcal{IG}(2,10)",
     label = false, subplot = 1, xlims = (0,100))
 plot!(InverseGamma(2, 1.0), xlim=(0,10), title = L"b_{t} \sim \mathcal{IG}(2,1)",
     label = false, subplot = 2)
-plot!(InverseGamma(2, 80), title = L"C_{t} \sim \mathcal{IG}(2,10)",
-    label = false, subplot = 4, xlims = (0,100))
+plot!(InverseGamma(2, 100), title = L"C_{t} \sim \mathcal{IG}(2,10)",
+    label = false, subplot = 4, xlims = (0,200))
 plot!(InverseGamma(2, 0.1), xlim=(0,1), title = L"c_{t} \sim \mathcal{IG}(2,0.1)",
     label = false, subplot = 5)
 plot!(InverseGamma(2, 0.0001), title = L"d_{t} \sim \mathcal{IG}(2,0.0001)",
@@ -74,7 +74,8 @@ plot!(InverseGamma(2, 0.01), title = L"\sigma_{t} \sim \mathcal{IG}(2,0.01)",
 savefig("figures/Siler_static/siler_priors.pdf")
 
 
-plot(LogNormal(log(0.01), 0.5))
+plot(LogNormal(log(0.01), 1.), xlim = (0.00, 0.1))
+plot!(InverseGamma(2, 0.01), xlim = (0.00, 0.1))
 mean(LogNormal(log(0.01), 0.5))
 
 """
@@ -89,34 +90,32 @@ Static Siler model
     b ~ InverseGamma(2, 0.1)
     C ~ InverseGamma(2, 80)
     c ~ InverseGamma(2, 0.1)
-    d ~ InverseGamma(2, 0.001)
-    σ ~ InverseGamma(2, 0.001)
-    # Variance matrix
-    Σ = σ.*I(N)
+    d ~ Uniform(0.0, 1.0)
+    σ ~ Uniform(1e-8, 1.0)
     # Find mean using the siler mortality function
     m_means = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages .- C)) .+ d
+    m_means[m_means.<= 2e-8] .= 2e-8
+    # Variance matrix
+    Σ = PDMat(m_means.*σ.*I(N))
     # Draw from truncated normal dist
     m_dist ~ MvNormal(m_means, Σ)
 
 end
 
-# Settings of the Hamiltonian Monte Carlo (HMC) sampler.
-ϵ = 0.05
-τ = 10
-iterations = 10000
-# Sample for 1933
-#@time chain_1933 = pmap(x->sample(siler_static(m_data[1], ages), NUTS(0.65), iterations), 1:Nchains)
-
+# Number of MCMC iterations
+iterations = 1000
+# Sample for first period
 map_static_1 = optimize(siler_static(m_data[1], ages), MAP())
-
 @time chain_1 = sample(siler_static(m_data[1], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_static_1.values.array)
 display(chain_1)
-# Sample for 2019
+plot(chain_1)
+# Sample for last period
 map_static_T = optimize(siler_static(m_data[T], ages), MAP())
 @time chain_T = sample(siler_static(m_data[T], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_static_T.values.array)
 display(chain_T)
+plot(chain_T)
 
 # Plot model fit
 plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
@@ -130,18 +129,18 @@ savefig("figures/Siler_static/siler_fit.pdf")
 
 # Plot a summary of the sampling process for the parameter p, i.e. the probability of heads in a coin.
 plot(layout = (2,3), size = (800, 400))
-density!(chain_1933[:B], title = L"B", label = "1933", subplot = 1)
-density!(chain_2019[:B], label = "2019", subplot = 1, legend = :topright)
-density!(chain_1933[:b], title = L"b", subplot = 2, legend = false)
-density!(chain_2019[:b], subplot = 2, legend = false)
-density!(chain_1933[:C], title = L"C", subplot = 4, legend = false)
-density!(chain_2019[:C], subplot = 4, legend = false)
-density!(chain_1933[:c], title = L"c", subplot = 5, legend = false)
-density!(chain_2019[:c], subplot = 5, legend = false)
-density!(chain_1933[:d], title = L"d", subplot = 3, legend = false)
-density!(chain_2019[:d], subplot = 3, legend = false)
-density!(chain_1933[:σ], title = L"\sigma", subplot = 6, legend = false)
-density!(chain_2019[:σ], subplot = 6, legend = false, xrotation = 45.0, margin=3Plots.mm)
+density!(vcat(chain_1[:B]...), title = L"B", label = string(years[1]), subplot = 1)
+density!(vcat(chain_T[:B]...), label = string(years[T]), subplot = 1, legend = :topright)
+density!(vcat(chain_1[:b]...), title = L"b", subplot = 2, legend = false)
+density!(vcat(chain_T[:b]...), subplot = 2, legend = false)
+density!(vcat(chain_1[:C]...), title = L"C", subplot = 4, legend = false)
+density!(vcat(chain_T[:C]...), subplot = 4, legend = false)
+density!(vcat(chain_1[:c]...), title = L"c", subplot = 5, legend = false)
+density!(vcat(chain_T[:c]...), subplot = 5, legend = false)
+density!(vcat(chain_1[:d]...), title = L"d", subplot = 3, legend = false)
+density!(vcat(chain_T[:d]...), subplot = 3, legend = false)
+density!(vcat(chain_1[:σ]...), title = L"\sigma", subplot = 6, legend = false)
+density!(vcat(chain_T[:σ]...), subplot = 6, legend = false, xrotation = 45.0, margin=3Plots.mm)
 savefig("figures/Siler_static/siler_1933vs2019.pdf")
 
 
@@ -158,14 +157,16 @@ Multiple independent Siler models
     b ~ filldist(InverseGamma(2, 0.1), T)
     C ~ filldist(InverseGamma(2, 80), T)
     c ~ filldist(InverseGamma(2, 0.1), T)
-    d ~ filldist(InverseGamma(2, 0.001), T)
-    σ ~ filldist(InverseGamma(2, 0.001), T)
+    d ~ filldist(Uniform(0.0, 1.0), T)
+    σ ~ filldist(Uniform(1e-8, 1.0), T)
 
     # The number of observations.
     for tt in 1:T
-        Σ = σ[tt].*I(N)
         # Find mean using the siler mortality function
         m_means = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
+        m_means[m_means.<= 2e-8] .= 2e-8
+        # Variance matrix
+        Σ = PDMat(m_means.*σ[tt].*I(N))
         # Draw from truncated normal dist
         m_data[tt] ~ MvNormal(m_means, Σ)
         # Find mean using the siler mortality function
@@ -177,10 +178,10 @@ periods = Int.(1:20:T)
 years_selected = years[periods]
 iterations = 2000
 # Find MAP estimate as starting point
-map_indep = optimize(siler_indep(m_data[periods], ages), MAP(), AcceleratedGradientDescent(),
+map_indep = optimize(siler_indep(m_data[[1,T]], ages), MAP(), AcceleratedGradientDescent(),
     Optim.Options(iterations=10_000, allow_f_increases=true))
 # MCMC sampling
-@time chain_indep = sample(siler_indep(m_data[periods], ages), NUTS(0.65), MCMCThreads(),
+@time chain_indep = sample(siler_indep(m_data[[1,T]], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_indep.values.array)
 display(chain_indep)
 
