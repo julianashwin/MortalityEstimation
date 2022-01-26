@@ -94,10 +94,11 @@ Static Siler model
     σ ~ Uniform(1e-8, 1.0)
     # Find mean using the siler mortality function
     m_means = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages .- C)) .+ d
-    m_means[m_means.<= 2e-8] .= 2e-8
+    m_vars = m_means.*σ[tt]
+    m_vars[m_vars.<= 1e-10] .= 1e-10
     # Variance matrix
-    Σ = PDMat(m_means.*σ.*I(N))
-    # Draw from truncated normal dist
+    Σ = Diagonal(m_vars)
+    # Draw from normal dist
     m_dist ~ MvNormal(m_means, Σ)
 
 end
@@ -160,16 +161,15 @@ Multiple independent Siler models
     d ~ filldist(Uniform(0.0, 1.0), T)
     σ ~ filldist(Uniform(1e-8, 1.0), T)
 
-    # The number of observations.
     for tt in 1:T
         # Find mean using the siler mortality function
         m_means = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
-        m_means[m_means.<= 2e-8] .= 2e-8
+        m_vars = m_means.*σ[tt]
+        m_vars[m_vars.<= 1e-10] .= 1e-10
         # Variance matrix
-        Σ = PDMat(m_means.*σ[tt].*I(N))
+        Σ = Diagonal(m_vars)
         # Draw from truncated normal dist
         m_data[tt] ~ MvNormal(m_means, Σ)
-        # Find mean using the siler mortality function
     end
 end
 
@@ -178,10 +178,10 @@ periods = Int.(1:20:T)
 years_selected = years[periods]
 iterations = 2000
 # Find MAP estimate as starting point
-map_indep = optimize(siler_indep(m_data[[1,T]], ages), MAP(), AcceleratedGradientDescent(),
-    Optim.Options(iterations=10_000, allow_f_increases=true))
+map_indep = optimize(siler_indep(m_data[periods], ages), MAP(), LBFGS(),
+    Optim.Options(iterations=50_000, allow_f_increases=true))
 # MCMC sampling
-@time chain_indep = sample(siler_indep(m_data[[1,T]], ages), NUTS(0.65), MCMCThreads(),
+@time chain_indep = sample(siler_indep(m_data[periods], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_indep.values.array)
 display(chain_indep)
 
@@ -203,71 +203,74 @@ Dynamic Siler model
     # Dimensions
     T = length(m_data)
     N = length(ages)
-    # Priors on variance terms
-    σ_b0 ~ InverseGamma(2, 0.1)
-    σ_b1 ~ InverseGamma(2, 0.01)
-    σ_c0 ~ InverseGamma(2, 0.1)
-    σ_c1 ~ InverseGamma(2, 0.01)
-    σ_d ~ InverseGamma(2, 0.0001)
-    σ_σ ~ InverseGamma(2, 0.001)
-    # First period fixed
-    b0 = Vector(undef, T)
-    b1 = Vector(undef, T)
-    c0 = Vector(undef, T)
-    c1 = Vector(undef, T)
+    # Parameters
+    B = Vector(undef, T)
+    b = Vector(undef, T)
+    C = Vector(undef, T)
+    c = Vector(undef, T)
     d = Vector(undef, T)
     σ = Vector(undef, T)
+    # Priors on variance terms
+    σ_B ~ Uniform(1e-6, 1.0)
+    σ_b ~ Uniform(1e-6, 1.0)
+    σ_C ~ Uniform(1e-6, 1.0)
+    σ_c ~ Uniform(1e-6, 1.0)
+    σ_d ~ Uniform(1e-6, 1.0)
+    σ_σ ~ Uniform(1e-6, 1.0)
+    # Priors on drift terms
+    μ_B ~ Normal(0, 0.1)
+    μ_b ~ Normal(0, 0.1)
+    μ_C ~ Normal(0, 0.1)
+    μ_c ~ Normal(0, 0.01)
+    μ_d ~ Normal(0, 0.0001)
+    μ_σ ~ Normal(0, 0.0001)
     # First period from priors
-    b0[1] ~ InverseGamma(2, 10)
-    b1[1] ~ InverseGamma(2, 10)
-    c0[1] ~ InverseGamma(2, 10)
-    c1[1] ~ InverseGamma(2, 0.1)
-    d[1] ~ InverseGamma(2, 0.0001)
-    σ[1] ~ InverseGamma(2, 0.01)
-    # Variance matrix
-    Σ = σ[1].*I(N)
+    B[1] ~ InverseGamma(2, 10)
+    b[1] ~ InverseGamma(2, 0.1)
+    C[1] ~ InverseGamma(2, 80)
+    c[1] ~ InverseGamma(2, 0.1)
+    d[1] ~ Uniform(0.0, 1.0)
+    σ[1] ~ Uniform(1e-8, 1.0)
     # Find mean using the siler mortality function
-    m_means = exp.(-b0[1] .- b1[1].* ages) .+ exp.(-c0[1] .+ c1[1] .* ages) .+ d[1]
+    m_means = exp.(-b[1].*(ages .+ B[1])) .+ exp.(c[1].*(ages .- C[1])) .+ d[1]
+    m_vars = m_means.*σ[1]
+    m_vars[m_vars.<= 1e-10] .= 1e-10
+    # Variance matrix
+    Σ = Diagonal(m_vars)
     # Draw from truncated normal dist
     m_data[1] ~ MvNormal(m_means, Σ)
-    # Time series innovations
-    ϵ_b0 ~ filldist(Normal(0, σ_b0), T-1)
-    ϵ_b1 ~ filldist(Normal(0, σ_b1), T-1)
-    ϵ_c0 ~ filldist(Normal(0, σ_c0), T-1)
-    ϵ_c1 ~ filldist(Normal(0, σ_c1), T-1)
-    ϵ_d ~ filldist(Normal(0, σ_d), T-1)
-    ϵ_σ ~ filldist(Normal(0, σ_σ), T-1)
+    # Loop through random walk process
     for tt in 2:T
         # Update parameters
-        b0[tt] =  max(b0[tt-1] + ϵ_b0[tt-1], 0.0)
-        b1[tt] = max(b1[tt-1] + ϵ_b1[tt-1], 0.0)
-        c0[tt] = max(c0[tt-1] + ϵ_c0[tt-1], 0.0)
-        c1[tt] = max(c1[tt-1] + ϵ_c1[tt-1], 0.0)
-        d[tt] = max(d[tt-1] + ϵ_d[tt-1], 0.0)
-        σ[tt] = max(σ[tt-1] + ϵ_σ[tt-1], 0.0)
-        # Variance matrix
-        Σ = σ[tt].*I(N)
-        # Find mean using the siler mortality function
-        m_means = exp.(-b0[tt] .- b1[tt].* ages) .+ exp.(-c0[tt] .+ c1[tt] .* ages) .+ d[tt]
-        # Draw from truncated normal dist
+        B[tt] ~ truncated(Normal(μ_B + B[tt-1], σ_B), 1e-8, 100.)
+        b[tt] ~ truncated(Normal(μ_b + b[tt-1], σ_b), 1e-8, 100.)
+        C[tt] ~ truncated(Normal(μ_C + C[tt-1], σ_C), 1e-8, 250.)
+        c[tt] ~ truncated(Normal(μ_c + c[tt-1], σ_c), 1e-8, 1.0)
+        d[tt] ~ truncated(Normal(μ_d + d[tt-1], σ_d), 1e-10, 1.0)
+        σ[tt] ~ truncated(Normal(μ_σ + σ[tt-1], σ_σ), 1e-8, 1.0)
+
+        m_means = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
+        m_vars = m_means.*σ[tt]
+        m_vars[m_vars.<= 1e-10] .= 1e-10
+        # Variance matrix
+        Σ = Diagonal(m_vars)
         m_data[tt] ~ MvNormal(m_means, Σ)
     end
 end
 
 
-periods = 1:87
-periods = Int.(1:5:86)
+periods = Int.(1:20:T)
+periods = Int.((T-30):10:T)
 #periods = [1,10,20,30,40,50,60,70,80]
 years_selected = years[periods]
-iterations = 25
+iterations = 2000
 # MAP estimate to initialise MCMC
-map_dyn = optimize(siler_dyn(m_data[periods], ages), MAP(),
-    Optim.Options(iterations=1_000))
+map_dyn = optimize(siler_dyn(m_data[periods], ages), MAP(), LBFGS(),
+    Optim.Options(iterations=50_000, allow_f_increases=true))
 display(coef(map_dyn)[1:12])
-display(map_dyn[Symbol("b0[1]")])
-# Sample
-chain_dyn = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), iterations,
-    init_params = map_dyn.values.array)
+# Estimate by MCMC
+@time chain_dyn = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), MCMCThreads(),
+    iterations, 4, init_params = map_dyn.values.array)
 display(chain_dyn)
 
 #chain_dyn1 = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), iterations, chn=4)
