@@ -67,9 +67,9 @@ plot!(InverseGamma(2, 100), title = L"C_{t} \sim \mathcal{IG}(2,10)",
     label = false, subplot = 4, xlims = (0,200))
 plot!(InverseGamma(2, 0.1), xlim=(0,1), title = L"c_{t} \sim \mathcal{IG}(2,0.1)",
     label = false, subplot = 5)
-plot!(InverseGamma(2, 0.0001), title = L"d_{t} \sim \mathcal{IG}(2,0.0001)",
+plot!(Uniform(0.0, 1.0), title = L"d_{t} \sim \mathcal{U}(0,1)",
     label = false, subplot = 3)
-plot!(InverseGamma(2, 0.01), title = L"\sigma_{t} \sim \mathcal{IG}(2,0.01)",
+plot!(Uniform(1e-8, 1.0), title = L"\sigma_{t} \sim \mathcal{U}(10^{-8},1)",
     label = false, subplot = 6)
 savefig("figures/Siler_static/siler_priors.pdf")
 
@@ -188,7 +188,7 @@ display(chain_indep)
 parests_indep = extract_variables(chain_indep, periods, years_selected)
 
 plot_siler_params(parests_indep)
-savefig("figures/Siler_dynamic/siler_staticT.pdf")
+savefig("figures/Siler_staticT/siler_staticT.pdf")
 
 
 
@@ -211,12 +211,12 @@ Dynamic Siler model
     d = Vector(undef, T)
     σ = Vector(undef, T)
     # Priors on variance terms
-    σ_B ~ Uniform(1e-6, 1.0)
-    σ_b ~ Uniform(1e-6, 1.0)
-    σ_C ~ Uniform(1e-6, 1.0)
-    σ_c ~ Uniform(1e-6, 1.0)
-    σ_d ~ Uniform(1e-6, 1.0)
-    σ_σ ~ Uniform(1e-6, 1.0)
+    σ_B ~ InverseGamma(2, 0.1)
+    σ_b ~ InverseGamma(2, 0.1)
+    σ_C ~ InverseGamma(2, 0.1)
+    σ_c ~ InverseGamma(2, 0.1)
+    σ_d ~ InverseGamma(2, 0.1)
+    σ_σ ~ InverseGamma(2, 0.1)
     # Priors on drift terms
     μ_B ~ Normal(0, 0.1)
     μ_b ~ Normal(0, 0.1)
@@ -229,8 +229,8 @@ Dynamic Siler model
     b[1] ~ InverseGamma(2, 0.1)
     C[1] ~ InverseGamma(2, 80)
     c[1] ~ InverseGamma(2, 0.1)
-    d[1] ~ Uniform(0.0, 1.0)
-    σ[1] ~ Uniform(1e-8, 1.0)
+    d[1] ~ InverseGamma(2, 0.01)
+    σ[1] ~ InverseGamma(2, 0.01)
     # Find mean using the siler mortality function
     m_means = exp.(-b[1].*(ages .+ B[1])) .+ exp.(c[1].*(ages .- C[1])) .+ d[1]
     m_vars = m_means.*σ[1]
@@ -241,41 +241,57 @@ Dynamic Siler model
     m_data[1] ~ MvNormal(m_means, Σ)
     # Loop through random walk process
     for tt in 2:T
+        # Calculate updated variances
+        var_B = max(σ_B*B[tt-1], 1e-8)
+        var_b = max(σ_b*b[tt-1], 1e-8)
+        var_C = max(σ_C*C[tt-1], 1e-8)
+        var_c = max(σ_c*c[tt-1], 1e-8)
+        var_d = max(σ_d*d[tt-1], 1e-8)
+        var_σ = max(σ_σ*σ[tt-1], 1e-8)
         # Update parameters
-        B[tt] ~ truncated(Normal(μ_B + B[tt-1], σ_B), 1e-8, 100.)
-        b[tt] ~ truncated(Normal(μ_b + b[tt-1], σ_b), 1e-8, 100.)
-        C[tt] ~ truncated(Normal(μ_C + C[tt-1], σ_C), 1e-8, 250.)
-        c[tt] ~ truncated(Normal(μ_c + c[tt-1], σ_c), 1e-8, 1.0)
-        d[tt] ~ truncated(Normal(μ_d + d[tt-1], σ_d), 1e-10, 1.0)
-        σ[tt] ~ truncated(Normal(μ_σ + σ[tt-1], σ_σ), 1e-8, 1.0)
+        B[tt] ~ truncated(Normal(μ_B + B[tt-1], var_B), 1e-8, 100.)
+        b[tt] ~ truncated(Normal(μ_b + b[tt-1], var_b), 1e-8, 100.)
+        C[tt] ~ truncated(Normal(μ_C + C[tt-1], var_C), 1e-8, 250.)
+        c[tt] ~ truncated(Normal(μ_c + c[tt-1], var_c), 1e-8, 1.0)
+        d[tt] ~ truncated(Normal(μ_d + d[tt-1], var_d), 1e-10, 1.0)
+        σ[tt] ~ truncated(Normal(μ_σ + σ[tt-1], var_σ), 1e-8, 1.0)
 
         m_means = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
         m_vars = m_means.*σ[tt]
         m_vars[m_vars.<= 1e-10] .= 1e-10
         # Variance matrix
         Σ = Diagonal(m_vars)
+        # Draw from truncated normal dist
         m_data[tt] ~ MvNormal(m_means, Σ)
     end
 end
 
 
 periods = Int.(1:20:T)
-periods = Int.((T-30):10:T)
+#periods = Int.((T-30):10:T)
 #periods = [1,10,20,30,40,50,60,70,80]
 years_selected = years[periods]
-iterations = 2000
+iterations = 2500
 # MAP estimate to initialise MCMC
-map_dyn = optimize(siler_dyn(m_data[periods], ages), MAP(), LBFGS(),
+@time map_dyn = optimize(siler_dyn(m_data[periods], ages), MAP(), LBFGS(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
 display(coef(map_dyn)[1:12])
 # Estimate by MCMC
 @time chain_dyn = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_dyn.values.array)
 display(chain_dyn)
+plot(chain_dyn[[:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]])
+plot(chain_dyn[[:μ_B, :μ_b, :μ_C, :μ_c, :μ_d, :μ_σ]])
+parests_dyn = extract_variables(chain_dyn, periods, years_selected)
 
-#chain_dyn1 = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), iterations, chn=4)
-#chain_dyn2 = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), iterations, chn=4)
-#chain_dyn3 = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), iterations, chn=4)
+
+
+plot_siler_params(parests_dyn)
+savefig("figures/Siler_dynamic/siler_dyn.pdf")
+
+
+
+
 
 """
 Calculate the implied latent parameter values from shocks
