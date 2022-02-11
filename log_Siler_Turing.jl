@@ -25,21 +25,27 @@ using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
 include("helpers.jl")
 
 
-# Import the mortality data
-mort_df = CSV.read("data/clean/SWE_life.csv", DataFrame, ntasks = 1)
+## Import the mortality data
+all_df = CSV.read("data/clean/all_lifetab.csv", DataFrame, ntasks = 1)
+
+# Select which bit to look at
+bp_df = all_df[(all_df.best_practice .== 1), :]
+mort_df = bp_df[(bp_df.year .>= 1900), :]
+sort!(mort_df, [:year, :age])
+mort_df.mx = parse.([Float64], mort_df.mx)
 showtable(mort_df)
 
 # Convert this into a matrix of mortality rates over time
 chunk(arr, n) = [arr[i:min(i + n - 1, end)] for i in 1:n:length(arr)]
-m_data = chunk(mort_df.mx, 101)
-ages = Int64.(0:maximum(mort_df.Age))
-years = unique(mort_df.Year)
+m_data = chunk(mort_df.mx, 110)
+ages = Int64.(0:maximum(mort_df.age))
+years = unique(mort_df.year)
+year_brackets = unique(mort_df.years)
 T = length(m_data)
 
 @assert length(m_data)==length(years) "number of years doesn't match length of m_data"
 @assert length(m_data[1])==length(ages) "number of ages doesn't match length of m_data[1]"
 
-# Set the true probability of heads in a coin.
 function siler(B,b,C,c,d, ages)
 
     μ = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages.- C)) .+ d
@@ -50,61 +56,69 @@ function siler(B,b,C,c,d, ages)
 end
 
 
-m_dist= m_data[1]
-plot(siler(1.5, 1.7643, 113.0, 0.0652, 0.0003, ages),ylim = (-0.1,0.6))
-scatter!(m_dist,ylim = (-0.1,0.6))
-scatter!(m_data[T],ylim = (-0.1,0.6))
+plot(ages, siler(1.5, 1.7643, 113.0, 0.0652, 0.0003, ages))
+scatter!(ages, m_data[1], label = year_brackets[1])
+scatter!(ages, m_data[T], label = year_brackets[T])
 
 
 """
 Plot priors
 """
+## Set priors
 # Mean of IG is b/(a-1)
-plot(layout = (2,3), yticks = false, size = (800,400))
-plot!(InverseGamma(2, 10), title = L"B_{t} \sim \mathcal{IG}(2,10)",
+plot(layout = (2,3), yticks = false, size = (1000,400))
+plot!(LogNormal(log(10), 2.0), title = L"B_{1} \sim LogNormal(ln(10),2)",
     label = false, subplot = 1, xlims = (0,100))
-plot!(InverseGamma(2, 1.0), xlim=(0,10), title = L"b_{t} \sim \mathcal{IG}(2,1)",
+plot!(LogNormal(log(2), 1.0), xlim=(0,10), title = L"b_{1} \sim LogNormal(ln(2),2)",
     label = false, subplot = 2)
-plot!(InverseGamma(2, 100), title = L"C_{t} \sim \mathcal{IG}(2,10)",
+plot!(LogNormal(log(120), 2.0), title = L"C_{1} \sim LogNormal(ln(120),2)",
     label = false, subplot = 4, xlims = (0,200))
-plot!(InverseGamma(2, 0.1), xlim=(0,1), title = L"c_{t} \sim \mathcal{IG}(2,0.1)",
+plot!(LogNormal(log(0.1), 1.0), xlim=(0,1), title = L"c_{1} \sim LogNormal(ln(0.1),2)",
     label = false, subplot = 5)
-plot!(Uniform(0.0, 1.0), title = L"d_{t} \sim \mathcal{U}(0,1)",
+plot!(LogNormal(log(0.025), 1.0), title = L"d_{1} \sim LogNormal(ln(0.025),2)",
     label = false, subplot = 3)
-plot!(Uniform(1e-8, 1.0), title = L"\sigma_{t} \sim \mathcal{U}(10^{-8},1)",
+plot!(LogNormal(log(0.001), 1.0), title = L"\sigma_{1} \sim LogNormal(ln(0.001),2)",
     label = false, subplot = 6)
 savefig("figures/Siler_static/log_siler_priors.pdf")
 
 
+mean(LogNormal(log(0.01), 0.5))
 plot(LogNormal(log(0.01), 1.), xlim = (0.00, 0.1))
 plot!(InverseGamma(2, 0.01), xlim = (0.00, 0.1))
-mean(LogNormal(log(0.01), 0.5))
 
 """
 Static Siler model
 """
-# Declare our Turing model for Siler
+## Declare our Turing model for Siler
 @model function log_siler_static(lm_dist, ages)
     # The number of observations.
-    N = length(m_dist)
+    N = length(lm_dist)
     # Our prior beliefs
-    B ~ log(InverseGamma(2, 10))
-    b ~ log(InverseGamma(2, 0.1))
-    C ~ log(InverseGamma(2, 80))
-    c ~ log(InverseGamma(2, 0.1))
-    d ~ log(Uniform(1e-10, 1.0))
-    σ ~ log(Uniform(1e-8, 1.0))
+    B ~ LogNormal(log(10), 2.0)
+    b ~ LogNormal(log(2), 1.0)
+    C ~ LogNormal(log(120), 2.0)
+    c ~ LogNormal(log(0.1), 1.0)
+    d ~ LogNormal(log(0.025), 1.0)
+    σ ~ LogNormal(log(0.001), 1.0)
+    # Define the logged parameters, which should be normally distributed
+    lB = log(B)
+    lb = log(b)
+    lC = log(C)
+    lc = log(c)
+    ld = log(d)
+    lσ = log(σ)
     # Find mean using the siler mortality function
-    μs = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages .- C)) .+ d
-    lm_vars = σ.*ones(N)
+    μs = exp.(- exp(lb).* (ages .+ exp(lB))) .+ exp.(exp(lc) .* (ages .- exp(lC))) .+ exp(ld)
+    m_vars = exp(σ).*ones(N)
     #m_vars[m_vars.<= 1e-10] .= 1e-10
     # Variance matrix
-    Σ = Diagonal(lm_vars)
+    Σ = Diagonal(m_vars)
     # Draw from normal dist
     lm_dist ~ MvNormal(log.(μs), Σ)
     #m_dist = exp.(lm_dist)
 end
 
+## Estimate models
 # Number of MCMC iterations
 iterations = 2500
 # Sample for first period
@@ -122,7 +136,7 @@ map_static_T = optimize(log_siler_static(log.(m_data[T]), ages), MAP(),
 display(chain_T)
 plot(chain_T)
 
-# Plot model fit
+## Plot model fit
 plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
 scatter!(m_data[1], markershape = :cross, markeralpha = 0.5, label = "Data ("*string(years[1])*")")
 plot!(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
@@ -132,7 +146,20 @@ plot!(siler(median(chain_T[:B]), median(chain_T[:b]), median(chain_T[:C]),
     median(chain_T[:c]), median(chain_T[:d]), ages), label = "Siler MCMC fit ("*string(years[T])*")")
 savefig("figures/Siler_static/log_siler_fit.pdf")
 
-# Plot a summary of the sampling process for the parameter p, i.e. the probability of heads in a coin.
+plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Log Mortality")
+scatter!(log.(m_data[1]), markershape = :cross, markeralpha = 0.5, label = "Data ("*string(years[1])*")")
+plot!(log.(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
+    median(chain_1[:c]), median(chain_1[:d]), ages)),
+    label = "Siler MCMC fit ("*string(years[1])*")")
+scatter!(log.(m_data[T]), markershape = :xcross, markeralpha = 0.5, label = "Data ("*string(years[T])*")")
+plot!(log.(siler(median(chain_T[:B]), median(chain_T[:b]), median(chain_T[:C]),
+    median(chain_T[:c]), median(chain_T[:d]), ages)),
+    label = "Siler MCMC fit ("*string(years[T])*")")
+savefig("figures/Siler_static/log_siler_logfit.pdf")
+
+
+
+## Plot a summary of the sampling process for the parameter p, i.e. the probability of heads in a coin.
 plot(layout = (2,3), size = (800, 400))
 density!(vcat(chain_1[:B]...), title = L"B", label = string(years[1]), subplot = 1)
 density!(vcat(chain_T[:B]...), label = string(years[T]), subplot = 1, legend = :topright)
@@ -152,23 +179,31 @@ savefig("figures/Siler_static/log_siler_1vsT.pdf")
 """
 Multiple independent Siler models
 """
-# Define Turing model
+## Define Turing model
 @model function log_siler_indep(lm_data, ages)
     # Dimensions
     T = length(lm_data)
     N = length(ages)
     # Our prior beliefs
-    B ~ filldist(InverseGamma(2, 10), T)
-    b ~ filldist(InverseGamma(2, 0.1), T)
-    C ~ filldist(InverseGamma(2, 80), T)
-    c ~ filldist(InverseGamma(2, 0.1), T)
-    d ~ filldist(Uniform(0.0, 1.0), T)
-    σ ~ filldist(Uniform(1e-8, 1.0), T)
+    B ~ filldist(LogNormal(log(10), 2.0), T)
+    b ~ filldist(LogNormal(log(2), 1.0), T)
+    C ~ filldist(LogNormal(log(120), 2.0), T)
+    c ~ filldist(LogNormal(log(0.1), 1.0), T)
+    d ~ filldist(LogNormal(log(0.025), 1.0), T)
+    σ ~ filldist(LogNormal(log(0.1), 1.0), T)
+    # Define the logged parameters, which should be normally distributed
+    lB = log.(B)
+    lb = log.(b)
+    lC = log.(C)
+    lc = log.(c)
+    ld = log.(d)
+    lσ = log.(σ)
 
     for tt in 1:T
         # Find mean using the siler mortality function
-        μs = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
-        lm_vars = σ[tt]
+        μs = exp.(-exp(lb[tt]).*(ages .+ exp(lB[tt]))) .+
+            exp.(exp(lc[tt]).*(ages .- exp(lC[tt]))) .+ exp(ld[tt])
+        lm_vars = exp(lσ[tt]).*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
         # Variance matrix
         Σ = Diagonal(lm_vars)
@@ -177,9 +212,9 @@ Multiple independent Siler models
     end
 end
 
-# Estimate the model
-periods = Int.(1:20:T)
-years_selected = years[periods]
+## Estimate the model
+periods = Int.(1:T)
+years_selected = Int.(round.(years[periods]))
 iterations = 2000
 # Find MAP estimate as starting point
 lm_data = [log.(m_dist) for m_dist in m_data]
@@ -196,189 +231,136 @@ plot_siler_params(parests_indep)
 savefig("figures/Siler_staticT/log_siler_staticT.pdf")
 
 
+## Visualise model fit
 
+function plot_fit_year(parests, m_dist, year; log_vals = false)
 
+    # Extract the parameters for that year
+    B = parests.mean[(parests.year .== year).*(parests.parameter .== :B)][1]
+    b = parests.mean[(parests.year .== year).*(parests.parameter .== :b)][1]
+    C = parests.mean[(parests.year .== year).*(parests.parameter .== :C)][1]
+    c = parests.mean[(parests.year .== year).*(parests.parameter .== :c)][1]
+    d = parests.mean[(parests.year .== year).*(parests.parameter .== :d)][1]
+    σ = parests.mean[(parests.year .== year).*(parests.parameter .== :σ)][1]
+
+    plt = plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
+    if log_vals
+        scatter!(log.(m_dist), markershape = :cross, markeralpha = 0.5,
+            label = "Data ("*string(year)*")", color = :black)
+        plot!(log.(siler(B,b,C,c,d, ages)),
+            label = "Siler MCMC fit ("*string(year)*")", color = :blue)
+        plot!(log.(siler(B,b,C,c,d, ages)) .+ 2*σ,
+            label = "2 s.e.", color = :blue, linestyle = :dash)
+        plot!(log.(siler(B,b,C,c,d, ages)) .- 2*σ,
+            label = false, color = :blue, linestyle = :dash)
+    else
+        scatter!((m_dist), markershape = :cross, markeralpha = 0.5, label = "Data ("*string(year)*")")
+        plot!((siler(B,b,C,c,d, ages)), label = "Siler MCMC fit ("*string(year)*")")
+    end
+
+    return plt
+end
+
+plot_fit_year(parests, m_data[1], Int.(round.(years_selected))[1], log_vals = true)
+
+plot_fit_year(parests, m_data[T], Int.(round.(years_selected))[T], log_vals = true)
 
 
 """
 Dynamic Siler model
 """
 # Declare our Turing model for dynamic Siler equation
-@model function log_siler_dyn(m_data, ages)
+@model function log_siler_dyn(lm_data, ages)
     # Dimensions
-    T = length(m_data)
+    T = length(lm_data)
     N = length(ages)
     # Parameters
+    B = Vector(undef, T)
+    b = Vector(undef, T)
+    C = Vector(undef, T)
+    c = Vector(undef, T)
+    d = Vector(undef, T)
+    σ = Vector(undef, T)
+    # Logged parameters for random walk model
     lB = Vector(undef, T)
     lb = Vector(undef, T)
     lC = Vector(undef, T)
     lc = Vector(undef, T)
     ld = Vector(undef, T)
     lσ = Vector(undef, T)
-    # Priors on variance terms
-    σ_B ~ InverseGamma(2, 0.1)
-    σ_b ~ InverseGamma(2, 0.1)
-    σ_C ~ InverseGamma(2, 0.1)
-    σ_c ~ InverseGamma(2, 0.1)
-    σ_d ~ InverseGamma(2, 0.1)
-    σ_σ ~ InverseGamma(2, 0.1)
+    # Priors on variance terms for parameter time series
+    σ_pars ~ filldist(InverseGamma(2, 0.1),6)
     # Priors on drift terms
-    #μ_B ~ Normal(0, 0.1)
-    #μ_b ~ Normal(0, 0.1)
-    #μ_C ~ Normal(0, 0.1)
-    #μ_c ~ Normal(0, 0.01)
-    #μ_d ~ Normal(0, 0.0001)
-    #μ_σ ~ Normal(0, 0.0001)
+    #μ_pars ~ filldist(Normal(0, 0.1), 6)
+
     # First period from priors
-    lB[1] ~ log(InverseGamma(2, 10))
-    lb[1] ~ log(InverseGamma(2, 0.1))
-    lC[1] ~ log(InverseGamma(2, 80))
-    lc[1] ~ log(InverseGamma(2, 0.1))
-    ld[1] ~ log(InverseGamma(2, 0.01))
-    lσ[1] ~ log(InverseGamma(2, 0.01))
+    lB[1] ~ Normal(log(10), 2.0)
+    lb[1] ~ Normal(log(2), 1.0)
+    lC[1] ~ Normal(log(120), 2.0)
+    lc[1] ~ Normal(log(0.1), 1.0)
+    ld[1] ~ Normal(log(0.025), 1.0)
+    lσ[1] ~ Normal(log(0.1), 1.0)
     # Find mean using the siler mortality function
-    m_means = exp.(-b[1].*(ages .+ B[1])) .+ exp.(c[1].*(ages .- C[1])) .+ d[1]
-    m_vars = m_means.*σ[1]
-    m_vars[m_vars.<= 1e-10] .= 1e-10
-    # Variance matrix
-    Σ = Diagonal(m_vars)
+    μs = exp.(-exp(lb[1]).*(ages .+ exp(lB[1]))) .+
+        exp.(exp(lc[1]).*(ages .- exp(lC[1]))) .+ exp(ld[1])
+    lm_vars = exp(lσ[1]).*ones(N)
+    lm_vars[lm_vars.<= 1e-10] .= 1e-10
+    # Variance matrix
+    Σ = Diagonal(lm_vars)
     # Draw from truncated normal dist
-    m_data[1] ~ MvNormal(m_means, Σ)
+    lm_data[1] ~ MvNormal(log.(μs), Σ)
     # Loop through random walk process
     for tt in 2:T
         # Calculate updated variances
-        var_B = max(σ_B*B[tt-1], 1e-8)
-        var_b = max(σ_b*b[tt-1], 1e-8)
-        var_C = max(σ_C*C[tt-1], 1e-8)
-        var_c = max(σ_c*c[tt-1], 1e-8)
-        var_d = max(σ_d*d[tt-1], 1e-8)
-        var_σ = max(σ_σ*σ[tt-1], 1e-8)
+        #Σ_pars = Diagonal(σ_pars)
+        #lmean_pars = [lB[tt-1], lb[tt-1], lC[tt-1], lc[tt-1], ld[tt-1], lσ[tt-1]]
+        var_B = max(σ_pars[1], 1e-8)
+        var_b = max(σ_pars[2], 1e-8)
+        var_C = max(σ_pars[3], 1e-8)
+        var_c = max(σ_pars[4], 1e-8)
+        var_d = max(σ_pars[5], 1e-8)
+        var_σ = max(σ_pars[6], 1e-8)
         # Update parameters
-        B[tt] ~ truncated(Normal(μ_B + B[tt-1], var_B), 1e-8, 100.)
-        b[tt] ~ truncated(Normal(μ_b + b[tt-1], var_b), 1e-8, 100.)
-        C[tt] ~ truncated(Normal(μ_C + C[tt-1], var_C), 1e-8, 250.)
-        c[tt] ~ truncated(Normal(μ_c + c[tt-1], var_c), 1e-8, 1.0)
-        d[tt] ~ truncated(Normal(μ_d + d[tt-1], var_d), 1e-10, 1.0)
-        σ[tt] ~ truncated(Normal(μ_σ + σ[tt-1], var_σ), 1e-8, 1.0)
-
-        m_means = exp.(-b[tt].*(ages .+ B[tt])) .+ exp.(c[tt].*(ages .- C[tt])) .+ d[tt]
-        m_vars = m_means.*σ[tt]
-        m_vars[m_vars.<= 1e-10] .= 1e-10
+        lB[tt] ~ Normal(lB[tt-1], var_B)
+        lb[tt] ~ Normal(lb[tt-1], var_b)
+        lC[tt] ~ Normal(lC[tt-1], var_C)
+        lc[tt] ~ Normal(lc[tt-1], var_c)
+        ld[tt] ~ Normal(ld[tt-1], var_d)
+        lσ[tt] ~ Normal(lσ[tt-1], var_σ)
+        # Find mean using the siler mortality function
+        μs = exp.(-exp(lb[tt]).*(ages .+ exp(lB[tt]))) .+
+            exp.(exp(lc[tt]).*(ages .- exp(lC[tt]))) .+ exp(ld[tt])
+        lm_vars = exp(lσ[tt]).*ones(N)
+        lm_vars[lm_vars.<= 1e-10] .= 1e-10
         # Variance matrix
-        Σ = Diagonal(m_vars)
+        Σ = Diagonal(lm_vars)
         # Draw from truncated normal dist
-        m_data[tt] ~ MvNormal(m_means, Σ)
+        lm_data[tt] ~ MvNormal(log.(μs), Σ)
     end
 end
 
 
-periods = Int.(1:20:T)
+periods = Int.(1:T)
 #periods = Int.((T-30):10:T)
 #periods = [1,10,20,30,40,50,60,70,80]
 years_selected = years[periods]
-iterations = 2500
+iterations = 1000
 # MAP estimate to initialise MCMC
-@time map_dyn = optimize(siler_dyn(m_data[periods], ages), MAP(), LBFGS(),
+@time map_dyn = optimize(log_siler_dyn(lm_data[periods], ages), MAP(), LBFGS(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
-display(coef(map_dyn)[1:12])
+display(coef(map_dyn)[80:110])
 # Estimate by MCMC
-@time chain_dyn = sample(siler_dyn(m_data[periods], ages), NUTS(0.65), MCMCThreads(),
+@time chain_dyn = sample(log_siler_dyn(lm_data[periods], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_dyn.values.array)
 display(chain_dyn)
-plot(chain_dyn[[:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]])
-plot(chain_dyn[[:μ_B, :μ_b, :μ_C, :μ_c, :μ_d, :μ_σ]])
-parests_dyn = extract_variables(chain_dyn, periods, years_selected)
+plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]", "lc[1]", "ld[1]", "lσ[1]"]])
+plot(chain_dyn[["σ_pars[1]", "σ_pars[2]", "σ_pars[3]", "σ_pars[4]", "σ_pars[5]", "σ_pars[6]"]])
+#plot(chain_dyn[[:μ_B, :μ_b, :μ_C, :μ_c, :μ_d, :μ_σ]])
+parests_dyn = extract_variables(chain_dyn, periods, years_selected, log_pars = true)
 
-
-
+# Plot each parameter over time
 plot_siler_params(parests_dyn)
 savefig("figures/Siler_dynamic/siler_dyn.pdf")
-
-
-
-
-
-"""
-Calculate the implied latent parameter values from shocks
-"""
-df_dyn = DataFrame(chain_dyn)
-for tt in 1:(length(periods)-1)
-    # b0
-    b0_temp = df_dyn[:,Symbol("b0["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_b0["*string(tt)*"]")]
-    df_dyn[:, Symbol("b0["*string(tt+1)*"]")] = b0_temp
-    # b1
-    b1_temp = max.(df_dyn[:,Symbol("b1["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_b1["*string(tt)*"]")], [0.0])
-    df_dyn[:, Symbol("b1["*string(tt+1)*"]")] = b1_temp
-    # c0
-    c0_temp = df_dyn[:,Symbol("c0["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_c0["*string(tt)*"]")]
-    df_dyn[:, Symbol("c0["*string(tt+1)*"]")] = c0_temp
-    # c1
-    c1_temp = max.(df_dyn[:,Symbol("c1["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_c1["*string(tt)*"]")], [0.0])
-    df_dyn[:, Symbol("c1["*string(tt+1)*"]")] = c1_temp
-    # d
-    d_temp = max.(df_dyn[:,Symbol("d["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_d["*string(tt)*"]")], [0.0])
-    df_dyn[:, Symbol("d["*string(tt+1)*"]")] = d_temp
-    # σ
-    σ_temp = max.(df_dyn[:,Symbol("σ["*string(tt)*"]")] .+ df_dyn[:,Symbol("ϵ_σ["*string(tt)*"]")], [0.0])
-    df_dyn[:, Symbol("σ["*string(tt+1)*"]")] = σ_temp
-end
-
-b0s = vcat([:iteration, :chain], Symbol.("b0[".*string.(1:length(periods)).*"]"))
-b1s = vcat([:iteration, :chain], Symbol.("b1[".*string.(1:length(periods)).*"]"))
-c0s = vcat([:iteration, :chain], Symbol.("c0[".*string.(1:length(periods)).*"]"))
-c1s = vcat([:iteration, :chain], Symbol.("c1[".*string.(1:length(periods)).*"]"))
-ds = vcat([:iteration, :chain], Symbol.("d[".*string.(1:length(periods)).*"]"))
-σs = vcat([:iteration, :chain], Symbol.("σ[".*string.(1:length(periods)).*"]"))
-
-# Extract the posterior distributions and some summary statistics
-b0_ests = summarise_stats(df_dyn[:,b0s], years_selected)
-b1_ests = summarise_stats(df_dyn[:,b1s], years_selected)
-c0_ests = summarise_stats(df_dyn[:,c0s], years_selected)
-c1_ests = summarise_stats(df_dyn[:,c1s], years_selected)
-d_ests = summarise_stats(df_dyn[:,ds], years_selected)
-σ_ests = summarise_stats(df_dyn[:,σs], years_selected)
-
-
-
-plot(layout = (2,3))
-plot!(b0_ests.variable, -b0_ests.median./b1_ests.median, title = L"B_{t}", label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, -b0_ests.pc975./b1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, -b0_ests.pc025./b1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, -b0_ests.pc85./b1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, -b0_ests.pc15./b1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
-
-plot!(b1_ests.variable, b1_ests.median, title = L"b_{t}", label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
-
-plot!(c0_ests.variable, -c0_ests.median./c1_ests.median, title = L"C_{t}", label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, -c0_ests.pc975./c1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, -c0_ests.pc025./c1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, -c0_ests.pc85./c1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, -c0_ests.pc15./c1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 4)
-
-plot!(c1_ests.variable, c1_ests.median, title = L"c_{t}", label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 5)
-
-plot!(d_ests.variable, d_ests.median, title = L"d_{t}", label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 3)
-
-plot!(σ_ests.variable, σ_ests.median, title = L"\sigma_{t}", label = false, color = 1, subplot = 6)#, ylim = (0.0, 0.1))
-plot!(σ_ests.variable, σ_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 6)
-
-savefig("figures/Siler_dynamic/siler_dyn.pdf")
-
 
 
 
@@ -391,181 +373,3 @@ scatter!(m_data[87], markershape = :xcross, markeralpha = 0.5, label = "Data (20
 plot!(siler(median(chain_2019[:b0]), median(chain_2019[:b1]), median(chain_2019[:c0]),
     median(chain_2019[:c1]), median(chain_2019[:d]), ages), label = "Siler MCMC fit (2019)")
 savefig("figures/Siler_static/siler_fit.pdf")
-
-
-
-
-
-
-"""
-Multiple static Siler models
-"""
-# Define Turing model
-@model function siler_static_T(m_data, ages)
-    T = length(m_data)
-
-    # Our prior beliefs
-    b0 ~ filldist(InverseGamma(2, 10), T)
-    b1 ~ filldist(InverseGamma(2, 0.1), T)
-    c0 ~ filldist(InverseGamma(2, 10), T)
-    c1 ~ filldist(InverseGamma(2, 0.1), T)
-    d ~ filldist(InverseGamma(2, 0.001), T)
-    σ ~ filldist(InverseGamma(2, 0.001), T)
-
-    # The number of observations.
-    for tt in 1:T
-        Σ = σ[tt].*I(N)
-        # Find mean using the siler mortality function
-        m_means = exp.(-b0[tt] .- b1[tt].* ages) .+ exp.(-c0[tt] .+ c1[tt] .* ages) .+ d[tt]
-        # Draw from truncated normal dist
-        m_data[tt] ~ MvNormal(m_means, Σ)
-        # Find mean using the siler mortality function
-    end
-end
-
-# Estimate the model
-periods = Int.(1:5:86)
-years_selected = years[periods]
-iterations = 5000
-chain_staticT = sample(siler_static_T(m_data[periods]), NUTS(0.65), iterations,chn=4)
-display(chain_staticT)
-
-
-prior_staticT = sample(siler_static_T(m_data[periods]), Prior(), 100)
-
-# Extract the posterior distributions and some summary statistics
-df_staticT = DataFrame(chain_staticT)
-b0_ests = summarise_stats(df_staticT[:,b0s], years_selected)
-b1_ests = summarise_stats(df_staticT[:,b1s], years_selected)
-c0_ests = summarise_stats(df_staticT[:,c0s], years_selected)
-c1_ests = summarise_stats(df_staticT[:,c1s], years_selected)
-d_ests = summarise_stats(df_staticT[:,ds], years_selected)
-σ_ests = summarise_stats(df_staticT[:,σs], years_selected)
-
-
-plot(layout = (2,3))
-plot!(b0_ests.variable, b0_ests.median, title = L"b_{0}", label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, b0_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, b0_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, b0_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-plot!(b0_ests.variable, b0_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
-
-plot!(b1_ests.variable, b1_ests.median, title = L"b_{1}", label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-plot!(b1_ests.variable, b1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
-
-plot!(c0_ests.variable, c0_ests.median, title = L"c_{0}", label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, c0_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, c0_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, c0_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 4)
-plot!(c0_ests.variable, c0_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 4)
-
-plot!(c1_ests.variable, c1_ests.median, title = L"c_{1}", label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 5)
-plot!(c1_ests.variable, c1_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 5)
-
-plot!(d_ests.variable, d_ests.median, title = L"d", label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 3)
-plot!(d_ests.variable, d_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 3)
-
-plot!(σ_ests.variable, σ_ests.median, title = L"\sigma", label = false, color = 1, subplot = 6)#, ylim = (0.0, 0.1))
-plot!(σ_ests.variable, σ_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 6)
-plot!(σ_ests.variable, σ_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 6)
-
-savefig("figures/Siler_dynamic/siler_staticT.pdf")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-##################################################################################
-
-
-
-
-
-
-
-
-
-
-df = CSV.read("data/data_master_1.csv", DataFrame, ntasks = false)
-df[:,:sp_500]
-s = df.sp_500
-s_diff = diff(s)
-
-@model function ARIMA011(x)
-    T = length(x)
-    # Set up error vector.
-    ϵ = Vector(undef, T)
-    x_hat = Vector(undef, T)
-    θ ~ Uniform(-5, 5)
-    # Treat the first x_hat as a parameter to estimate.
-    x_hat[1] ~ Normal(0, 1)
-    ϵ[1] = x[1] - x_hat[1]
-    for t in 2:T
-        # Predicted value for x.
-        x_hat[t] = x[t-1] - θ * ϵ[t-1]
-        # Calculate observed error.
-        ϵ[t] = x[t] - x_hat[t]
-        # Observe likelihood.
-        x[t] ~ Normal(x_hat[t], 1)
-    end
-end
-
-
-chain_ARIMA011 = sample(ARIMA011(s), NUTS(0.6), 1000)
-
-
-
-
-
-@model function gompertz_static(m_dist)
-    # Our prior beliefs
-    c0 ~ Normal(0, 10)
-    c1 ~ InverseGamma(2, 0.1)
-    d ~ InverseGamma(2, 0.01)
-    σ ~ InverseGamma(2, 0.001)
-    # The number of observations.
-    N = length(m_dist)
-    for nn in 1:N
-        # Find mean using the gompertz mortality function
-        m_mean = exp(c0 + c1 * (nn-1)) + d
-        # Draw from truncated normal dist
-        m_dist[nn] ~ truncated(Normal(m_mean, σ), 0.0, 1.0)
-    end
-end
-
-iterations = 10000
-chain_hmc = sample(gompertz_static(m_dist), HMC(ϵ, τ), iterations)
-display(chain_hmc)
-chain_smc = sample(gompertz_static(m_dist), SMC(), iterations)
-display(chain_smc)
-chain_nuts = sample(gompertz_static(m_dist), NUTS(0.65), iterations,chn=2)
-display(chain_nuts)
-
-chain = chain_nuts
-histogram(chain[:c0])
-histogram(chain[:c1])
-histogram(chain[:d])
-histogram(chain[:σ])
