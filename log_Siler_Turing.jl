@@ -250,7 +250,7 @@ function plot_fit_year(parests, m_dist, year; log_vals = false)
         plot!(log.(siler(B,b,C,c,d, ages)),
             label = "Siler MCMC fit ("*string(year)*")", color = :blue)
         plot!(log.(siler(B,b,C,c,d, ages)) .+ 2*σ,
-            label = "2 s.e.", color = :blue, linestyle = :dash)
+            label = L"\pm\ 2\ s.e.", color = :blue, linestyle = :dash)
         plot!(log.(siler(B,b,C,c,d, ages)) .- 2*σ,
             label = false, color = :blue, linestyle = :dash)
     else
@@ -263,7 +263,7 @@ end
 
 plot_fit_year(parests, m_data[1], Int.(round.(years_selected))[1], log_vals = true)
 
-plot_fit_year(parests, m_data[T], Int.(round.(years_selected))[T], log_vals = true)
+plot_fit_year(parests, m_data[T-3], Int.(round.(years_selected))[T-3], log_vals = true)
 
 
 """
@@ -343,18 +343,20 @@ end
 periods = Int.(1:T)
 #periods = Int.((T-30):10:T)
 #periods = [1,10,20,30,40,50,60,70,80]
-years_selected = years[periods]
-iterations = 1000
+years_selected = Int.(round.(years[periods]))
+iterations = 2000
 # MAP estimate to initialise MCMC
 @time map_dyn = optimize(log_siler_dyn(lm_data[periods], ages), MAP(), LBFGS(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
-display(coef(map_dyn)[80:110])
+display(exp.(coef(map_dyn)[80:110]))
 # Estimate by MCMC
 @time chain_dyn = sample(log_siler_dyn(lm_data[periods], ages), NUTS(0.65), MCMCThreads(),
     iterations, 4, init_params = map_dyn.values.array)
 display(chain_dyn)
 plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]", "lc[1]", "ld[1]", "lσ[1]"]])
 plot(chain_dyn[["σ_pars[1]", "σ_pars[2]", "σ_pars[3]", "σ_pars[4]", "σ_pars[5]", "σ_pars[6]"]])
+plot!(margin=8Plots.mm)
+savefig("figures/Siler_dynamic/rw_variance_posteriors.pdf")
 #plot(chain_dyn[[:μ_B, :μ_b, :μ_C, :μ_c, :μ_d, :μ_σ]])
 parests_dyn = extract_variables(chain_dyn, periods, years_selected, log_pars = true)
 
@@ -363,13 +365,8 @@ plot_siler_params(parests_dyn)
 savefig("figures/Siler_dynamic/siler_dyn.pdf")
 
 
+plot_fit_year(parests_dyn, m_data[1], years_selected[1], log_vals = false)
 
-# Plot model fit
-plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
-scatter!(m_data[1], markershape = :cross, markeralpha = 0.5, label = "Data (1933)")
-plot!(siler(median(chain_1933[:b0]), median(chain_1933[:b1]), median(chain_1933[:c0]),
-    median(chain_1933[:c1]), median(chain_1933[:d]), ages), label = "Siler MCMC fit (1993)")
-scatter!(m_data[87], markershape = :xcross, markeralpha = 0.5, label = "Data (2019)")
-plot!(siler(median(chain_2019[:b0]), median(chain_2019[:b1]), median(chain_2019[:c0]),
-    median(chain_2019[:c1]), median(chain_2019[:d]), ages), label = "Siler MCMC fit (2019)")
-savefig("figures/Siler_static/siler_fit.pdf")
+plot_fit_year(parests_dyn, m_data[T-3], years_selected[T-3], log_vals = false)
+
+savefig("figures/Siler_dynamic/siler_fit.pdf")
