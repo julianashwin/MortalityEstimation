@@ -45,7 +45,6 @@ ggplot(lifetab_df[which(lifetab_df$year == "2010"),], aes(x = age, y = mx)) +
   geom_line(aes(group = code, color = code)) +
   xlab("Age") + ylab("Mortality Rate") + theme_bw() +
   ggtitle("Mortality Rates over time")
-ggsave("figures/SWE/mortality_rates.pdf", width = 6, height = 4)
 
 
 "
@@ -104,6 +103,8 @@ ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1),]) +
 ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1),]) +
   geom_line(aes(x = age, y = mx, group = year, color = year))
 
+
+write.csv(lifetab_5y_df, "data/clean/all_lifetab.csv", row.names = FALSE)
 
  
 "
