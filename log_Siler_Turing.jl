@@ -215,7 +215,7 @@ end
 ## Estimate the model
 periods = Int.(1:T)
 years_selected = Int.(round.(years[periods]))
-iterations = 2000
+iterations = 4000
 # Find MAP estimate as starting point
 lm_data = [log.(m_dist) for m_dist in m_data]
 @time map_indep = optimize(log_siler_indep(lm_data[periods], ages), MAP(), LBFGS(),
@@ -344,7 +344,7 @@ periods = Int.(1:T)
 #periods = Int.((T-30):10:T)
 #periods = [1,10,20,30,40,50,60,70,80]
 years_selected = Int.(round.(years[periods]))
-iterations = 2000
+iterations = 4000
 # MAP estimate to initialise MCMC
 @time map_dyn = optimize(log_siler_dyn(lm_data[periods], ages), MAP(), LBFGS(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
