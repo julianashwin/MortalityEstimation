@@ -38,8 +38,8 @@ rm(country_df)
 
 lifetab_df <- lifetab_df[which(lifetab_df$age != "110+"),]
 lifetab_df$age <- as.numeric(lifetab_df$age)
+lifetab_df <- lifetab_df[which(!is.na(lifetab_df$mx)),]
 
-table(lifetab_df$year)
 
 # Plot for most recent period
 plt_codes <- c("BEL", "DNK", "FRA", "ITA", "NOR", "CHE", "FIN", "ISL", "NLD", "SWE")
@@ -64,6 +64,11 @@ Get five year average
 lifetab_5y_df <- lifetab_df
 lifetab_5y_df$years <- as.character(cut(lifetab_5y_df$year, seq(1750, 2020, 5)) )
 lifetab_5y_df <- ddply(lifetab_5y_df, .(code, years, age), numcolwise(mean))
+
+# Make sure year represents the mid-point of the window
+lifetab_5y_df[,c("year_lower", "year_upper")] <- 
+  do.call(rbind, str_split(str_remove(str_remove(lifetab_5y_df$years, "\\("), "\\]"), ","))
+lifetab_5y_df$year <- as.numeric(lifetab_5y_df$year_lower) + 3
 
 # Plot an example
 ita_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "ITA" & lifetab_5y_df$year > 1900),], 
@@ -123,54 +128,66 @@ rm(bp_le_plt, bp_s_plt, bp_m_plt)
 
 
 
-
-write.csv(lifetab_5y_df, "data/clean/all_lifetab.csv", row.names = FALSE)
-
- 
 "
-Sweden
+Add names as well as codes
 "
-# Import life table from txct file (copied from HMD website)
-lifetab_df <- as.data.frame(read.table("data/raw/SWE_lifetab.txt", header = TRUE))
 
-# Some quick pre-cleaning
-lifetab_df <- lifetab_df[which(lifetab_df$Age != "110+"),]
-lifetab_df$Age <- as.numeric(lifetab_df$Age)
-lifetab_df <- lifetab_df[which(lifetab_df$Age <= 100),]
+all_codes <- unique(lifetab_5y_df$code)
+convert_df <- data.frame(code = all_codes, name = NA)
 
-ggplot(lifetab_df, aes(x = Age, y = mx)) + 
-  geom_line(aes(group = Year, color = Year)) +
-  xlab("Age") + ylab("Mortality Rate") + theme_bw() +
-  ggtitle("Swedish Mortality Rates over time")
-ggsave("figures/SWE/mortality_rates.pdf", width = 6, height = 4)
+convert_df$name[which(convert_df$code== "AUS")] <- "Australia"
+convert_df$name[which(convert_df$code== "AUT")] <- "Austria"
+convert_df$name[which(convert_df$code== "BEL")] <- "Belgium"
+convert_df$name[which(convert_df$code== "BGR")] <- "Bulgaria"
+convert_df$name[which(convert_df$code== "BLR")] <- "Belarus"
+convert_df$name[which(convert_df$code== "CAN")] <- "Canada"
+convert_df$name[which(convert_df$code== "CHE")] <- "Switzerland"
+convert_df$name[which(convert_df$code== "CHL")] <- "Chile"
+convert_df$name[which(convert_df$code== "CZE")] <- "Czechia"
+convert_df$name[which(convert_df$code== "DEU")] <- "Germany"
+convert_df$name[which(convert_df$code== "DEUTE")] <- "East Germany"
+convert_df$name[which(convert_df$code== "DEUTW")] <- "West Germany"
+convert_df$name[which(convert_df$code== "DNK")] <- "Denmark"
+convert_df$name[which(convert_df$code== "ESP")] <- "Spain"
+convert_df$name[which(convert_df$code== "EST")] <- "Estonia"
+convert_df$name[which(convert_df$code== "FIN")] <- "Finland"
+convert_df$name[which(convert_df$code== "FRA")] <- "France"
+convert_df$name[which(convert_df$code== "GBR")] <- "United Kingdom"
+convert_df$name[which(convert_df$code== "GRC")] <- "Greece"
+convert_df$name[which(convert_df$code== "HKG")] <- "Hong Kong"
+convert_df$name[which(convert_df$code== "HRV")] <- "Croatia"
+convert_df$name[which(convert_df$code== "HUN")] <- "Hungary"
+convert_df$name[which(convert_df$code== "IRL")] <- "Ireland"
+convert_df$name[which(convert_df$code== "ISL")] <- "Iceland"
+convert_df$name[which(convert_df$code== "ISR")] <- "Israel"
+convert_df$name[which(convert_df$code== "ITA")] <- "Italy"
+convert_df$name[which(convert_df$code== "JPN")] <- "Japan"
+convert_df$name[which(convert_df$code== "KOR")] <- "South Korea"
+convert_df$name[which(convert_df$code== "LTU")] <- "Lithuania"
+convert_df$name[which(convert_df$code== "LUX")] <- "Luxembourg"
+convert_df$name[which(convert_df$code== "LVA")] <- "Latvia"
+convert_df$name[which(convert_df$code== "NLD")] <- "Netherlands"
+convert_df$name[which(convert_df$code== "NOR")] <- "Norway"
+convert_df$name[which(convert_df$code== "NZL")] <- "New Zealand"
+convert_df$name[which(convert_df$code== "POL")] <- "Poland"
+convert_df$name[which(convert_df$code== "PRT")] <- "Portugal"
+convert_df$name[which(convert_df$code== "RUS")] <- "Russia"
+convert_df$name[which(convert_df$code== "SVK")] <- "Slovakia"
+convert_df$name[which(convert_df$code== "SVN")] <- "Slovenia"
+convert_df$name[which(convert_df$code== "SWE")] <- "Sweden"
+convert_df$name[which(convert_df$code== "TWN")] <- "Taiwan"
+convert_df$name[which(convert_df$code== "UKR")] <- "Ukraine"
+convert_df$name[which(convert_df$code== "USA")] <- "United States of America"
 
-# Save the cleaned up data
-write.csv(lifetab_df, "data/clean/SWE_life.csv", row.names = FALSE)
+
+lifetab_5y_export <- merge(lifetab_5y_df, convert_df, by = "code", all.x = TRUE)
+
+lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age",
+                                          "mx", "lx", "ex", "best_practice")]
+
+write.csv(lifetab_5y_export, "data/clean/all_lifetab.csv", row.names = FALSE)
 
 
-
-"
-USA
-"
-# Import life table from txt file (copied from HMD website)
-lifetab_df <- as.data.frame(read.table("data/raw/USA_lifetab.txt", header = TRUE))
-
-# Some quick pre-cleaning
-lifetab_df <- lifetab_df[which(lifetab_df$Age != "110+"),]
-lifetab_df$Age <- as.numeric(lifetab_df$Age)
-lifetab_df <- lifetab_df[which(lifetab_df$Age <= 100),]
-
-ggplot(lifetab_df[lifetab_df$Year > 1900,], aes(x = Age, y = mx)) + 
-  geom_line(aes(group = Year, color = Year)) +
-  xlab("Age") + ylab("Mortality Rate") + theme_bw() +
-  ggtitle("USA Mortality Rates over time")
-ggsave("figures/USA/mortality_rates.pdf", width = 6, height = 4)
-
-
-# Save the cleaned up data
-
-names(lifetab_df)[1:2] <- c("year", "age")
-write.csv(lifetab_df, "data/clean/USA_life.csv", row.names = FALSE)
 
 
 
