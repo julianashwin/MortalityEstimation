@@ -8,3 +8,5 @@ using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
 include("helpers.jl")
 # Turing models that estimate static and dynamic Siler models
 include("models.jl")
+# Functions to plot results
+include("plotting.jl")

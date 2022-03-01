@@ -12,6 +12,8 @@ function plot_fit_year(parests, m_dist, year; log_vals = false, col = 1)
     d = parests.mean[(parests.year .== year).*(parests.parameter .== :d)][1]
     σ = parests.mean[(parests.year .== year).*(parests.parameter .== :σ)][1]
 
+    ages = Int.(0:length(m_dist))
+
     plt = plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
     if log_vals
         scatter!(log.(m_dist), markershape = :cross, markeralpha = 0.5,
@@ -45,6 +47,8 @@ function plot_fit_year!(parests, m_dist, year; log_vals = false, col = 1)
     c = parests.mean[(parests.year .== year).*(parests.parameter .== :c)][1]
     d = parests.mean[(parests.year .== year).*(parests.parameter .== :d)][1]
     σ = parests.mean[(parests.year .== year).*(parests.parameter .== :σ)][1]
+
+    ages = Int.(0:length(m_dist))
 
     plt = plot!(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
     if log_vals
