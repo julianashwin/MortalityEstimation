@@ -54,7 +54,7 @@ all1900_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1900" &
   xlab("Age") + ylab("Mortality Rate") + theme_bw() + ylim(c(0,0.85)) +
   ggtitle("1900")
 ggarrange(all1900_plt,all2010_plt, nrow = 1, ncol=2, common.legend = TRUE)
-ggsave("figures/all/all_1990_2010_mortality_rates.pdf", width = 6, height = 4)
+ggsave("figures/data/all_1990_2010_mortality_rates.pdf", width = 6, height = 4)
 rm(all1900_plt, all2010_plt)
 
 "
@@ -84,7 +84,7 @@ usa_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "USA" & lifetab_5y_d
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
   xlab("Age") + ylab("") + ggtitle("USA")
 ggarrange(ita_plt,jpn_plt,usa_plt, nrow = 1, ncol=3, common.legend = FALSE)
-ggsave("figures/all/mortality_rates_time.pdf", width = 12, height = 3)
+ggsave("figures/data/mortality_rates_time.pdf", width = 12, height = 3)
 rm(ita_plt, jpn_plt, usa_plt)
      
 "
@@ -122,7 +122,7 @@ bp_m_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1 &
   scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
   ggtitle("Mortality Rate")
 ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
-ggsave("figures/all/best_practice_data.pdf", width = 15, height = 4)
+ggsave("figures/data/best_practice_data.pdf", width = 15, height = 4)
 rm(bp_le_plt, bp_s_plt, bp_m_plt)
 
 

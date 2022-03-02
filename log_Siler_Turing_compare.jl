@@ -105,6 +105,11 @@ for code in unique(G7_df.code)
     print("Working on model for "*code)
     # Extract and convert relevant data into correct form
     country_df = G7_df[(G7_df.code .== code), :]
+
+    # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
+    country_df.mx[country_df.mx .== 0.0] .=  minimum(country_df.mx[country_df.mx .> 0.0])
+
+    # Get data into right format
     country_m_data = chunk(country_df.mx, 110)
     country_lm_data = [log.(m_dist) for m_dist in country_m_data]
     country_ages = Int64.(0:maximum(country_df.age))
@@ -114,6 +119,8 @@ for code in unique(G7_df.code)
 
     @assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
     @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
+
+
 
     # MAP estimate to initialise MCMC
     @time map_dyn = optimize(log_siler_dyn(country_lm_data, country_ages), MAP(), LBFGS(),
