@@ -101,7 +101,7 @@ parests_all = DataFrame(code = Symbol[], name = String[], parameter = Symbol[], 
 parests_dict = Dict{Symbol, DataFrame}()
 
 
-for code in unique(G7_df.code)
+for code in unique(G7_df.code)[20:36]
     print("Working on model for "*code)
     # Extract and convert relevant data into correct form
     country_df = G7_df[(G7_df.code .== code), :]
