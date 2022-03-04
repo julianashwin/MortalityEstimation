@@ -64,15 +64,24 @@ end
 """
 Function that creates summary dataframes for each Siler parameter
 """
-function extract_variables(chain_in, years; log_pars = false, σ_pars = true)
+function extract_variables(chain_in, years; log_pars = false, σ_pars = true, ext = false)
     # Names
     if log_pars
-        Bs = vcat([:iteration, :chain], Symbol.("lB[".*string.(1:length(years)).*"]"))
-        bs = vcat([:iteration, :chain], Symbol.("lb[".*string.(1:length(years)).*"]"))
-        Cs = vcat([:iteration, :chain], Symbol.("lC[".*string.(1:length(years)).*"]"))
-        cs = vcat([:iteration, :chain], Symbol.("lc[".*string.(1:length(years)).*"]"))
-        ds = vcat([:iteration, :chain], Symbol.("ld[".*string.(1:length(years)).*"]"))
-        σs = vcat([:iteration, :chain], Symbol.("lσ[".*string.(1:length(years)).*"]"))
+        if ext
+            Bs = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][1]"))
+            bs = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][2]"))
+            Cs = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][3]"))
+            cs = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][4]"))
+            ds = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][5]"))
+            σs = vcat([:iteration, :chain], Symbol.("pars[:,".*string.(1:length(years)).*"][6]"))
+        else
+            Bs = vcat([:iteration, :chain], Symbol.("lB[".*string.(1:length(years)).*"]"))
+            bs = vcat([:iteration, :chain], Symbol.("lb[".*string.(1:length(years)).*"]"))
+            Cs = vcat([:iteration, :chain], Symbol.("lC[".*string.(1:length(years)).*"]"))
+            cs = vcat([:iteration, :chain], Symbol.("lc[".*string.(1:length(years)).*"]"))
+            ds = vcat([:iteration, :chain], Symbol.("ld[".*string.(1:length(years)).*"]"))
+            σs = vcat([:iteration, :chain], Symbol.("lσ[".*string.(1:length(years)).*"]"))
+        end
     else
         Bs = vcat([:iteration, :chain], Symbol.("B[".*string.(1:length(years)).*"]"))
         bs = vcat([:iteration, :chain], Symbol.("b[".*string.(1:length(years)).*"]"))
@@ -101,13 +110,23 @@ function extract_variables(chain_in, years; log_pars = false, σ_pars = true)
 
     # If we have a dynamic model with variance terms for the parameters, add these
     if σ_pars
-        σ_par_names = vcat([:iteration, :chain], Symbol.("σ_pars[".*string.(1:6).*"]"))
-        σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
-            Int.(1:6), log_pars = false, parname = :σ_par)
-        σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]
-        σ_pars_ests.year .= 0
+        if ext
+            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_".*["B","b","C","c","d","σ"]))
+            σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :σ_par)
+            σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]
+            σ_pars_ests.year .= 0
 
-        par_ests = vcat(par_ests, σ_pars_ests)
+            par_ests = vcat(par_ests, σ_pars_ests)
+        else
+            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_pars[".*string.(1:6).*"]"))
+            σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :σ_par)
+            σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]
+            σ_pars_ests.year .= 0
+
+            par_ests = vcat(par_ests, σ_pars_ests)
+        end
     end
 
     return par_ests

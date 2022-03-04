@@ -114,7 +114,7 @@ for code in unique(G7_df.code)
     @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
     # MAP estimate to initialise MCMC
-    @time map_dyn = optimize(log_siler_dyn(country_lm_data, country_ages), MAP(), LBFGS(),
+    @time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
         Optim.Options(iterations=50_000, allow_f_increases=true))
     print("Estimated MAP for "*code)
     # Estimate by MCMC
