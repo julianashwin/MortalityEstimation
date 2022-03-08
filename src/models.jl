@@ -158,11 +158,13 @@ end
 """
 Dynamic Siler model with extensions
     - Non-diagonal covariance matrix
+
+Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is d.o.f., p is dimensions
 """
 @model function log_siler_dyn_ext(lm_data, ages)
     # Dimensions
-    T = length(lm_data)
-    N = length(ages)
+    T::Int64 = length(lm_data)
+    N::Int64 = length(ages)
     # Parameters
     lB = Vector(undef, T)
     lb = Vector(undef, T)
@@ -173,44 +175,19 @@ Dynamic Siler model with extensions
     # Matrix of all parameters (will be drawn from MVNormal)
     pars = Matrix(undef,6,T)
     # Priors on variance terms for parameter time series
-    σ_B ~ InverseGamma(2, 0.3)
-    σ_b ~ InverseGamma(2, 0.3)
-    σ_C ~ InverseGamma(2, 0.3)
-    σ_c ~ InverseGamma(2, 0.3)
-    σ_d ~ InverseGamma(2, 0.3)
-    σ_σ ~ InverseGamma(2, 0.3)
-    # Priors on covariance terms for parameter time series
-    τ_Bb ~ Uniform(-0.99, 0.99)
-    τ_BC ~ Uniform(-0.99, 0.99)
-    τ_Bc ~ Uniform(-0.99, 0.99)
-    τ_Bd ~ Uniform(-0.99, 0.99)
-    τ_Bσ ~ Uniform(-0.99, 0.99)
-    τ_bC ~ Uniform(-0.99, 0.99)
-    τ_bc ~ Uniform(-0.99, 0.99)
-    τ_bd ~ Uniform(-0.99, 0.99)
-    τ_bσ ~ Uniform(-0.99, 0.99)
-    τ_Cc ~ Uniform(-0.99, 0.99)
-    τ_Cd ~ Uniform(-0.99, 0.99)
-    τ_Cσ ~ Uniform(-0.99, 0.99)
-    τ_cd ~ Uniform(-0.99, 0.99)
-    τ_cσ ~ Uniform(-0.99, 0.99)
-    τ_dσ ~ Uniform(-0.99, 0.99)
-
-    Σ_ϵ = Symmetric(
-           [σ_B^2    τ_Bb*σ_B*σ_b    τ_BC*σ_B*σ_C    τ_Bc*σ_B*σ_c    τ_Bd*σ_B*σ_d    τ_Bσ*σ_B*σ_σ ;
-           τ_Bb*σ_B*σ_b    σ_b^2    τ_bC*σ_b*σ_C    τ_bc*σ_b*σ_c    τ_bd*σ_b*σ_d    τ_bσ*σ_b*σ_σ ;
-           τ_BC*σ_B*σ_C    τ_bC*σ_b*σ_C    σ_C^2    τ_Cc*σ_C*σ_c    τ_Cd*σ_C*σ_d    τ_Cσ*σ_C*σ_σ ;
-           τ_Bc*σ_B*σ_c    τ_bc*σ_b*σ_c    τ_Cc*σ_C*σ_c    σ_c^2    τ_cd*σ_c*σ_d    τ_cσ*σ_c*σ_σ ;
-           τ_Bd*σ_B*σ_d    τ_bd*σ_b*σ_d    τ_Cd*σ_C*σ_d    τ_cd*σ_c*σ_d    σ_d^2    τ_dσ*σ_d*σ_σ;
-           τ_Bσ*σ_B*σ_σ    τ_bσ*σ_b*σ_σ    τ_Cσ*σ_C*σ_σ    τ_cσ*σ_c*σ_σ    τ_dσ*σ_d*σ_σ    σ_σ^2 ])
-
-
-
-    # Priors on drift terms
-    #μ_pars ~ filldist(Normal(0, 0.1), 6)
+    σ_par ~ filldist(InverseGamma(2, 0.05),6)
+    # Correlation matrix of shocks to parameter time series
+    #ρ_block ~ LKJ(6, 4)
+    # Prior on variance terms for parameter time series
+    Σ_ϵ = Diagonal(σ_par)#quad_form_diag(ρ_block, σ_par)
+    # Priors on constant
+    α_pars ~ filldist(Normal(0., 1.0), 6)
+    # Priors on time trend terms
+    τ_pars ~ filldist(Normal(0, 0.05), 6)
+    # Autoregressive coefficient
+    β_pars ~ filldist(Normal(1., 0.5), 6)
     # First period from priors
-    μ_par = log.([10.;2.;120.;0.1;0.25;0.1])
-    pars[:,1] ~ MvNormal(μ_par, Diagonal([2.;1.;2.;1.;1.;1.]))
+    pars[:,1] ~ MvNormal(log.([5.;2.;120.;0.1;0.25;0.1]), Diagonal([2.;1.;2.;1.;1.;1.]))
     lB[1] = pars[1,1]
     lb[1] = pars[2,1]
     lC[1] = pars[3,1]
@@ -230,12 +207,12 @@ Dynamic Siler model with extensions
     # Loop through random walk process
     for tt in 2:T
         # Calculate updated means
-        μ_par = [lB[tt-1];
-                 lb[tt-1];
-                 lC[tt-1];
-                 lc[tt-1];
-                 ld[tt-1];
-                 lσ[tt-1]]
+        μ_par = [α_pars[1] + β_pars[1]*lB[tt-1] + τ_pars[1]*(tt-1);
+                 α_pars[2] + β_pars[2]*lb[tt-1] + τ_pars[2]*(tt-1);
+                 α_pars[3] + β_pars[3]*lC[tt-1] + τ_pars[3]*(tt-1);
+                 α_pars[4] + β_pars[4]*lc[tt-1] + τ_pars[4]*(tt-1);
+                 α_pars[5] + β_pars[5]*ld[tt-1] + τ_pars[5]*(tt-1);
+                 α_pars[6] + β_pars[6]*lσ[tt-1] + τ_pars[6]*(tt-1)]
         # Update parameters
         pars[:,tt] ~ MvNormal(μ_par, Σ_ϵ)
         lB[tt] = pars[1,tt]
@@ -255,3 +232,47 @@ Dynamic Siler model with extensions
         lm_data[tt] ~ MvNormal(log.(μs), Σ_m)
     end
 end
+
+
+
+
+
+
+
+
+
+"""
+# Priors on variance terms for parameter time series
+σ_B ~ InverseGamma(2, 0.3)
+σ_b ~ InverseGamma(2, 0.3)
+σ_C ~ InverseGamma(2, 0.3)
+σ_c ~ InverseGamma(2, 0.3)
+σ_d ~ InverseGamma(2, 0.3)
+σ_σ ~ InverseGamma(2, 0.3)
+
+# Priors on covariance terms for parameter time series
+τ_Bb ~ Uniform(-0.99, 0.99)
+τ_BC ~ Uniform(-0.99, 0.99)
+τ_Bc ~ Uniform(-0.99, 0.99)
+τ_Bd ~ Uniform(-0.99, 0.99)
+τ_Bσ ~ Uniform(-0.99, 0.99)
+τ_bC ~ Uniform(-0.99, 0.99)
+τ_bc ~ Uniform(-0.99, 0.99)
+τ_bd ~ Uniform(-0.99, 0.99)
+τ_bσ ~ Uniform(-0.99, 0.99)
+τ_Cc ~ Uniform(-0.99, 0.99)
+τ_Cd ~ Uniform(-0.99, 0.99)
+τ_Cσ ~ Uniform(-0.99, 0.99)
+τ_cd ~ Uniform(-0.99, 0.99)
+τ_cσ ~ Uniform(-0.99, 0.99)
+τ_dσ ~ Uniform(-0.99, 0.99)
+
+Σ_ϵ = Symmetric(
+      [σ_B^2 + 1e-6    τ_Bb*σ_B*σ_b    τ_BC*σ_B*σ_C    τ_Bc*σ_B*σ_c    τ_Bd*σ_B*σ_d    τ_Bσ*σ_B*σ_σ ;
+       τ_Bb*σ_B*σ_b    σ_b^2 + 1e-6    τ_bC*σ_b*σ_C    τ_bc*σ_b*σ_c    τ_bd*σ_b*σ_d    τ_bσ*σ_b*σ_σ ;
+       τ_BC*σ_B*σ_C    τ_bC*σ_b*σ_C    σ_C^2 + 1e-6    τ_Cc*σ_C*σ_c    τ_Cd*σ_C*σ_d    τ_Cσ*σ_C*σ_σ ;
+       τ_Bc*σ_B*σ_c    τ_bc*σ_b*σ_c    τ_Cc*σ_C*σ_c    σ_c^2 + 1e-6    τ_cd*σ_c*σ_d    τ_cσ*σ_c*σ_σ ;
+       τ_Bd*σ_B*σ_d    τ_bd*σ_b*σ_d    τ_Cd*σ_C*σ_d    τ_cd*σ_c*σ_d    σ_d^2 + 1e-6    τ_dσ*σ_d*σ_σ;
+       τ_Bσ*σ_B*σ_σ    τ_bσ*σ_b*σ_σ    τ_Cσ*σ_C*σ_σ    τ_cσ*σ_c*σ_σ    τ_dσ*σ_d*σ_σ    σ_σ^2 + 1e-6])
+
+"""

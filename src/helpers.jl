@@ -10,6 +10,13 @@ chunk(arr, n) = [arr[i:min(i + n - 1, end)] for i in 1:n:length(arr)]
 
 
 """
+Get a positive definite covariance matrix
+"""
+quad_form_diag(M, v) = Symmetric((v .* v') .* (M .+ M') ./ 2)
+
+
+
+"""
 Basic Siler function to plot from paramters
 """
 function siler(B,b,C,c,d, ages)
@@ -111,13 +118,35 @@ function extract_variables(chain_in, years; log_pars = false, σ_pars = true, ex
     # If we have a dynamic model with variance terms for the parameters, add these
     if σ_pars
         if ext
-            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_".*["B","b","C","c","d","σ"]))
+            # Parameter time series variance
+            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_par[".*string.(1:6).*"]"))
             σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
                 Int.(1:6), log_pars = false, parname = :σ_par)
             σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]
             σ_pars_ests.year .= 0
-
             par_ests = vcat(par_ests, σ_pars_ests)
+            # Parameter time series constant
+            α_par_names = vcat([:iteration, :chain], Symbol.("α_pars[".*string.(1:6).*"]"))
+            α_pars_ests = summarise_stats(df_indep[:,α_par_names], stats[in.(stats.parameters, [α_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :α_par)
+            α_pars_ests.parameter = [:α_B, :α_b, :α_C, :α_c, :α_d, :α_σ]
+            α_pars_ests.year .= 0
+            par_ests = vcat(par_ests, α_pars_ests)
+            # Parameter time series AR(1) coefficient
+            β_par_names = vcat([:iteration, :chain], Symbol.("β_pars[".*string.(1:6).*"]"))
+            β_pars_ests = summarise_stats(df_indep[:,β_par_names], stats[in.(stats.parameters, [β_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :β_par)
+            β_pars_ests.parameter = [:β_B, :β_b, :β_C, :β_c, :β_d, :β_σ]
+            β_pars_ests.year .= 0
+            par_ests = vcat(par_ests, β_pars_ests)
+            # Parameter time series linear trend
+            τ_par_names = vcat([:iteration, :chain], Symbol.("τ_pars[".*string.(1:6).*"]"))
+            τ_pars_ests = summarise_stats(df_indep[:,τ_par_names], stats[in.(stats.parameters, [τ_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :τ_par)
+            τ_pars_ests.parameter = [:τ_B, :τ_b, :τ_C, :τ_c, :τ_d, :τ_σ]
+            τ_pars_ests.year .= 0
+            par_ests = vcat(par_ests, τ_pars_ests)
+
         else
             σ_par_names = vcat([:iteration, :chain], Symbol.("σ_pars[".*string.(1:6).*"]"))
             σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],

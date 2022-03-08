@@ -123,24 +123,28 @@ for code in unique(G7_df.code)[20:36]
 
 
     # MAP estimate to initialise MCMC
-    @time map_dyn = optimize(log_siler_dyn(country_lm_data, country_ages), MAP(), LBFGS(),
+    @time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
         Optim.Options(iterations=50_000, allow_f_increases=true))
     print("Estimated MAP for "*code)
     # Estimate by MCMC
-    @time chain_dyn = sample(log_siler_dyn(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+    @time chain_dyn = sample(log_siler_dyn_ext(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
         niters, nthreads, init_params = map_dyn.values.array)
     print("Sampled posterior for "*code)
     # Plot some example posterior distributions
     display(chain_dyn)
-    plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]", "lc[1]", "ld[1]", "lσ[1]"]])
+    plot(chain_dyn[["pars[:,1][1]", "pars[:,1][2]", "pars[:,1][3]",
+        "pars[:,1][4]", "pars[:,1][5]", "pars[:,1][6]"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_first_period_posteriors.pdf")
-    plot(chain_dyn[["σ_pars[1]", "σ_pars[2]", "σ_pars[3]", "σ_pars[4]", "σ_pars[5]", "σ_pars[6]"]])
+    plot(chain_dyn[["α_pars[1]", "α_pars[2]", "α_pars[3]", "α_pars[4]", "α_pars[5]", "α_pars[6]"]])
+    plot(chain_dyn[["β_pars[1]", "β_pars[2]", "β_pars[3]", "β_pars[4]", "β_pars[5]", "β_pars[6]"]])
+    plot(chain_dyn[["τ_pars[1]", "τ_pars[2]", "τ_pars[3]", "τ_pars[4]", "τ_pars[5]", "τ_pars[6]"]])
+    plot(chain_dyn[["σ_par[1]", "σ_par[2]", "σ_par[3]", "σ_par[4]", "σ_par[5]", "σ_par[6]"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
     # Extract and plot results
     parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
-        σ_pars = true)
+        σ_pars = true, ext = true)
     p1 = plot_siler_params(parests_dyn)
     p_title = plot(title = "Dynamic Siler parameters "*string(code), grid = false, showaxis = false,
         bottom_margin = -10Plots.px, yticks = false, xticks = false)

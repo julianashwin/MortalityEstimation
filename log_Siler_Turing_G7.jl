@@ -87,7 +87,7 @@ plot_fit_year!(parests_indep, country_m_data[T], years_selected[end], log_vals =
 Estimate Siler model for each country in G7
 """
 ## Set some estimation options
-niters = 2000
+niters = 1000
 nthreads = 4
 
 parests_all = DataFrame(code = Symbol[], name = String[], parameter = Symbol[], year = Int64[],
@@ -118,20 +118,21 @@ for code in unique(G7_df.code)
         Optim.Options(iterations=50_000, allow_f_increases=true))
     print("Estimated MAP for "*code)
     # Estimate by MCMC
-    @time chain_dyn = sample(log_siler_dyn(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+    @time chain_dyn = sample(log_siler_dyn_ext(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
         niters, nthreads, init_params = map_dyn.values.array)
     print("Sampled posterior for "*code)
     # Plot some example posterior distributions
     display(chain_dyn)
-    plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]", "lc[1]", "ld[1]", "lσ[1]"]])
+    plot(chain_dyn[["pars[:,1][1]", "pars[:,1][2]", "pars[:,1][3]",
+        "pars[:,1][4]", "pars[:,1][5]", "pars[:,1][6]"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_first_period_posteriors.pdf")
-    plot(chain_dyn[["σ_pars[1]", "σ_pars[2]", "σ_pars[3]", "σ_pars[4]", "σ_pars[5]", "σ_pars[6]"]])
+    plot(chain_dyn[["σ_B", "σ_b", "σ_C", "σ_c", "σ_d", "σ_σ"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
     # Extract and plot results
     parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
-        σ_pars = true)
+        σ_pars = false, ext = true)
     p1 = plot_siler_params(parests_dyn)
     p_title = plot(title = "Dynamic Siler parameters "*string(code), grid = false, showaxis = false,
         bottom_margin = -10Plots.px, yticks = false, xticks = false)
