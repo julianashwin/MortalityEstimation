@@ -101,7 +101,7 @@ parests_all = DataFrame(code = Symbol[], name = String[], parameter = Symbol[], 
 parests_dict = Dict{Symbol, DataFrame}()
 
 
-for code in unique(G7_df.code)[20:36]
+for code in unique(G7_df.code)[2:10]
     print("Working on model for "*code)
     # Extract and convert relevant data into correct form
     country_df = G7_df[(G7_df.code .== code), :]
@@ -150,12 +150,17 @@ for code in unique(G7_df.code)[20:36]
         bottom_margin = -10Plots.px, yticks = false, xticks = false)
     display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
     savefig("results/"*code*"/"*code*"_param_estimates.pdf")
-
+    # Plot the time series parameters
+    p2 = plot_ts_params(parests_dyn)
+    p_title = plot(title = "Siler time series parameters "*string(code), grid = false, showaxis = false,
+        bottom_margin = -10Plots.px, yticks = false, xticks = false)
+    display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
+    savefig("results/"*code*"/"*code*"_ts_params.pdf")
+    # Plot fit in selected years
     plot_fit_year(parests_dyn, country_m_data[1], country_years[1], log_vals = false, col = 1)
     plot_fit_year!(parests_dyn, country_m_data[T], country_years[T], log_vals = false, col = 2)
     plot!(title = "Siler model fit "*string(code))
     savefig("results/"*code*"/"*code*"_model_fit.pdf")
-
     # Store and export results
     CSV.write("results/"*code*"/"*code*"_est_results.csv", parests_dyn)
     insertcols!(parests_dyn, 1, :code => repeat([Symbol(code)], nrow(parests_dyn)) )

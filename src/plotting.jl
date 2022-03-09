@@ -132,7 +132,7 @@ Plot the time series parameters for each Siler parameter
 """
 function plot_ts_params(par_ests::DataFrame)
 
-    plt = plot(layout = (2,2), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
+    plt = plot(layout = (1,2), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
     α_ests = par_ests[(occursin.("α_", string.(par_ests.parameter))),:]
     scatter!(string.(α_ests.parameter), α_ests.median, title = "α", legend = false, color = 1, subplot = 1)
@@ -142,30 +142,30 @@ function plot_ts_params(par_ests::DataFrame)
     scatter!(string.(α_ests.parameter), α_ests.pc15, color = 1,markershape = :vline, subplot = 1)
     hline!([0], linestyle=:dot, color = :black, subplot = 1)
 
-    β_ests = par_ests[(occursin.("β_", string.(par_ests.parameter))),:]
-    scatter!(string.(β_ests.parameter), β_ests.median, title = "β", legend = false, color = 1, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc975, color = 1,markershape = :cross, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc025, color = 1,markershape = :cross, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc85, color = 1,markershape = :vline, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
-    hline!([0], linestyle=:dot, color = :black, subplot = 2)
+    #β_ests = par_ests[(occursin.("β_", string.(par_ests.parameter))),:]
+    #scatter!(string.(β_ests.parameter), β_ests.median, title = "β", legend = false, color = 1, subplot = 2)
+    #scatter!(string.(β_ests.parameter), β_ests.pc975, color = 1,markershape = :cross, subplot = 2)
+    #scatter!(string.(β_ests.parameter), β_ests.pc025, color = 1,markershape = :cross, subplot = 2)
+    #scatter!(string.(β_ests.parameter), β_ests.pc85, color = 1,markershape = :vline, subplot = 2)
+    #scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
+    #hline!([0], linestyle=:dot, color = :black, subplot = 2)
 
-    τ_ests = par_ests[(occursin.("τ_", string.(par_ests.parameter))),:]
-    scatter!(string.(τ_ests.parameter), τ_ests.median, title = "τ", legend = false, color = 1, subplot = 3)
-    scatter!(string.(τ_ests.parameter), τ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
-    scatter!(string.(τ_ests.parameter), τ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
-    scatter!(string.(τ_ests.parameter), τ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
-    scatter!(string.(τ_ests.parameter), τ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
-    hline!([0], linestyle=:dot, color = :black, subplot = 3)
+    #τ_ests = par_ests[(occursin.("τ_", string.(par_ests.parameter))),:]
+    #scatter!(string.(τ_ests.parameter), τ_ests.median, title = "τ", legend = false, color = 1, subplot = 3)
+    #scatter!(string.(τ_ests.parameter), τ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
+    #scatter!(string.(τ_ests.parameter), τ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
+    #scatter!(string.(τ_ests.parameter), τ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
+    #scatter!(string.(τ_ests.parameter), τ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
+    #hline!([0], linestyle=:dot, color = :black, subplot = 3)
 
     σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter))),:]
-    scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 4)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 4)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 4)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 4)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 4)
-    hline!([0], linestyle=:dot, color = :black, subplot = 4)
-    
+    scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 2)
+    scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 2)
+    scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 2)
+    scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 2)
+    scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 2)
+    hline!([0], linestyle=:dot, color = :black, subplot = 2)
+
 
     return plt
 

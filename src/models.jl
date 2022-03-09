@@ -172,29 +172,25 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     lc = Vector(undef, T)
     ld = Vector(undef, T)
     lσ = Vector(undef, T)
-    # Matrix of all parameters (will be drawn from MVNormal)
-    pars = Matrix(undef,6,T)
     # Priors on variance terms for parameter time series
     σ_par ~ filldist(InverseGamma(2, 0.05),6)
     # Correlation matrix of shocks to parameter time series
     #ρ_block ~ LKJ(6, 4)
     # Prior on variance terms for parameter time series
-    Σ_ϵ = Diagonal(σ_par)#quad_form_diag(ρ_block, σ_par)
+    #Σ_ϵ = Diagonal(σ_par)#quad_form_diag(ρ_block, σ_par)
     # Priors on constant
-    α_pars ~ filldist(Normal(0., 1.0), 6)
+    α_pars ~ filldist(Normal(0., 0.05), 6)
     # Priors on time trend terms
-    τ_pars ~ filldist(Normal(0, 0.05), 6)
+    #τ_pars ~ filldist(Normal(0, 0.05), 6)
     # Autoregressive coefficient
-    β_pars ~ filldist(Normal(1., 0.5), 6)
+    #β_pars ~ filldist(Uniform(0.0, 0.99), 6)
     # First period from priors
-    pars[:,1] ~ MvNormal(log.([5.;2.;120.;0.1;0.25;0.1]), Diagonal([2.;1.;2.;1.;1.;1.]))
-    lB[1] = pars[1,1]
-    lb[1] = pars[2,1]
-    lC[1] = pars[3,1]
-    lc[1] = pars[4,1]
-    ld[1] = pars[5,1]
-    lσ[1] = pars[6,1]
-
+    lB[1] ~ Normal(log(10), 2.0)
+    lb[1] ~ Normal(log(2), 1.0)
+    lC[1] ~ Normal(log(120), 2.0)
+    lc[1] ~ Normal(log(0.1), 1.0)
+    ld[1] ~ Normal(log(0.025), 1.0)
+    lσ[1] ~ Normal(log(0.1), 1.0)
     # Find mean using the siler mortality function
     μs = exp.(-exp(lb[1]).*(ages .+ exp(lB[1]))) .+
         exp.(exp(lc[1]).*(ages .- exp(lC[1]))) .+ exp(ld[1])
@@ -206,21 +202,34 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     lm_data[1] ~ MvNormal(log.(μs), Σ_m)
     # Loop through random walk process
     for tt in 2:T
-        # Calculate updated means
-        μ_par = [α_pars[1] + β_pars[1]*lB[tt-1] + τ_pars[1]*(tt-1);
-                 α_pars[2] + β_pars[2]*lb[tt-1] + τ_pars[2]*(tt-1);
-                 α_pars[3] + β_pars[3]*lC[tt-1] + τ_pars[3]*(tt-1);
-                 α_pars[4] + β_pars[4]*lc[tt-1] + τ_pars[4]*(tt-1);
-                 α_pars[5] + β_pars[5]*ld[tt-1] + τ_pars[5]*(tt-1);
-                 α_pars[6] + β_pars[6]*lσ[tt-1] + τ_pars[6]*(tt-1)]
+        # Calculate updated parameter means
+        #μ_B = α_pars[1] + β_pars[1]*lB[tt-1] + τ_pars[1]*(tt-1)
+        #μ_b = α_pars[2] + β_pars[2]*lb[tt-1] + τ_pars[2]*(tt-1)
+        #μ_C = α_pars[3] + β_pars[3]*lC[tt-1] + τ_pars[3]*(tt-1)
+        #μ_c = α_pars[4] + β_pars[4]*lc[tt-1] + τ_pars[4]*(tt-1)
+        #μ_d = α_pars[5] + β_pars[5]*ld[tt-1] + τ_pars[5]*(tt-1)
+        #μ_σ = α_pars[6] + β_pars[6]*lσ[tt-1] + τ_pars[6]*(tt-1)
+        μ_B = α_pars[1] + lB[tt-1]
+        μ_b = α_pars[2] + lb[tt-1]
+        μ_C = α_pars[3] + lC[tt-1]
+        μ_c = α_pars[4] + lc[tt-1]
+        μ_d = α_pars[5] + ld[tt-1]
+        μ_σ = α_pars[6] + lσ[tt-1]
+        # Updated variance parameters for the mortality curve
+        var_B = max(σ_par[1], 1e-8)
+        var_b = max(σ_par[2], 1e-8)
+        var_C = max(σ_par[3], 1e-8)
+        var_c = max(σ_par[4], 1e-8)
+        var_d = max(σ_par[5], 1e-8)
+        var_σ = max(σ_par[6], 1e-8)
         # Update parameters
-        pars[:,tt] ~ MvNormal(μ_par, Σ_ϵ)
-        lB[tt] = pars[1,tt]
-        lb[tt] = pars[2,tt]
-        lC[tt] = pars[3,tt]
-        lc[tt] = pars[4,tt]
-        ld[tt] = pars[5,tt]
-        lσ[tt] = pars[6,tt]
+        lB[tt] ~ Normal(μ_B, var_B)
+        lb[tt] ~ Normal(μ_b, var_b)
+        lC[tt] ~ Normal(μ_C, var_C)
+        lc[tt] ~ Normal(μ_c, var_c)
+        ld[tt] ~ Normal(μ_d, var_d)
+        lσ[tt] ~ Normal(μ_σ, var_σ)
+
         # Find mean using the siler mortality function
         μs = exp.(-exp(lb[tt]).*(ages .+ exp(lB[tt]))) .+
             exp.(exp(lc[tt]).*(ages .- exp(lC[tt]))) .+ exp(ld[tt])
