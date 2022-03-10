@@ -204,21 +204,30 @@ print("Estimated MAP for "*code)
 print("Sampled posterior for "*code)
 # Plot some example posterior distributions
 display(chain_dyn)
-plot(chain_dyn[["pars[:,1][1]", "pars[:,1][2]", "pars[:,1][3]",
-        "pars[:,1][4]", "pars[:,1][5]", "pars[:,1][6]"]])
+plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]",
+    "lc[1]", "ld[1]", "lσ[1]"]])
 plot!(margin=8Plots.mm)
 savefig("results/"*code*"/"*code*"_first_period_posteriors.pdf")
-plot(chain_dyn[["σ_pars[1]", "σ_pars[2]", "σ_pars[3]", "σ_pars[4]", "σ_pars[5]", "σ_pars[6]"]])
+plot(chain_dyn[["σ_par[1]", "σ_par[2]", "σ_par[3]", "σ_par[4]", "σ_par[5]", "σ_par[6]"]])
+plot!(margin=8Plots.mm)
+savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
+plot(chain_dyn[["α_pars[1]", "α_pars[2]", "α_pars[3]", "α_pars[4]", "α_pars[5]", "α_pars[6]"]])
 plot!(margin=8Plots.mm)
 savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
 # Extract and plot results
 parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
-    σ_pars = true)
+    σ_pars = true, ext = true)
 p1 = plot_siler_params(parests_dyn)
 p_title = plot(title = "Dynamic Siler parameters "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("results/"*code*"/"*code*"_param_estimates.pdf")
+# Plot the time series parameters
+p2 = plot_ts_params(parests_dyn)
+p_title = plot(title = "Siler time series parameters "*string(code), grid = false, showaxis = false,
+    bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
+savefig("results/"*code*"/"*code*"_ts_params.pdf")
 
 plot_fit_year(parests_dyn, country_m_data[1], country_years[1], log_vals = false, col = 1)
 plot_fit_year!(parests_dyn, country_m_data[T], country_years[T], log_vals = false, col = 2)
@@ -228,9 +237,11 @@ savefig("results/"*code*"/"*code*"_model_fit.pdf")
 # Store and export results
 CSV.write("results/"*code*"/"*code*"_est_results.csv", parests_dyn)
 insertcols!(parests_dyn, 1, :code => repeat([Symbol(code)], nrow(parests_dyn)) )
+insertcols!(parests_dyn, 2, :name => repeat([name], nrow(parests_dyn)) )
 
 parests_all = vcat(parests_all, parests_dyn)
 sort!(parests_all, [:code])
 CSV.write("results/G7_country_siler_est_results.csv", parests_all)
+
 
 parests_dict[Symbol(code)] = parests_dyn
