@@ -4,6 +4,8 @@ rm(list=ls())
 require(ggplot2)
 require(ggpubr)
 require(stringr)
+require(plm)
+require(lfe)
 
 "
 Import data and results
@@ -20,7 +22,7 @@ other_parests_df$year[which(other_parests_df$year == 0)] <- NA
 all_parests_df <- rbind(parests_df, other_parests_df)
 
 # Include only countries that have a full sample
-full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 150)])
+full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 156)])
 full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
 
 
@@ -264,10 +266,109 @@ ggplot(full_parests_df[which(!str_detect(full_parests_df$parameter, "_")),]) + t
   xlab("Year") + ylab("") + line_colors
 ggsave("figures/full_sample/siler_log_estimates.pdf", width = 8, height = 5)
 
+"
+Some panel regressions
+"
+# Convert to date and factor to facilitate panel analysis
+full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
+full_parests_df <- full_parests_df[which(!is.na(full_parests_df$year)),]
+full_parests_df$year <- as.Date(paste0(full_parests_df$year, "-01-01"))
+full_parests_df$time <- as.numeric(as.factor(full_parests_df$year))
+full_parests_df$code <- as.factor(full_parests_df$code)
+
+# Get separate df for each parameter
+full_B_df <- pdata.frame(full_parests_df[which(full_parests_df$parameter == "B"),], index = c("code", "year"))
+full_B_df$lB <- log(full_B_df$median)
+full_B_df$lB_1diff <- full_B_df$lB - plm::lag(full_B_df$lB)
+
+full_b_df <- pdata.frame(full_parests_df[which(full_parests_df$parameter == "b"),], index = c("code", "year"))
+full_b_df$lb <- log(full_b_df$median)
+full_b_df$lb_1diff <- full_b_df$lb - plm::lag(full_b_df$lb)
+
+full_C_df <- pdata.frame(full_parests_df[which(full_parests_df$parameter == "C"),], index = c("code", "year"))
+full_C_df$lC <- log(full_C_df$median)
+full_C_df$lC_1diff <- full_C_df$lC - plm::lag(full_C_df$lC)
+
+full_c_df <- pdata.frame(full_parests_df[which(full_parests_df$parameter == "c"),], index = c("code", "year"))
+full_c_df$lc <- log(full_c_df$median)
+full_c_df$lc_1diff <- full_c_df$lc - plm::lag(full_c_df$lc)
+
+full_d_df <- pdata.frame(full_parests_df[which(full_parests_df$parameter == "d"),], index = c("code", "year"))
+full_d_df$ld <- log(full_d_df$median)
+full_d_df$ld_1diff <- full_d_df$ld - plm::lag(full_d_df$ld)
+
+# Regs for B
+model1 <- felm(lB ~ plm::lag(lB, 1) | code, data = full_B_df)
+summary(model1)
+model2 <- felm(lB ~ plm::lag(lB, 1) + time | code, data = full_B_df)
+summary(model2)
+model3 <- felm(lB_1diff ~ plm::lag(lB_1diff, 1) | code, data = full_B_df)
+summary(model3)
+model4 <- felm(lB_1diff ~ time + plm::lag(lB_1diff, 1) | code, data = full_B_df)
+summary(model4)
+model5 <- felm(lB_1diff ~  plm::lag(lB_1diff, 1) + plm::lag(lB_1diff, 2) | code, data = full_B_df)
+summary(model5)
+stargazer(model1,model2,model3, model4, model5, table.placement = "H", df = FALSE,
+          title = "Panel model for B", font.size = "small")
+
+# Regs for b
+model1 <- felm(lb ~ plm::lag(lb, 1) | code, data = full_b_df)
+summary(model1)
+model2 <- felm(lb ~ plm::lag(lb, 1) + time| code, data = full_b_df)
+summary(model2)
+model3 <- felm(lb_1diff ~ plm::lag(lb_1diff, 1) | code, data = full_b_df)
+summary(model3)
+model4 <- felm(lb_1diff ~ time + plm::lag(lb_1diff, 1) | code, data = full_b_df)
+summary(model4)
+model5 <- felm(lb_1diff ~  plm::lag(lb_1diff, 1) + plm::lag(lb_1diff, 2) | code, data = full_b_df)
+summary(model5)
+stargazer(model1,model2,model3, model4, model5, table.placement = "H", df = FALSE,
+          title = "Panel model for b", font.size = "small")
+
+
+# Regs for C
+model1 <- felm(lC ~ plm::lag(lC, 1) | code, data = full_C_df)
+summary(model1)
+model2 <- felm(lC ~ plm::lag(lC, 1) + time| code, data = full_C_df)
+summary(model2)
+model3 <- felm(lC_1diff ~ plm::lag(lC_1diff, 1) | code, data = full_C_df)
+summary(model3)
+model4 <- felm(lC_1diff ~ time + plm::lag(lC_1diff, 1) | code, data = full_C_df)
+summary(model4)
+model5 <- felm(lC_1diff ~  plm::lag(lC_1diff, 1) + plm::lag(lC_1diff, 2) | code, data = full_C_df)
+summary(model5)
+stargazer(model1,model2,model3, model4, model5, table.placement = "H", df = FALSE,
+          title = "Panel model for C", font.size = "small")
 
 
 
+# Regs for c
+model1 <- felm(lc ~ plm::lag(lc, 1) | code, data = full_c_df)
+summary(model1)
+model2 <- felm(lc ~ plm::lag(lc, 1) + time| code, data = full_c_df)
+summary(model2)
+model3 <- felm(lc_1diff ~ plm::lag(lc_1diff, 1) | code, data = full_c_df)
+summary(model3)
+model4 <- felm(lc_1diff ~ time + plm::lag(lc_1diff, 1) | code, data = full_c_df)
+summary(model4)
+model5 <- felm(lc_1diff ~  plm::lag(lc_1diff, 1) + plm::lag(lc_1diff, 2) | code, data = full_c_df)
+summary(model5)
+stargazer(model1,model2,model3, model4, model5, table.placement = "H", df = FALSE,
+          title = "Panel model for c", font.size = "small")
 
+
+model1 <- felm(ld ~ plm::lag(ld, 1) | code, data = full_d_df)
+summary(model1)
+model2 <- felm(ld ~ plm::lag(ld, 1) + time| code, data = full_d_df)
+summary(model2)
+model3 <- felm(ld_1diff ~ plm::lag(ld_1diff, 1) | code, data = full_d_df)
+summary(model3)
+model4 <- felm(ld_1diff ~ time + plm::lag(ld_1diff, 1) | code, data = full_d_df)
+summary(model4)
+model5 <- felm(ld_1diff ~  plm::lag(ld_1diff, 1) + plm::lag(ld_1diff, 2) | code, data = full_d_df)
+summary(model5)
+stargazer(model1,model2,model3, model4, model5, table.placement = "H", df = FALSE,
+          title = "Panel model for d", font.size = "small")
 
 
 
@@ -361,96 +462,6 @@ ggsave("figures/cross_country/dispersion.pdf", width = 5, height = 3)
 
 
 
-
-
-
-
-
-"
-Plot some illustrative examples
-"
-# A function to generate a mortality curve from siler function parameters
-siler <- function(pars, ages){
-  mu = exp(- pars$b*(ages+pars$B)) + exp(pars$c*(ages-pars$C)) + pars$d
-  lmort = log(mu)
-  mort = exp(lmort)
-  
-  mort[which(mort > 1)] <- 1
-  return(mort)
-}
-
-siler_survival <- function(pars, ages){
-  lS = -pars$d*ages + (1/pars$b)*(exp(-pars$b*(ages + pars$B)) - exp(-pars$b*pars$B)) -
-    (1/pars$c)*(exp(pars$c*(ages - pars$C)) - exp(-pars$c*pars$C))
-  S = exp(lS)
- return(S) 
-}
-
-siler_LE <- function(pars, ages){
-  LE <- 1/(pars$d + (1/(pars$b^2))*exp(-pars$b*pars$B) + 
-             (1/(pars$c^2))*exp(-pars$c*pars$C))
-  
-}
-
-illus_df = data.frame(ages = seq(0,100, 0.1))
-
-# Define a baseline
-baseline_pars <-  data.frame(matrix(parests_df[which(parests_df$code == "ITA" &
-                   parests_df$year == 1903), c("median")], nrow = 1))
-names(baseline_pars) <- parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$year == 1903), c("parameter")]
-illus_df$baseline <- siler(baseline_pars, illus_df$ages)
-
-illus_df$baseline_S <- siler_survival(baseline_pars, illus_df$ages)
-
-# Change each parameter by 10% in turn
-for (par in names(baseline_pars)){
-  temp_pars <- baseline_pars
-  if (par %in% c("B", "b", "c")){
-    factor <- 1.5
-  } else{
-    factor <- 1.1
-  }
-  temp_pars[,par] <- temp_pars[,par]*factor
-  illus_df[,paste0("increase_", par)] = siler(temp_pars, illus_df$ages)
-  illus_df[,paste0("increase_", par, "_S")] = siler_survival(temp_pars, illus_df$ages)
-}
-
-
-
-
-illus_col_scheme <- c("Baseline"= "black", "Increase B" = "green", "Increase b" = "red",
-                      "Increase C" = "green", "Increase c" = "red")
-illus_line_colors <- scale_color_manual("Parameters", values = illus_col_scheme)
-
-infant_mort_plt <- ggplot(illus_df[which(illus_df$ages < 21),]) + theme_bw() + illus_line_colors +
-  geom_line(aes(x = ages, y = baseline, color = "Baseline")) + 
-  geom_line(aes(x = ages, y = increase_B, color = "Increase B"), linetype = "dashed") +
-  geom_line(aes(x = ages, y = increase_b, color = "Increase b"), linetype = "dashed") +
-  xlab("Age") + ylab("Mortality") + ggtitle("Infant mortality effects")
-infant_surv_plt <- ggplot(illus_df[which(illus_df$ages < 210),]) + theme_bw() + illus_line_colors +
-  geom_line(aes(x = ages, y = baseline_S, color = "Baseline")) + 
-  geom_line(aes(x = ages, y = increase_B_S, color = "Increase B"), linetype = "dashed") +
-  geom_line(aes(x = ages, y = increase_b_S, color = "Increase b"), linetype = "dashed") +
-  xlab("Age") + ylab("Survival") + ggtitle("Infant survival effects")
-
-
-elderly_mort_plt <- ggplot(illus_df[which(illus_df$ages > 20),]) + theme_bw() + illus_line_colors +
-  geom_line(aes(x = ages, y = baseline, color = "Baseline")) + 
-  geom_line(aes(x = ages, y = increase_C, color = "Increase C"), linetype = "dashed") +
-  geom_line(aes(x = ages, y = increase_c, color = "Increase c"), linetype = "dashed") +
-  xlab("Age") + ylab("Mortality") + ggtitle("Elderly mortality effects")
-elderly_surv_plt <- ggplot(illus_df[which(illus_df$ages > -20),]) + theme_bw() + illus_line_colors +
-  geom_line(aes(x = ages, y = baseline_S, color = "Baseline")) + 
-  geom_line(aes(x = ages, y = increase_C_S, color = "Increase C"), linetype = "dashed") +
-  geom_line(aes(x = ages, y = increase_c_S, color = "Increase c"), linetype = "dashed") +
-  xlab("Age") + ylab("Survival") + ggtitle("Elderly survival effects")
-
-
-ggarrange(infant_mort_plt, elderly_mort_plt, nrow = 1, ncol = 2, common.legend = FALSE)
-ggsave("figures/interpret/interpreting_siler_mort.pdf", width = 12, height = 3)
-ggarrange(infant_surv_plt, elderly_surv_plt, nrow = 1, ncol = 2, common.legend = FALSE)
-ggsave("figures/interpret/interpreting_siler_surv.pdf", width = 12, height = 3)
 
 
 

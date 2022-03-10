@@ -101,7 +101,7 @@ parests_all = DataFrame(code = Symbol[], name = String[], parameter = Symbol[], 
 parests_dict = Dict{Symbol, DataFrame}()
 
 
-for code in unique(G7_df.code)[2:10]
+for code in unique(G7_df.code)[11:36]
     print("Working on model for "*code)
     # Extract and convert relevant data into correct form
     country_df = G7_df[(G7_df.code .== code), :]
@@ -120,7 +120,11 @@ for code in unique(G7_df.code)[2:10]
     @assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
     @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
-
+    # Sample from prior as a sense check
+    chain_prior = sample(log_siler_dyn_ext(country_lm_data, country_ages), Prior(), 5000)
+    df_prior = DataFrame(chain_prior)
+    insert!.(eachcol(df_prior), 1, vcat([0,0],mean.(eachcol(df_prior[:,3:end]))))
+    prior_means = mean.(eachcol(df_prior[:,3:end-1]))
 
     # MAP estimate to initialise MCMC
     @time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
@@ -132,14 +136,14 @@ for code in unique(G7_df.code)[2:10]
     print("Sampled posterior for "*code)
     # Plot some example posterior distributions
     display(chain_dyn)
-    plot(chain_dyn[["pars[:,1][1]", "pars[:,1][2]", "pars[:,1][3]",
-        "pars[:,1][4]", "pars[:,1][5]", "pars[:,1][6]"]])
+    plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]",
+        "lc[1]", "ld[1]", "lσ[1]"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_first_period_posteriors.pdf")
-    plot(chain_dyn[["α_pars[1]", "α_pars[2]", "α_pars[3]", "α_pars[4]", "α_pars[5]", "α_pars[6]"]])
-    plot(chain_dyn[["β_pars[1]", "β_pars[2]", "β_pars[3]", "β_pars[4]", "β_pars[5]", "β_pars[6]"]])
-    plot(chain_dyn[["τ_pars[1]", "τ_pars[2]", "τ_pars[3]", "τ_pars[4]", "τ_pars[5]", "τ_pars[6]"]])
     plot(chain_dyn[["σ_par[1]", "σ_par[2]", "σ_par[3]", "σ_par[4]", "σ_par[5]", "σ_par[6]"]])
+    plot!(margin=8Plots.mm)
+    savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
+    plot(chain_dyn[["α_pars[1]", "α_pars[2]", "α_pars[3]", "α_pars[4]", "α_pars[5]", "α_pars[6]"]])
     plot!(margin=8Plots.mm)
     savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
     # Extract and plot results
