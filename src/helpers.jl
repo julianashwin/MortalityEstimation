@@ -133,12 +133,12 @@ function extract_variables(chain_in, years; log_pars = false, σ_pars = true, ex
             α_pars_ests.year .= 0
             par_ests = vcat(par_ests, α_pars_ests)
             # Parameter time series AR(1) coefficient
-            #β_par_names = vcat([:iteration, :chain], Symbol.("β_pars[".*string.(1:6).*"]"))
-            #β_pars_ests = summarise_stats(df_indep[:,β_par_names], stats[in.(stats.parameters, [β_par_names]),:],
-            #    Int.(1:6), log_pars = false, parname = :β_par)
-            #β_pars_ests.parameter = [:β_B, :β_b, :β_C, :β_c, :β_d, :β_σ]
-            #β_pars_ests.year .= 0
-            #par_ests = vcat(par_ests, β_pars_ests)
+            β_par_names = vcat([:iteration, :chain], Symbol.("β_pars[".*string.(1:6).*"]"))
+            β_pars_ests = summarise_stats(df_indep[:,β_par_names], stats[in.(stats.parameters, [β_par_names]),:],
+                Int.(1:6), log_pars = false, parname = :β_par)
+            β_pars_ests.parameter = [:β_B, :β_b, :β_C, :β_c, :β_d, :β_σ]
+            β_pars_ests.year .= 0
+            par_ests = vcat(par_ests, β_pars_ests)
             # Parameter time series linear trend
             #τ_par_names = vcat([:iteration, :chain], Symbol.("τ_pars[".*string.(1:6).*"]"))
             #τ_pars_ests = summarise_stats(df_indep[:,τ_par_names], stats[in.(stats.parameters, [τ_par_names]),:],
