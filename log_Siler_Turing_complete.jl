@@ -38,7 +38,7 @@ plot(bp_df.age, bp_df.mx, group = bp_df.year, legend = :top)
 
 # Restrict to select post 1900 for now
 select_countries = ["Belgium", "Denmark", "France", "Netherlands", "Sweden", "Finland",
-    "Italy", "Norway", "Switzerland", "United Kingdom", "Japan",
+    "Italy", "Norway", "Switzerland", "England and Wales", "Japan", "New Zealand (non-Maori)",
     "United States of America"]
 select_df = mort_df[in.(mort_df.name, [select_countries]),:]
 
@@ -47,7 +47,8 @@ select_df = mort_df[in.(mort_df.name, [select_countries]),:]
 Preliminary checks and illustrative estimation of first and last period
 """
 ## Data prep for single coujntry
-country_df = select_df[(select_df.code .== "NLD"), :]
+code = "SWE"
+country_df = mort_df[(mort_df.code .== code), :]
 # Check data looks sensible
 plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
 # Convert this into a matrix of mortality rates over time, age and year vectors
@@ -61,10 +62,20 @@ T = length(country_lm_data)
 @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
 
+@time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
+    Optim.Options(iterations=60_000, allow_f_increases=true))
+print("Estimated MAP for "*code)
+# Estimate by MCMC
+@time chain_dyn = sample(log_siler_dyn_ext(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+    1000, nthreads, init_params = map_dyn.values.array)
+parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
+    σ_pars = true, ext = true, firstdiff = false)
+p1 = plot_siler_params(parests_dyn)
+
 map_static_1 = optimize(siler_static(country_m_data[1], country_ages), MAP(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
 @time chain_1 = sample(siler_static(country_m_data[1], country_ages), NUTS(0.65), MCMCThreads(),
-    2000, 4, init_params = map_static_1.values.array)
+    1000, 4, init_params = map_static_1.values.array)
 display(chain_1)
 plot(chain_1)
 
@@ -207,11 +218,11 @@ T = length(country_lm_data)
 @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
 # MAP estimate to initialise MCMC
-@time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
+@time map_dyn = optimize(log_siler_dyn_firstdiff(country_lm_data, country_ages), MAP(), LBFGS(),
     Optim.Options(iterations=50_000, allow_f_increases=true))
 print("Estimated MAP for "*code)
 # Estimate by MCMC
-@time chain_dyn = sample(log_siler_dyn_ext(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+@time chain_dyn = sample(log_siler_dyn_firstdiff(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
     niters, nthreads, init_params = map_dyn.values.array)
 print("Sampled posterior for "*code)
 # Plot some example posterior distributions
@@ -219,41 +230,45 @@ display(chain_dyn)
 plot(chain_dyn[["lB[1]", "lb[1]", "lC[1]",
     "lc[1]", "ld[1]", "lσ[1]"]])
 plot!(margin=8Plots.mm)
-savefig("results/"*code*"/"*code*"_first_period_posteriors.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_first_period_posteriors.pdf")
 plot(chain_dyn[["σ_par[1]", "σ_par[2]", "σ_par[3]", "σ_par[4]", "σ_par[5]", "σ_par[6]"]])
 plot!(margin=8Plots.mm)
-savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_rw_variance_posteriors.pdf")
 plot(chain_dyn[["α_pars[1]", "α_pars[2]", "α_pars[3]", "α_pars[4]", "α_pars[5]", "α_pars[6]"]])
 plot!(margin=8Plots.mm)
-savefig("results/"*code*"/"*code*"_rw_variance_posteriors.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_rw_drift_posteriors.pdf")
+plot(chain_dyn[["β_pars[1]", "β_pars[2]", "β_pars[3]", "β_pars[4]", "β_pars[5]", "β_pars[6]"]])
+plot!(margin=8Plots.mm)
+savefig("results_firstdiff/"*code*"/"*code*"_rw_firstdiff_posteriors.pdf")
+
 # Extract and plot results
 parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
     σ_pars = true, ext = true)
 p1 = plot_siler_params(parests_dyn)
-p_title = plot(title = "Dynamic Siler parameters "*string(code), grid = false, showaxis = false,
+p_title = plot(title = "Dynamic (first diff) Siler parameters "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("results/"*code*"/"*code*"_param_estimates.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_param_estimates.pdf")
 # Plot the time series parameters
 p2 = plot_ts_params(parests_dyn)
-p_title = plot(title = "Siler time series parameters "*string(code), grid = false, showaxis = false,
+p_title = plot(title = "Siler time series (first diff) parameters "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
-savefig("results/"*code*"/"*code*"_ts_params.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_ts_params.pdf")
 
 plot_fit_year(parests_dyn, country_m_data[1], country_years[1], log_vals = false, col = 1)
 plot_fit_year!(parests_dyn, country_m_data[T], country_years[T], log_vals = false, col = 2)
 plot!(title = "Siler model fit "*string(code))
-savefig("results/"*code*"/"*code*"_model_fit.pdf")
+savefig("results_firstdiff/"*code*"/"*code*"_model_fit.pdf")
 
 # Store and export results
-CSV.write("results/"*code*"/"*code*"_est_results.csv", parests_dyn)
+CSV.write("results_firstdiff/"*code*"/"*code*"_est_results.csv", parests_dyn)
 insertcols!(parests_dyn, 1, :code => repeat([Symbol(code)], nrow(parests_dyn)) )
 insertcols!(parests_dyn, 2, :name => repeat([name], nrow(parests_dyn)) )
 
 parests_all = vcat(parests_all, parests_dyn)
 sort!(parests_all, [:code])
-CSV.write("results/select_country_siler_est_results.csv", parests_all)
+CSV.write("results_firstdiff/select_country_siler_est_results.csv", parests_all)
 
 
 parests_dict[Symbol(code)] = parests_dyn

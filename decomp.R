@@ -6,6 +6,7 @@ require(ggpubr)
 require(stringr)
 require(tidyr)
 require(reshape)
+require(reshape2)
 require(plm)
 require(lfe)
 require(stargazer)
@@ -35,18 +36,18 @@ par_fills <- scale_fill_manual("Parameter", values = par_cols)
 Import data and results
 "
 # Import parameter estimates
-parests_df <- read.csv("results_justrw/G7_country_siler_est_results.csv", stringsAsFactors = FALSE)
-other_parests_df <- read.csv("results_justrw/other_country_siler_est_results.csv", stringsAsFactors = FALSE)
+parests_df <- read.csv("results_firstdiff/select_country_siler_est_results.csv", stringsAsFactors = FALSE)
+#other_parests_df <- read.csv("results_justrw/other_country_siler_est_results.csv", stringsAsFactors = FALSE)
 # Shorten USA to United States
 parests_df$name[which(parests_df$code == "USA")] <- "United States"
 # year = 0 means year should be NA
 parests_df$year[which(parests_df$year == 0)] <- NA
-other_parests_df$year[which(other_parests_df$year == 0)] <- NA
+#other_parests_df$year[which(other_parests_df$year == 0)] <- NA
 # Combine
-all_parests_df <- rbind(parests_df, other_parests_df)
+all_parests_df <- rbind(parests_df)#, other_parests_df)
 
 # Include only countries that have a full sample (plus UK, US and Japan)
-full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 150)])
+full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 162)])
 full_codes <- c(full_codes, "GBR", "USA", "JPN")
 full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
 
@@ -179,6 +180,8 @@ decomp_df <- merge(decomp_df, mort_df[which(mort_df$age == 0), c("code", "year",
 # Get the model-based LE, H and derivatives
 decomp_df[,c("LE_mod", "H_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
              "H_b", "H_B", "H_c", "H_C", "H_d")] <- NA
+eval_age <- 65
+
 for (code in unique(decomp_df$code)){
   print(code)
   country_par_df <- all_parests_df[which(all_parests_df$code == code),]
@@ -189,28 +192,29 @@ for (code in unique(decomp_df$code)){
     results_obs <- which(decomp_df$code == code & decomp_df$year == year)
     pars <- decomp_df[results_obs,c("b", "B", "c", "C", "d", "σ")]
     # Model implied S, LE and H
-    S_mod <- siler_survival(pars, 0:200)
-    LE_mod <- siler_LE(pars, 0)
-    H_mod <- siler_ineq(pars, 0)
+    S_eval <- siler_survival(pars, eval_age)
+    S_mod <- siler_survival(pars, eval_age:200)
+    LE_mod <- siler_LE(pars, eval_age)
+    H_mod <- siler_ineq(pars, eval_age)
     decomp_df$LE_mod[results_obs] <- LE_mod
     decomp_df$H_mod[results_obs] <- H_mod
     # LE derivatives
-    decomp_df$LE_b[results_obs] <- sum(siler_Sb(pars, 0:200))
-    decomp_df$LE_B[results_obs] <- sum(siler_SB(pars, 0:200))
-    decomp_df$LE_c[results_obs] <- sum(siler_Sc(pars, 0:200))
-    decomp_df$LE_C[results_obs] <- sum(siler_SC(pars, 0:200))
-    decomp_df$LE_d[results_obs] <- sum(siler_Sd(pars, 0:200))
+    decomp_df$LE_b[results_obs] <- sum(siler_Sb(pars, eval_age:200))
+    decomp_df$LE_B[results_obs] <- sum(siler_SB(pars, eval_age:200))
+    decomp_df$LE_c[results_obs] <- sum(siler_Sc(pars, eval_age:200))
+    decomp_df$LE_C[results_obs] <- sum(siler_SC(pars, eval_age:200))
+    decomp_df$LE_d[results_obs] <- sum(siler_Sd(pars, eval_age:200))
     # H derivatives
-    decomp_df$H_b[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sb(pars, 0:200)), 
-                                                   H_mod, siler_Sb(pars, 0:200), S_mod)
-    decomp_df$H_B[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_SB(pars, 0:200)), 
-                                                   H_mod, siler_SB(pars, 0:200), S_mod)
-    decomp_df$H_c[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sc(pars, 0:200)), 
-                                                   H_mod, siler_Sc(pars, 0:200), S_mod)
-    decomp_df$H_C[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_SC(pars, 0:200)), 
-                                                   H_mod, siler_SC(pars, 0:200), S_mod)
-    decomp_df$H_d[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sd(pars, 0:200)), 
-                                                   H_mod, siler_Sd(pars, 0:200), S_mod)
+    decomp_df$H_b[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sb(pars, eval_age:200)), 
+                                                   H_mod, siler_Sb(pars, eval_age:200), S_mod)
+    decomp_df$H_B[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_SB(pars, eval_age:200)), 
+                                                   H_mod, siler_SB(pars, eval_age:200), S_mod)
+    decomp_df$H_c[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sc(pars, eval_age:200)), 
+                                                   H_mod, siler_Sc(pars, eval_age:200), S_mod)
+    decomp_df$H_C[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_SC(pars, eval_age:200)), 
+                                                   H_mod, siler_SC(pars, eval_age:200), S_mod)
+    decomp_df$H_d[results_obs] <- siler_ineq_theta(LE_mod, sum(siler_Sd(pars, eval_age:200)), 
+                                                   H_mod, siler_Sd(pars, eval_age:200), S_mod)
   }
 }
 
@@ -259,10 +263,10 @@ for (name in unique(decomp_df$name)){
   LE_df$C <- LE_df$Delta_C*LE_df$LE_C
   LE_df$d <- LE_df$Delta_d*LE_df$LE_d
   LE_plot_df <- melt(LE_df[,c("year","Delta_LE_mod","b","B","c","C","d")], 
-                     id = c("year", "Delta_LE_mod"), variable_name = "parameter")
+                     id = c("year", "Delta_LE_mod"))
   # Plot LE decomposition
   LE_plt <- ggplot(LE_plot_df, aes(x = year)) + theme_bw() + par_fills + par_lines +
-    geom_bar(aes(y = value, fill = parameter), position="stack", stat="identity") +
+    geom_bar(aes(y = value, fill = variable), position="stack", stat="identity") +
     geom_line(aes(y = Delta_LE_mod), color = "black") +
     xlab("Year") + ylab("Change in LE at birth") + ggtitle(paste("LE Changes",name))
   # Get a lifespan inequality plotting dataframe
@@ -273,10 +277,10 @@ for (name in unique(decomp_df$name)){
   H_df$C <- H_df$Delta_C*H_df$H_C
   H_df$d <- H_df$Delta_d*H_df$H_d
   H_plot_df <- melt(H_df[,c("year","Delta_H_mod","b","B","c","C","d")], 
-                     id = c("year", "Delta_H_mod"), variable_name = "parameter")
+                     id = c("year", "Delta_H_mod"))
   # Plot LE decomposition
   H_plt <- ggplot(H_plot_df, aes(x = year)) + theme_bw() + par_fills + par_lines +
-    geom_bar(aes(y = value, fill = parameter), position="stack", stat="identity") +
+    geom_bar(aes(y = value, fill = variable), position="stack", stat="identity") +
     geom_line(aes(y = Delta_H_mod), color = "black") +
     xlab("Year") + ylab("Change in H at birth") + ggtitle(paste("H Changes",name))
   # Combine plots
@@ -312,7 +316,7 @@ summary(modelb)
 modelB <- felm(Delta_B ~ plm::lag(B, 1) + plm::lag(B_bp,1) + Delta_B_bp  | code, data = panel_df)
 summary(modelB)
 
-modelc <- felm(Delta_c ~ period*plm::lag(c, 1) + period*plm::lag(c_bp,1) + period*Delta_c_bp  | code, data = panel_df)
+modelc <- felm(Delta_c ~ plm::lag(c, 1) + plm::lag(c_bp,1) + Delta_c_bp  | code, data = panel_df)
 summary(modelc)
 
 modelC <- felm(Delta_C ~ plm::lag(C, 1) + plm::lag(C_bp,1) + Delta_C_bp  | code, data = panel_df)

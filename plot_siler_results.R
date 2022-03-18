@@ -46,13 +46,7 @@ fill_colors <- scale_fill_manual("Country", values = col_scheme)
 "
 Plot the Rhat convergence statistics for the whole dataset
 "
-# All
-ggplot(all_parests_df) + theme_bw() +
-  geom_density(aes(x = rhat, color = name)) + 
-  #line_colors + fill_colors + guides(fill=FALSE) +
-  ylab("Density") + xlab(expression(hat(R)))
-ggsave("figures/all_HMD/rhat_convergence.pdf", width = 8, height = 4)
-# Countries that cover the full sample period
+# Selected countries that cover the full sample period
 ggplot(full_parests_df) + theme_bw() +
   geom_density(aes(x = rhat, color = name)) + 
   line_colors + fill_colors + guides(fill=FALSE) +
@@ -328,6 +322,8 @@ ggsave("figures/all_HMD/elderly_compare.pdf", width = 12, height = 4)
 ggarrange(d_plt, sigma_plt, nrow = 1, ncol = 2, common.legend = TRUE, legend = "right")
 ggsave("figures/all_HMD/base_compare.pdf", width = 12, height = 4)
 
+
+# Plot the estimates time series parameters
 
 
 
