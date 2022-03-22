@@ -17,20 +17,6 @@ quad_form_diag(M, v) = Symmetric((v .* v') .* (M .+ M') ./ 2)
 
 
 """
-Basic Siler function to plot from paramters
-"""
-function siler(B,b,C,c,d, ages)
-
-    μ = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages.- C)) .+ d
-    lmort = log.(μ)
-    mort = exp.(lmort)
-
-    return mort
-end
-
-
-
-"""
 Function to extract summary statistics from time series variables
 """
 function summarise_stats(df_post, stats_post, years; log_pars = false, parname = :unknown)
@@ -148,7 +134,7 @@ function extract_variables(chain_in, years; log_pars = false, σ_pars = true, ex
             #τ_pars_ests.year .= 0
             #par_ests = vcat(par_ests, τ_pars_ests)
         elseif ext
-            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_par[".*string.(1:6).*"]"))
+            σ_par_names = vcat([:iteration, :chain], Symbol.("σ_pars[".*string.(1:6).*"]"))
             σ_pars_ests = summarise_stats(df_indep[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
                 Int.(1:6), log_pars = false, parname = :σ_par)
             σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]

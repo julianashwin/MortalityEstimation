@@ -11,6 +11,9 @@ require(plm)
 require(lfe)
 require(stargazer)
 
+source("src/siler_fns.R")
+
+
 "
 Define some useful color schemes
 "
@@ -85,87 +88,6 @@ bp_df <- mort_df[which(mort_df$best_practice == 1),]
 bp_df$code <- "BestPractice"
 bp_df$name <- "Best Practice"
 mort_df <- rbind(mort_df, bp_df)
-
-"
-Define mortality and survival functions
-"
-# A function to generate a mortality curve from siler function parameters
-siler <- function(pars, ages){
-  mu = exp(- pars$b*(ages+pars$B)) + exp(pars$c*(ages-pars$C)) + pars$d
-  lmort = log(mu)
-  mort = exp(lmort)
-  
-  mort[which(mort > 1)] <- 1
-  return(mort)
-}
-
-siler_survival <- function(pars, ages){
-  lS = -pars$d*ages + (1/pars$b)*(exp(-pars$b*(ages + pars$B)) - exp(-pars$b*pars$B)) -
-    (1/pars$c)*(exp(pars$c*(ages - pars$C)) - exp(-pars$c*pars$C))
-  S = exp(lS)
-  return(S) 
-}
-
-# Functions for Siler derivatives
-siler_SB <- function(pars, ages){
-  S_B <- (exp(-pars$b*pars$B) - exp(-pars$b*(ages + pars$B)))*siler_survival(pars, ages)
-  return(S_B) 
-}
-siler_Sb <- function(pars, ages){
-  S_b <- (1/pars$b)*(pars$B*exp(-pars$b*pars$B) - 
-                     (ages + pars$B)*exp(-pars$b*(ages + pars$B)))*siler_survival(pars, ages)
-  return(S_b) 
-}
-siler_SC <- function(pars, ages){
-  S_C <- (exp(pars$c*(ages - pars$C)) - exp(-pars$c*pars$C))*siler_survival(pars, ages)
-  return(S_C) 
-}
-siler_Sc <- function(pars, ages){
-  S_c <- (1/pars$c)*(pars$C*exp(-pars$c*pars$C) - 
-                       (ages - pars$C)*exp(pars$c*(ages - pars$C)))*siler_survival(pars, ages)
-  return(S_c) 
-}
-siler_Sd <- function(pars, ages){
-  S_d <- - ages*siler_survival(pars, ages)
-  return(S_d) 
-}
-
-
-# Function for life expectancy
-siler_LE <- function(pars, ages){
-  #LE <-  siler_survival(pars, ages)/ 
-  #  (pars$d + exp(-pars$b*(ages+pars$B)) + exp(pars$c*(ages-pars$C)))
-  LE <- as.vector(rep(NA, length(ages)))
-  for (ii in 1:length(ages)){
-    #integrand <- function(x) {siler_survival(pars, x)}
-    #LE[ii] <- integrate(integrand, lower = ages[ii], upper = Inf)$value
-    LE[ii] <- sum(siler_survival(pars, ages[ii]:200))
-    LE[ii] <- LE[ii]/siler_survival(pars, ages[ii])
-  }
-  return(LE)
-}
-
-# Function for lifespan inequality
-siler_ineq <- function(pars, ages){
-  #LE <-  siler_survival(pars, ages)/ 
-  #  (pars$d + exp(-pars$b*(ages+pars$B)) + exp(pars$c*(ages-pars$C)))
-  H <- as.vector(rep(NA, length(ages)))
-  for (ii in 1:length(ages)){
-    LE <- siler_LE(pars, ages[ii]) 
-    S <- siler_survival(pars, ages[ii]:200)
-    S <- S[S>0]
-    H[ii] <- -sum(S*log(S))/LE
-  }
-  return(H)
-}
-
-siler_ineq_theta <- function(LE, LE_theta, H, S_theta, S){
-  temp <- S_theta*log(S) 
-  temp <- temp[!is.na(temp)]
-  H_theta <- -(1/LE)*(LE_theta*(1+H) + sum(temp))
-  return(H_theta)
-} 
-
 
 
 
@@ -290,6 +212,38 @@ for (name in unique(decomp_df$name)){
 
 # Save dataframe
 write.csv(decomp_df, "data/clean/param_decomp.csv", row.names = FALSE)
+
+
+
+
+
+"
+Some alternative specifications
+"
+
+standardise <- function(x){
+  x <- (x - mean(x, na.rm = TRUE))/sd(x, na.rm = TRUE)
+  return(x)
+}
+
+
+
+plot_df <- decomp_df[which(decomp_df$code == "SWE"),]
+plot_df$c_new <- plot_df$c
+plot_df$C_new <- plot_df$C*plot_df$c
+ggplot(plot_df, aes(x = year)) + 
+  geom_line(aes(y = c_new))
+ggplot(plot_df, aes(x = year)) + theme_bw() + 
+  geom_line(aes(y = standardise(C), color = "C")) + 
+  geom_line(aes(y = standardise(C_new), color = "C_new")) + 
+  geom_line(aes(y = standardise(c), color = "c")) + 
+  geom_line(aes(y = standardise(c_new), color = "c_new"))
+
+
+
+
+
+
 
 "
 Estimate some regressions

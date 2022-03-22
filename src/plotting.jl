@@ -1,3 +1,63 @@
+"""
+Plot μ, S, LE and H given siler parameters
+"""
+function base_plt(illus_df, param; yscale = (0.,0.))
+    plt = plot(legend = :top, size = (600,400), right_margin=12Plots.mm, left_margin = 8Plots.mm,
+        xlabel = "Age", ylabel = "Rate", ylims = (0.0, 1.05), xlims = (-2,maximum(illus_df.age)))
+    plt = plot!(illus_df.age, illus_df.μ_base, label = "Mortality", color = 1)
+    plt = plot!(illus_df.age, illus_df.S_base, label = "Survival", color = 2)
+    plt = plot!(illus_df.age, illus_df.H_base, label = "Inequality", color = 3)
+    plt = plot!([0.0], [0.0], label = "LE", color = 4, legend = :top)
+    if yscale == (0.,0.)
+        plt = plot!(twinx(), illus_df.LE_base, label = "", color = 4, legend = :top,
+        ylabel = "Remaining LE", xlims = (-2,maximum(illus_df.age)))
+    else
+        plt = plot!(twinx(), illus_df.LE_base, label = "", color = 4, legend = :top,
+        ylabel = "Remaining LE", xlims = (-2,maximum(illus_df.age)), ylims = yscale)
+    end
+
+    return plt
+end
+
+
+"""
+Plot changes to μ, S, LE and H driven by θ
+"""
+function param_change_plt(illus_df, param, θ; spec = :Colchero, LE_change = 10)
+    LE_base = LE(param, 0.0, spec = spec)
+    LE_new = LE_base + LE_change
+
+    θ_new = find_zero(function(x) temp_param=deepcopy(param);
+        setfield!(temp_param, θ, max(x, 1e-16));
+        LE_new - LE(temp_param, 0.0, spec = spec) end,
+        getfield(param, θ))
+        param_new = deepcopy(param)
+        setfield!(param_new, θ, θ_new)
+
+    illus_df[:,Symbol("μ_"*string(θ)*"change")] = siler.([param_new], illus_df.age, spec = spec)
+    illus_df[:,Symbol("S_"*string(θ)*"change")] = siler_S.([param_new], [0.0], illus_df.age, spec = spec)
+    illus_df[:,Symbol("LE_"*string(θ)*"change")] = LE.([param_new], illus_df.age, spec = spec)
+    illus_df[:,Symbol("H_"*string(θ)*"change")] = H.([param_new], illus_df.age, spec = spec)
+    LE_max = maximum(illus_df[:,Symbol("LE_"*string(θ)*"change")]) + 2.5
+
+    p1 = base_plt(illus_df, param, yscale = (0,LE_max))
+    p1 = plot!(illus_df.age, illus_df[:,Symbol("μ_"*string(θ)*"change")], label = "",
+        color = 1, linestyle = :dash)
+    p1 = plot!(illus_df.age, illus_df[:,Symbol("S_"*string(θ)*"change")], label = "",
+        color = 2, linestyle = :dash)
+    p1 = plot!(illus_df.age, illus_df[:,Symbol("H_"*string(θ)*"change")], label = "",
+        color = 3, linestyle = :dash)
+    p1 = plot!(twinx(), illus_df[:,Symbol("LE_"*string(θ)*"change")], label = "",
+        color = 4, linestyle = :dash, xlims = (-2,maximum(illus_df.age)), ylims = (0,LE_max))
+
+    p1 = plot!(title = string(spec)*" change in "*string(θ)*" from "*
+        string(round(getfield(param, θ), digits = 3))*" to "*string(round(θ_new, digits = 3)) )
+
+    return illus_df, p1
+end
+
+
+
 
 """
 Function to plot the fit of model to (log) mortality data
@@ -78,33 +138,33 @@ function plot_siler_params(par_ests::DataFrame)
 
     plt = plot(layout = (2,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
-    B_ests = par_ests[par_ests.parameter .== :B,:]
-    plot!(B_ests.year, B_ests.median, title = L"B_{t}", label = false, color = 1, subplot = 1)
-    plot!(B_ests.year, B_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(B_ests.year, B_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(B_ests.year, B_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-    plot!(B_ests.year, B_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
-
     b_ests = par_ests[par_ests.parameter .== :b,:]
-    plot!(b_ests.year, b_ests.median, title = L"b_{t}", label = false, color = 1, subplot = 2)
-    plot!(b_ests.year, b_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(b_ests.year, b_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(b_ests.year, b_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-    plot!(b_ests.year, b_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
+    plot!(b_ests.year, b_ests.median, title = L"b_{t}", label = false, color = 1, subplot = 1)
+    plot!(b_ests.year, b_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year, b_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year, b_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year, b_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
 
-    C_ests = par_ests[par_ests.parameter .== :C,:]
-    plot!(C_ests.year, C_ests.median, title = L"C_{t}", label = false, color = 1, subplot = 4)
-    plot!(C_ests.year, C_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 4)
-    plot!(C_ests.year, C_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 4)
-    plot!(C_ests.year, C_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 4)
-    plot!(C_ests.year, C_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 4)
+    B_ests = par_ests[par_ests.parameter .== :B,:]
+    plot!(B_ests.year, B_ests.median, title = L"B_{t}", label = false, color = 1, subplot = 2)
+    plot!(B_ests.year, B_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year, B_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year, B_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year, B_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
 
     c_ests = par_ests[par_ests.parameter .== :c,:]
-    plot!(c_ests.year, c_ests.median, title = L"c_{t}", label = false, color = 1, subplot = 5)
-    plot!(c_ests.year, c_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 5)
-    plot!(c_ests.year, c_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 5)
-    plot!(c_ests.year, c_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 5)
-    plot!(c_ests.year, c_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 5)
+    plot!(c_ests.year, c_ests.median, title = L"c_{t}", label = false, color = 1, subplot = 4)
+    plot!(c_ests.year, c_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year, c_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year, c_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year, c_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 4)
+
+    C_ests = par_ests[par_ests.parameter .== :C,:]
+    plot!(C_ests.year, C_ests.median, title = L"C_{t}", label = false, color = 1, subplot = 5)
+    plot!(C_ests.year, C_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year, C_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year, C_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year, C_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 5)
 
     d_ests = par_ests[par_ests.parameter .== :d,:]
     plot!(d_ests.year, d_ests.median, title = L"d_{t}", label = false, color = 1, subplot = 3)
@@ -130,41 +190,128 @@ end
 """
 Plot the time series parameters for each Siler parameter
 """
-function plot_ts_params(par_ests::DataFrame)
+function plot_ts_params(par_ests::DataFrame, ext = false,
+        firstdiff = false)
 
-    plt = plot(layout = (1,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
+    if firstdiff
+        plt = plot(layout = (1,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
-    α_ests = par_ests[(occursin.("α_", string.(par_ests.parameter))),:]
-    scatter!(string.(α_ests.parameter), α_ests.median, title = "α", legend = false, color = 1, subplot = 1)
-    scatter!(string.(α_ests.parameter), α_ests.pc975, color = 1,markershape = :cross, subplot = 1)
-    scatter!(string.(α_ests.parameter), α_ests.pc025, color = 1,markershape = :cross, subplot = 1)
-    scatter!(string.(α_ests.parameter), α_ests.pc85, color = 1,markershape = :vline, subplot = 1)
-    scatter!(string.(α_ests.parameter), α_ests.pc15, color = 1,markershape = :vline, subplot = 1)
-    hline!([0], linestyle=:dot, color = :black, subplot = 1)
+        α_ests = par_ests[(occursin.("α_", string.(par_ests.parameter))),:]
+        scatter!(string.(α_ests.parameter), α_ests.median, title = "α", legend = false, color = 1, subplot = 1)
+        scatter!(string.(α_ests.parameter), α_ests.pc975, color = 1,markershape = :cross, subplot = 1)
+        scatter!(string.(α_ests.parameter), α_ests.pc025, color = 1,markershape = :cross, subplot = 1)
+        scatter!(string.(α_ests.parameter), α_ests.pc85, color = 1,markershape = :vline, subplot = 1)
+        scatter!(string.(α_ests.parameter), α_ests.pc15, color = 1,markershape = :vline, subplot = 1)
+        hline!([0], linestyle=:dot, color = :black, subplot = 1)
 
-    β_ests = par_ests[(occursin.("β_", string.(par_ests.parameter))),:]
-    scatter!(string.(β_ests.parameter), β_ests.median, title = "β", legend = false, color = 1, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc975, color = 1,markershape = :cross, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc025, color = 1,markershape = :cross, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc85, color = 1,markershape = :vline, subplot = 2)
-    scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
-    hline!([0], linestyle=:dot, color = :black, subplot = 2)
+        β_ests = par_ests[(occursin.("β_", string.(par_ests.parameter))),:]
+        scatter!(string.(β_ests.parameter), β_ests.median, title = "β", legend = false, color = 1, subplot = 2)
+        scatter!(string.(β_ests.parameter), β_ests.pc975, color = 1,markershape = :cross, subplot = 2)
+        scatter!(string.(β_ests.parameter), β_ests.pc025, color = 1,markershape = :cross, subplot = 2)
+        scatter!(string.(β_ests.parameter), β_ests.pc85, color = 1,markershape = :vline, subplot = 2)
+        scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
+        hline!([0], linestyle=:dot, color = :black, subplot = 2)
 
-    #τ_ests = par_ests[(occursin.("τ_", string.(par_ests.parameter))),:]
-    #scatter!(string.(τ_ests.parameter), τ_ests.median, title = "τ", legend = false, color = 1, subplot = 3)
-    #scatter!(string.(τ_ests.parameter), τ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
-    #scatter!(string.(τ_ests.parameter), τ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
-    #scatter!(string.(τ_ests.parameter), τ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
-    #scatter!(string.(τ_ests.parameter), τ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
-    #hline!([0], linestyle=:dot, color = :black, subplot = 3)
+        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter))),:]
+        scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
+        hline!([0], linestyle=:dot, color = :black, subplot = 3)
+    elseif ext
 
-    σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter))),:]
-    scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 3)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
-    scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
-    hline!([0], linestyle=:dot, color = :black, subplot = 3)
+
+
+        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter)) .&
+            .!occursin.("σ_α", string.(par_ests.parameter))),:]
+        p_σ = scatter(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1)
+        p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross)
+        p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
+        p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
+        p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        ασ_ests = par_ests[(occursin.("σ_α", string.(par_ests.parameter))),:]
+        p_ασ = scatter(string.(ασ_ests.parameter), ασ_ests.median, title = "σ_α", legend = false, color = 1)
+        p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc975, color = 1,markershape = :cross)
+        p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc025, color = 1,markershape = :cross)
+        p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc85, color = 1,markershape = :vline)
+        p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc15, color = 1,markershape = :vline)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+
+        b_ests = par_ests[par_ests.parameter .== :α_b,:]
+        b_plt = plot(b_ests.year, b_ests.median, label = "α_b", color = 1, xticks = false)
+        plot!(b_ests.year, b_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(b_ests.year, b_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(b_ests.year, b_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(b_ests.year, b_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        B_ests = par_ests[par_ests.parameter .== :α_B,:]
+        B_plt = plot(B_ests.year, B_ests.median, label = "α_B", color = 1, xticks = false)
+        plot!(B_ests.year, B_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(B_ests.year, B_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(B_ests.year, B_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(B_ests.year, B_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        c_ests = par_ests[par_ests.parameter .== :α_c,:]
+        c_plt = plot(c_ests.year, c_ests.median, label = "α_c", color = 1, xticks = false)
+        plot!(c_ests.year, c_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(c_ests.year, c_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(c_ests.year, c_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(c_ests.year, c_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        C_ests = par_ests[par_ests.parameter .== :α_C,:]
+        C_plt = plot(C_ests.year, C_ests.median, label = "α_C", color = 1, xticks = false)
+        plot!(C_ests.year, C_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(C_ests.year, C_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(C_ests.year, C_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(C_ests.year, C_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        d_ests = par_ests[par_ests.parameter .== :α_d,:]
+        d_plt = plot(d_ests.year, d_ests.median, label = "α_d", color = 1, xticks = false)
+        plot!(d_ests.year, d_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(d_ests.year, d_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(d_ests.year, d_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(d_ests.year, d_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        σ_ests = par_ests[par_ests.parameter .== :α_σ,:]
+        σ_plt = plot(σ_ests.year, σ_ests.median, label = "α_σ", color = 1)
+        plot!(σ_ests.year, σ_ests.pc975, linestyle = :dot, label = false, color = 1)
+        plot!(σ_ests.year, σ_ests.pc025, linestyle = :dot, label = false, color = 1)
+        plot!(σ_ests.year, σ_ests.pc85, linestyle = :dash, label = false, color = 1)
+        plot!(σ_ests.year, σ_ests.pc15, linestyle = :dash, label = false, color = 1)
+        hline!([0], linestyle=:dashdot, color = :black, label = false)
+
+        α_plts = plot(B_plt, b_plt, C_plt, c_plt, d_plt, σ_plt, layout  = grid(6,1))
+        σ_plts = plot(p_σ, p_ασ, layout  = grid(2,1))
+        l = @layout [a{0.5w} b{0.5w}]
+
+        plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
+        
+        plot(p_σ, p_ασ, α_plts, layout  = l,
+            , margin = 40Plots.mm)
+
+    else
+        plt = plot(xrotation = 45.0, margin=3Plots.mm, size = (600,400))
+
+        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter)) .&
+            .!occursin.("σ_α", string.(par_ests.parameter))),:]
+        scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
+        hline!([0], linestyle=:dot, color = :black)
+
+    end
+
 
 
     return plt

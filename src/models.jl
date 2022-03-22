@@ -25,7 +25,7 @@ Static Siler model on non-logged data
     ld = log(d)
     lσ = log(σ)
     # Find mean using the siler mortality function
-    μs = exp.(- exp(lb).* ages .+ exp(lB)) .+ exp.(exp(lc) .* ages .- exp(lC)) .+ exp(ld)
+    μs = exp.(- (exp(lb).* ages .+ exp(lB))) .+ exp.(exp(lc) .* ages .- exp(lC)) .+ exp(ld)
     m_var = exp(σ)
     #m_vars[m_vars.<= 1e-10] .= 1e-10
     # Draw from normal dist
@@ -208,7 +208,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     ld = Vector(undef, T)
     lσ = Vector(undef, T)
     # Priors on variance terms for parameter time series
-    σ_par ~ filldist(InverseGamma(2, 0.05),6)
+    σ_pars ~ filldist(InverseGamma(2, 0.05),6)
     # Correlation matrix of shocks to parameter time series
     #ρ_block ~ LKJ(6, 4)
     # Prior on variance terms for parameter time series
@@ -229,7 +229,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         ld[tt] ~ Normal(log(0.025), 1.0)
         lσ[tt] ~ Normal(log(0.1), 1.0)
         # Find mean using the siler mortality function
-        μs = exp.(-exp(lb[tt]).*ages .+ exp(lB[tt])) .+
+        μs = exp.(-(exp(lb[tt]).*ages .+ exp(lB[tt]))) .+
             exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
         lm_vars = exp(lσ[tt]).*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
@@ -249,12 +249,12 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         μ_d = ld[tt-1] + α_pars[5] + β_pars[5]*(ld[tt-1] - ld[tt-2])
         μ_σ = lσ[tt-1] + α_pars[6] + β_pars[6]*(lσ[tt-1] - lσ[tt-2])
         # Updated variance parameters for the mortality curve
-        var_B = max(σ_par[1], 1e-8)
-        var_b = max(σ_par[2], 1e-8)
-        var_C = max(σ_par[3], 1e-8)
-        var_c = max(σ_par[4], 1e-8)
-        var_d = max(σ_par[5], 1e-8)
-        var_σ = max(σ_par[6], 1e-8)
+        var_B = max(σ_pars[1], 1e-8)
+        var_b = max(σ_pars[2], 1e-8)
+        var_C = max(σ_pars[3], 1e-8)
+        var_c = max(σ_pars[4], 1e-8)
+        var_d = max(σ_pars[5], 1e-8)
+        var_σ = max(σ_pars[6], 1e-8)
         # Update parameters
         lB[tt] ~ Normal(μ_B, var_B)
         lb[tt] ~ Normal(μ_b, var_b)
@@ -264,7 +264,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         lσ[tt] ~ Normal(μ_σ, var_σ)
 
         # Find mean using the siler mortality function
-        μs = exp.(-exp(lb[tt]).*ages .+ exp(lB[tt])) .+
+        μs = exp.(-(exp(lb[tt]).*ages .+ exp(lB[tt]))) .+
             exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
         lm_vars = exp(lσ[tt]).*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
@@ -303,7 +303,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     ld = Vector(undef, T)
     lσ = Vector(undef, T)
     # Priors on variance terms for parameter time series
-    σ_par ~ filldist(InverseGamma(2, 0.05),6)
+    σ_pars ~ filldist(InverseGamma(2, 0.05),6)
     # Correlation matrix of shocks to parameter time series
     # Priors on constant
     α_B = Vector(undef, T-1)
@@ -331,7 +331,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     ld[1] ~ Normal(log(0.025), 1.0)
     lσ[1] ~ Normal(log(0.1), 1.0)
     # Find mean using the siler mortality function
-    μs = exp.(-exp(lb[1]).*ages .+ exp(lB[1])) .+
+    μs = exp.(-(exp(lb[1]).*ages .+ exp(lB[1]))) .+
         exp.(exp(lc[1]).*ages .- exp(lC[1])) .+ exp(ld[1])
     lm_vars = exp(lσ[1]).*ones(N)
     lm_vars[lm_vars.<= 1e-10] .= 1e-10
@@ -365,12 +365,12 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         μ_d = α_d[tt-1] + ld[tt-1]
         μ_σ = α_σ[tt-1] + lσ[tt-1]
         # Updated variance parameters for the mortality curve
-        var_B = max(σ_par[1], 1e-8)
-        var_b = max(σ_par[2], 1e-8)
-        var_C = max(σ_par[3], 1e-8)
-        var_c = max(σ_par[4], 1e-8)
-        var_d = max(σ_par[5], 1e-8)
-        var_σ = max(σ_par[6], 1e-8)
+        var_B = max(σ_pars[1], 1e-8)
+        var_b = max(σ_pars[2], 1e-8)
+        var_C = max(σ_pars[3], 1e-8)
+        var_c = max(σ_pars[4], 1e-8)
+        var_d = max(σ_pars[5], 1e-8)
+        var_σ = max(σ_pars[6], 1e-8)
         # Update parameters
         lB[tt] ~ Normal(μ_B, var_B)
         lb[tt] ~ Normal(μ_b, var_b)
@@ -380,7 +380,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         lσ[tt] ~ Normal(μ_σ, var_σ)
 
         # Find mean using the siler mortality function
-        μs = exp.(-exp(lb[tt]).*ages .+ exp(lB[tt])) .+
+        μs = exp.(-(exp(lb[tt]).*ages .+ exp(lB[tt]))) .+
             exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
         lm_vars = exp(lσ[tt]).*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
