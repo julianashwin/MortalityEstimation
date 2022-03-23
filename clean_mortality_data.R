@@ -349,7 +349,7 @@ lifetab_5y_export <- merge(lifetab_5y_df, convert_df, by = "code", all.x = TRUE)
 
 lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age",
                                           "mx", "lx", "ex", "Total", 
-                                          "best_practice")]
+                                          "best_practice", "best_practice_alt")]
 
 write.csv(lifetab_5y_export, "data/clean/all_lifetab.csv", row.names = FALSE)
 

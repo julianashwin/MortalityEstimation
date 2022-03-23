@@ -22,7 +22,7 @@ using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra, Optim
 using TruncatedDistributions, PDMats
 using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
 
-include("helpers.jl")
+include("src/MortalityEstimation.jl")
 
 
 ## Import the mortality data
