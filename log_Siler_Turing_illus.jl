@@ -48,20 +48,6 @@ T = length(m_data)
 @assert length(m_data)==length(years) "number of years doesn't match length of m_data"
 @assert length(m_data[1])==length(ages) "number of ages doesn't match length of m_data[1]"
 
-function siler(B,b,C,c,d, ages)
-
-    μ = exp.(- b.* (ages .+ B)) .+ exp.(c .* (ages.- C)) .+ d
-    lmort = log.(μ)
-    mort = exp.(lmort)
-
-    return mort
-end
-
-
-plot(ages, siler(1.5, 1.7643, 113.0, 0.0652, 0.0003, ages))
-scatter!(ages, m_data[1], label = year_brackets[1])
-scatter!(ages, m_data[T], label = year_brackets[T])
-
 
 """
 Plot priors
@@ -73,7 +59,7 @@ plot!(LogNormal(log(10), 2.0), title = L"B_{1} \sim LogNormal(ln(10),2)",
     label = false, subplot = 1, xlims = (0,100))
 plot!(LogNormal(log(2), 1.0), xlim=(0,10), title = L"b_{1} \sim LogNormal(ln(2),2)",
     label = false, subplot = 2)
-plot!(LogNormal(log(120), 2.0), title = L"C_{1} \sim LogNormal(ln(120),2)",
+plot!(LogNormal(log(10), 2.0), title = L"C_{1} \sim LogNormal(ln(120),2)",
     label = false, subplot = 4, xlims = (0,200))
 plot!(LogNormal(log(0.1), 1.0), xlim=(0,1), title = L"c_{1} \sim LogNormal(ln(0.1),2)",
     label = false, subplot = 5)
