@@ -189,12 +189,32 @@ end
 
 """
 Plot the time series parameters for each Siler parameter
+    model_vers defines which dynamic model (indep, justrw, i2drift, firstdiff)
 """
-function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
+function plot_ts_params(par_ests::DataFrame; model_vers = :justrw)
 
-    if firstdiff
+    if model_vers == :justrw
+        plt = plot(xrotation = 45.0, margin=3Plots.mm, size = (600,400))
+        # Siler parameter rw variance
+        σ_ests = par_ests[occursin.("σ_", string.(par_ests.parameter)),:]
+        scatter!(string.(σ_ests.parameter), σ_ests.median, legend = false, color = 1)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
+        hline!([0], linestyle=:dot, color = :black)
+
+    elseif model_vers == :firstdiff
         plt = plot(layout = (1,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
-
+        # Siler parameter rw variance
+        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter))),:]
+        scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
+        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
+        hline!([0], linestyle=:dot, color = :black, subplot = 3)
+        # Drift  parameter
         α_ests = par_ests[(occursin.("α_", string.(par_ests.parameter))),:]
         scatter!(string.(α_ests.parameter), α_ests.median, title = "α", legend = false, color = 1, subplot = 1)
         scatter!(string.(α_ests.parameter), α_ests.pc975, color = 1,markershape = :cross, subplot = 1)
@@ -202,7 +222,7 @@ function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
         scatter!(string.(α_ests.parameter), α_ests.pc85, color = 1,markershape = :vline, subplot = 1)
         scatter!(string.(α_ests.parameter), α_ests.pc15, color = 1,markershape = :vline, subplot = 1)
         hline!([0], linestyle=:dot, color = :black, subplot = 1)
-
+        # Autoregressive coefficient on lagged first diff
         β_ests = par_ests[(occursin.("β_", string.(par_ests.parameter))),:]
         scatter!(string.(β_ests.parameter), β_ests.median, title = "β", legend = false, color = 1, subplot = 2)
         scatter!(string.(β_ests.parameter), β_ests.pc975, color = 1,markershape = :cross, subplot = 2)
@@ -211,17 +231,8 @@ function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
         scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
         hline!([0], linestyle=:dot, color = :black, subplot = 2)
 
-        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter))),:]
-        scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1, subplot = 3)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross, subplot = 3)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross, subplot = 3)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline, subplot = 3)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline, subplot = 3)
-        hline!([0], linestyle=:dot, color = :black, subplot = 3)
-    elseif ext
-
-
-
+    elseif model_vers == :i2drift
+        # Siler parameter rw variance
         σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter)) .&
             .!occursin.("σ_α", string.(par_ests.parameter))),:]
         p_σ = scatter(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1)
@@ -230,7 +241,7 @@ function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
-
+        # Drift parameter
         ασ_ests = par_ests[(occursin.("σ_α", string.(par_ests.parameter))),:]
         p_ασ = scatter(string.(ασ_ests.parameter), ασ_ests.median, title = "σ_α", legend = false, color = 1)
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc975, color = 1,markershape = :cross)
@@ -293,20 +304,6 @@ function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
         l = @layout [a{0.5w} b{0.5w}]
 
         plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
-
-
-    else
-        plt = plot(xrotation = 45.0, margin=3Plots.mm, size = (600,400))
-
-        σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter)) .&
-            .!occursin.("σ_α", string.(par_ests.parameter))),:]
-        scatter!(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
-        scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
-        hline!([0], linestyle=:dot, color = :black)
-
     end
 
 

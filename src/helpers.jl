@@ -54,9 +54,10 @@ end
 """
 Function that creates summary dataframes for each Siler parameter
     spec defines which Siler specification we want (Colchero, Scott, Bergeron or Standard)
-    model_vers defines which dynamic model (indep, just_rw, i2drift, firstdiff)
+    model_vers defines which dynamic model (indep, justrw, i2drift, firstdiff)
 """
-function extract_variables(chain_in, years::Vector{Int64}; spec = :Colchero, model_vers = :indep)
+function extract_variables(chain_in, years::Vector{Int64}; log_pars = false, 
+        spec = :Colchero, model_vers = :indep)
 
     # Siler parameter names
     if log_pars
@@ -117,7 +118,7 @@ function extract_variables(chain_in, years::Vector{Int64}; spec = :Colchero, mod
     par_ests = vcat(B_ests, b_ests, C_ests, c_ests, d_ests, σ_ests)
 
     # If we have a dynamic model with various time series parameters, add these
-    if model_vers == :just_rw
+    if model_vers == :justrw
         σ_par_names = Symbol.("σ_pars[".*string.(1:6).*"]")
         σ_pars_ests = summarise_stats(df_post[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
             Int.(1:6), parname = :σ_par)
