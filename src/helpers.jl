@@ -56,7 +56,7 @@ Function that creates summary dataframes for each Siler parameter
     spec defines which Siler specification we want (Colchero, Scott, Bergeron or Standard)
     model_vers defines which dynamic model (indep, justrw, i2drift, firstdiff)
 """
-function extract_variables(chain_in, years::Vector{Int64}; log_pars = false, 
+function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
         spec = :Colchero, model_vers = :indep)
 
     # Siler parameter names

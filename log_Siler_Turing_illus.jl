@@ -172,29 +172,38 @@ display(chain_indep)
 
 ## Plot Siler parameters
 # Display the parameters with Colchero specification
-parests_indep_col = extract_variables(chain_indep, years_selected, model_vers = :indep, spec = :Colchero)
+parests_indep_col = extract_variables(chain_indep, years_selected, log_pars = false,
+    model_vers = :indep, spec = :Colchero)
 p1 = plot_siler_params(parests_indep_col)
 p_title = plot(title = "Multiple independent Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_indep_params_col.pdf")
 # With Scott specification
-parests_indep_sco = extract_variables(chain_indep, years_selected, model_vers = :indep, spec = :Scott)
+parests_indep_sco = extract_variables(chain_indep, years_selected, log_pars = false,
+    model_vers = :indep, spec = :Scott)
 p1 = plot_siler_params(parests_indep_sco)
 p_title = plot(title = "Multiple independent Siler Scott parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_indep_params_sco.pdf")
 # With Bergeron specification
-parests_indep_ber = extract_variables(chain_indep, years_selected, model_vers = :indep, spec = :Bergeron)
+parests_indep_ber = extract_variables(chain_indep, years_selected, log_pars = false,
+    model_vers = :indep, spec = :Bergeron)
 p1 = plot_siler_params(parests_indep_ber)
 p_title = plot(title = "Multiple independent Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_indep_params_ber.pdf")
 # With Standard specification
-parests_indep_sta = extract_variables(chain_indep, years_selected, model_vers = :indep, spec = :Standard)
+parests_indep_sta = extract_variables(chain_indep, years_selected, log_pars = false,
+    model_vers = :indep, spec = :Standard)
 p1 = plot_siler_params(parests_indep_sta)
 p_title = plot(title = "Multiple independent Siler Standard parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_indep_params_sta.pdf")
+
 
 
 
@@ -279,26 +288,26 @@ years_selected = Int.(round.(country_years[periods]))
 # MAP estimate for multiple independent models on log mortality
 map_fd = optimize(log_siler_dyn_firstdiff(country_lm_data[periods], country_ages), MAP(), LBFGS(),
     Optim.Options(iterations=60_000, allow_f_increases=true))
-map_fd_vals =  map_indep.values.array
+map_fd_vals =  map_fd.values.array
 # Alternatively, we can simulate from the prior and start there
-prior_rw = sample(log_siler_justrw(country_lm_data[periods], country_ages), Prior(), 5000)
-df_prior = DataFrame(prior_rw)
+prior_fd = sample(log_siler_dyn_firstdiff(country_lm_data[periods], country_ages), Prior(), 5000)
+df_prior = DataFrame(prior_fd)
 insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
-prior_rw_vals = df_prior[1,3:(end-1)]
+prior_fd_vals = df_prior[1,3:(end-1)]
 ## Estimate the model
 niters = 500
 nchains = 1
 # MCMC sampling
-chain_rw = sample(log_siler_justrw(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
-    niters, nchains, init_params = map_rw_vals)
-display(chain_rw)
+chain_fd = sample(log_siler_dyn_firstdiff(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains, init_params = map_fd_vals)
+display(chain_fd)
 
 ## Plot Siler parameters
 # Display the parameters with Colchero specification
-parests_rw_col = extract_variables(chain_rw, years_selected, log_pars = true,
-    model_vers = :justrw, spec = :Colchero)
-p1 = plot_siler_params(parests_indep_col)
-p_title = plot(title = "Random walk Siler Colchero parameters "*string(code),
+parests_fd_col = extract_variables(chain_fd, years_selected, log_pars = true,
+    model_vers = :firstdiff, spec = :Colchero)
+p1 = plot_siler_params(parests_fd_col)
+p_title = plot(title = "First differences Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/general/siler_rw_params_col.pdf")
@@ -306,7 +315,7 @@ savefig("figures/general/siler_rw_params_col.pdf")
 parests_rw_sco = extract_variables(chain_rw, years_selected, log_pars = true,
     model_vers = :justrw, spec = :Scott)
 p1 = plot_siler_params(parests_rw_sco)
-p_title = plot(title = "Random walk Siler Scott parameters "*string(code),
+p_title = plot(title = "First differences Siler Scott parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/general/siler_rw_params_sco.pdf")
@@ -314,7 +323,7 @@ savefig("figures/general/siler_rw_params_sco.pdf")
 parests_rw_ber = extract_variables(chain_rw, years_selected, log_pars = true,
     model_vers = :justrw, spec = :Bergeron)
 p1 = plot_siler_params(parests_rw_ber)
-p_title = plot(title = "Random walk Siler Bergeron parameters "*string(code),
+p_title = plot(title = "First differences Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/general/siler_rw_params_ber.pdf")
@@ -322,14 +331,14 @@ savefig("figures/general/siler_rw_params_ber.pdf")
 parests_rw_sta = extract_variables(chain_rw, years_selected, log_pars = true,
     model_vers = :justrw, spec = :Standard)
 p1 = plot_siler_params(parests_rw_sta)
-p_title = plot(title = "Random walk Siler Standard parameters "*string(code),
+p_title = plot(title = "First differences Siler Standard parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/general/siler_rw_params_sta.pdf")
 
 ## Plot time series parameters
 p2 = plot_ts_params(parests_rw_col)
-p_title = plot(title = "Random walk Siler Colcher ts params "*string(code), grid = false, showaxis = false,
+p_title = plot(title = "First differences Siler Colcher ts params "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
 savefig("figures/general/siler_rw_ts_params_col.pdf")
