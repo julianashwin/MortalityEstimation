@@ -10,6 +10,8 @@ function siler(param::SilerParam, age::Real; spec::Symbol = :Colchero )
 		μ = exp.(- b.* (age .+ B)) .+ exp.(c .* (age.- C)) .+ d
 	elseif spec == :Bergeron
 		μ = B.*exp.(- b.* age) .+ c.*exp.(c .* (age.- C)) .+ d
+	elseif spec == :Standard
+		μ = B.*exp.(- b.* age) .+ C.*exp.(c .* age) .+ d
 	end
 	μ = min.(μ, 1.0)
 

@@ -47,7 +47,7 @@ select_df = mort_df[in.(mort_df.name, [select_countries]),:]
 Preliminary checks and illustrative estimation of first and last period
 """
 ## Data prep for single coujntry
-code = "ITA"
+code = "SWE"
 country_df = mort_df[(mort_df.code .== code), :]
 # Check data looks sensible
 plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
@@ -62,6 +62,38 @@ T = length(country_lm_data)
 @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
 
+
+spec = :Bergeron
+map_static_1 = optimize(siler_static(country_m_data[1], country_ages), MAP(),
+    Optim.Options(iterations=50_000, allow_f_increases=true))
+@time chain_1 = sample(siler_static(country_m_data[1], country_ages), NUTS(0.65), MCMCThreads(),
+    1000, 4, init_params = map_static_1.values.array)
+display(chain_1)
+plot(chain_1)
+
+
+
+country_param = SilerParam(B = median(chain_1[:B]), b = median(chain_1[:b]), C = median(chain_1[:C]),
+    c = median(chain_1[:c]), d = median(chain_1[:d]))
+plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
+scatter!(country_m_data[1], markershape = :cross, markeralpha = 0.5, label = "Data ("*string(country_years[1])*")")
+plot(siler.([country_param], country_ages, spec = :Standard), label = "Siler MCMC fit ("*string(country_years[1])*")")
+
+plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Log Mortality")
+scatter!(log.(country_m_data[1]), markershape = :cross, markeralpha = 0.5, label = "Data ("*string(country_years[1])*")")
+plot!(log.(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
+    median(chain_1[:c]), median(chain_1[:d]), country_ages)), label = "Siler MCMC fit ("*string(country_years[1])*")")
+
+
+
+@time map_indep = optimize(log_siler_indep(country_lm_data, country_ages), MAP(), LBFGS(),
+    Optim.Options(iterations=60_000, allow_f_increases=true))
+@time chain_dyn = sample(log_siler_indep(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+    1000, nthreads, init_params = map_dyn.values.array)
+
+
+
+
 @time map_dyn = optimize(log_siler_dyn_ext(country_lm_data, country_ages), MAP(), LBFGS(),
     Optim.Options(iterations=60_000, allow_f_increases=true))
 print("Estimated MAP for "*code)
@@ -73,27 +105,9 @@ showtable(DataFrame(name = names(coef(map_dyn))[1], value = coef(map_dyn)))
 parests_dyn = extract_variables(chain_dyn, country_years, log_pars = true,
     σ_pars = true, ext = true, firstdiff = false)
 p1 = plot_siler_params(parests_dyn)
-p2 = plot_ts_params(parests_dyn), ext = true, firstdiff = false)
+p2 = plot_ts_params(parests_dyn, ext = true, firstdiff = false)
 
 
-map_static_1 = optimize(siler_static(country_m_data[1], country_ages), MAP(),
-    Optim.Options(iterations=50_000, allow_f_increases=true))
-@time chain_1 = sample(siler_static(country_m_data[1], country_ages), NUTS(0.65), MCMCThreads(),
-    1000, 4, init_params = map_static_1.values.array)
-display(chain_1)
-plot(chain_1)
-
-
-
-plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
-scatter!(country_m_data[1], markershape = :cross, markeralpha = 0.5, label = "Data ("*string(country_years[1])*")")
-plot!(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
-    median(chain_1[:c]), median(chain_1[:d]), country_ages), label = "Siler MCMC fit ("*string(country_years[1])*")")
-
-plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Log Mortality")
-scatter!(log.(country_m_data[1]), markershape = :cross, markeralpha = 0.5, label = "Data ("*string(country_years[1])*")")
-plot!(log.(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
-    median(chain_1[:c]), median(chain_1[:d]), country_ages)), label = "Siler MCMC fit ("*string(country_years[1])*")")
 
 
 

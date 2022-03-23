@@ -1,5 +1,7 @@
 """
 Turing models for Siler function mortality
+    In all cases, set up the model as in Colchero: μ = e^{-ba -B} + e^{ca - C} + d
+    We can then transform the results using options in the extract_variables function (helpers.jl)
 """
 
 
@@ -17,16 +19,9 @@ Static Siler model on non-logged data
     c ~ LogNormal(log(0.1), 1.0)
     d ~ LogNormal(log(0.025), 1.0)
     σ ~ LogNormal(log(0.001), 1.0)
-    # Define the logged parameters, which should be normally distributed
-    lB = log(B)
-    lb = log(b)
-    lC = log(C)
-    lc = log(c)
-    ld = log(d)
-    lσ = log(σ)
     # Find mean using the siler mortality function
-    μs = exp.(- (exp(lb).* ages .+ exp(lB))) .+ exp.(exp(lc) .* ages .- exp(lC)) .+ exp(ld)
-    m_var = exp(σ)
+    μs = exp.(- b.*ages .- B) .+ exp.(c.*ages .- C) .+ d
+    m_var = σ
     #m_vars[m_vars.<= 1e-10] .= 1e-10
     # Draw from normal dist
     for nn in 1:N
@@ -50,15 +45,8 @@ Static Siler model on log data
     c ~ LogNormal(log(0.1), 1.0)
     d ~ LogNormal(log(0.025), 1.0)
     σ ~ LogNormal(log(0.001), 1.0)
-    # Define the logged parameters, which should be normally distributed
-    lB = log(B)
-    lb = log(b)
-    lC = log(C)
-    lc = log(c)
-    ld = log(d)
-    lσ = log(σ)
     # Find mean using the siler mortality function
-    μs = exp.(- exp(lb).* ages .+ exp(lB)) .+ exp.(exp(lc) .* ages .- exp(lC)) .+ exp(ld)
+    μs = B.*exp.(- b.* ages) .+ C.*exp.(c .* ages) .+ d
     m_vars = exp(σ).*ones(N)
     #m_vars[m_vars.<= 1e-10] .= 1e-10
     # Variance matrix
@@ -87,19 +75,10 @@ Multiple independent Siler models
     c ~ filldist(LogNormal(log(0.1), 1.0), T)
     d ~ filldist(LogNormal(log(0.025), 1.0), T)
     σ ~ filldist(LogNormal(log(0.1), 1.0), T)
-    # Define the logged parameters, which should be normally distributed
-    lB = log.(B)
-    lb = log.(b)
-    lC = log.(C)
-    lc = log.(c)
-    ld = log.(d)
-    lσ = log.(σ)
-
     for tt in 1:T
         # Find mean using the siler mortality function
-        μs = exp.(-exp(lb[tt]).*ages .+ exp(lB[tt])) .+
-            exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
-        lm_vars = exp(lσ[tt]).*ones(N)
+        μs = exp.(-b[tt].*ages .- B[tt]) .+ exp.(c[tt].*ages .- C[tt]) .+ d[tt]
+        lm_vars = σ[tt].*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
         # Variance matrix
         Σ = Diagonal(lm_vars)
@@ -147,7 +126,7 @@ Dynamic Siler model with random walk in log parameters
     ld[1] ~ Normal(log(0.025), 1.0)
     lσ[1] ~ Normal(log(0.1), 1.0)
     # Find mean using the siler mortality function
-    μs = exp.(-exp(lb[1]).*ages .+ exp(lB[1])) .+
+    μs = exp.(-exp(lb[1]).*ages .- exp(lB[1])) .+
         exp.(exp(lc[1]).*ages .- exp(lC[1])) .+ exp(ld[1])
     lm_vars = exp(lσ[1]).*ones(N)
     lm_vars[lm_vars.<= 1e-10] .= 1e-10

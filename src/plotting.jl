@@ -190,8 +190,7 @@ end
 """
 Plot the time series parameters for each Siler parameter
 """
-function plot_ts_params(par_ests::DataFrame, ext = false,
-        firstdiff = false)
+function plot_ts_params(par_ests::DataFrame; ext = false, firstdiff = false)
 
     if firstdiff
         plt = plot(layout = (1,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
@@ -294,9 +293,7 @@ function plot_ts_params(par_ests::DataFrame, ext = false,
         l = @layout [a{0.5w} b{0.5w}]
 
         plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
-        
-        plot(p_σ, p_ασ, α_plts, layout  = l,
-            , margin = 40Plots.mm)
+
 
     else
         plt = plot(xrotation = 45.0, margin=3Plots.mm, size = (600,400))

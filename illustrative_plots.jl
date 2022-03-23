@@ -97,11 +97,12 @@ savefig("figures/interpret/scott_example.pdf")
 
 # Special case to show effect of C on H can be positive
 param_sco_special = SilerParam(b = 5.0, B = 5.0, c = 0.01, C = 10.0, d = 0.)
+param_sco_special = SilerParam(b = 5.0, B = 5.0, c = 0.1, C = 100.0, d = 0.01)
 Hgrad.([param_sco_special], 0:10, [:C], spec = :Scott)
-sco_df_special = init_illus(param_sco_special, :Scott, ages = 0:40)
+sco_df_special = init_illus(param_sco_special, :Scott)
 base_plt(sco_df_special, param_sco_special)
 sco_df_special, C_plt = param_change_plt(sco_df_special, param_sco_special,
-    :C; LE_change = 1, spec = :Scott)
+    :C; LE_change = 5, spec = :Scott)
 C_plt
 savefig("figures/interpret/scott_special_case.pdf")
 
