@@ -87,144 +87,87 @@ T = length(country_lm_data)
 """
 Static Siler model
 """
-## Declare our Turing model for Siler
-@model function log_siler_static(lm_dist, ages)
-    # The number of observations.
-    N = length(lm_dist)
-    # Our prior beliefs
-    B ~ LogNormal(log(10), 2.0)
-    b ~ LogNormal(log(2), 1.0)
-    C ~ LogNormal(log(120), 2.0)
-    c ~ LogNormal(log(0.1), 1.0)
-    d ~ LogNormal(log(0.025), 1.0)
-    σ ~ LogNormal(log(0.001), 1.0)
-    # Define the logged parameters, which should be normally distributed
-    lB = log(B)
-    lb = log(b)
-    lC = log(C)
-    lc = log(c)
-    ld = log(d)
-    lσ = log(σ)
-    # Find mean using the siler mortality function
-    μs = exp.(- exp(lb).* (ages .+ exp(lB))) .+ exp.(exp(lc) .* (ages .- exp(lC))) .+ exp(ld)
-    m_vars = exp(σ).*ones(N)
-    #m_vars[m_vars.<= 1e-10] .= 1e-10
-    # Variance matrix
-    Σ = Diagonal(m_vars)
-    # Draw from normal dist
-    lm_dist ~ MvNormal(log.(μs), Σ)
-    #m_dist = exp.(lm_dist)
-end
+# Choose year
+yy = 1
+## Find some starting points
+# MAP estimate for static model on raw mortality
+map_static = optimize(siler_static((country_m_data[yy]), country_ages), MAP(),
+    Optim.Options(iterations=50_000, allow_f_increases=true))
+map_vals =  map_static.values.array
+map_param = SilerParam(b = map_vals[2], B = map_vals[1], c = map_vals[4], C = map_vals[3],
+    d = map_vals[5], σ = map_vals[6])
+# Map estimate for static model on log mortality
+map_log_static = optimize(log_siler_static((country_lm_data[yy]), country_ages), MAP(),
+    Optim.Options(iterations=50_000, allow_f_increases=true))
+map_log_vals =  map_log_static.values.array
+map_log_param = SilerParam(b = map_log_vals[2], B = map_log_vals[1], c = map_log_vals[4], C = map_log_vals[3],
+    d = map_log_vals[5], σ = map_log_vals[6])
+# Alternatively, we can simulate from the prior and start there
+prior_static = sample(siler_static(country_m_data[yy], country_ages), Prior(), 5000)
+df_prior = DataFrame(prior_static)
+insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+prior_vals = df_prior[1,3:(end-1)]
+prior_param = SilerParam(b = prior_vals.b, B = prior_vals.B, c = prior_vals.c, C = prior_vals.C,
+    d = prior_vals.d, σ = prior_vals.σ)
+
 
 ## Estimate models
-# Number of MCMC iterations
-iterations = 2500
-# Sample for first period
-map_static_1 = optimize(log_siler_static(log.(m_data[1]), ages), MAP(),
-    Optim.Options(iterations=50_000, allow_f_increases=true))
-@time chain_1 = sample(log_siler_static(log.(m_data[1]), ages), NUTS(0.65), MCMCThreads(),
-    iterations, 4, init_params = map_static_1.values.array)
-display(chain_1)
-plot(chain_1)
-# Sample for last period
-map_static_T = optimize(log_siler_static(log.(m_data[T]), ages), MAP(),
-    Optim.Options(iterations=50_000, allow_f_increases=true))
-@time chain_T = sample(log_siler_static(log.(m_data[T]), ages), NUTS(0.65), MCMCThreads(),
-    iterations, 4, init_params = map_static_T.values.array)
-display(chain_T)
-plot(chain_T)
+# Number of MCMC iterations and chains
+niters = 800
+nchains = 1
+# Raw mortality model
+chain_static = sample(siler_static(country_m_data[1], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains, init_params = map_log_vals)
+df_chain = DataFrame(chain_static)
+insert!.(eachcol(df_chain), 1, vcat([0,0],median.(eachcol(df_chain[:,3:end]))))
+chain_vals = df_chain[1,:]
+chain_param = SilerParam(b = chain_vals.b, B = chain_vals.B, c = chain_vals.c, C = chain_vals.C,
+    d = chain_vals.d, σ = chain_vals.σ)
+# Raw mortality model
+chain_log_static = sample(log_siler_static(country_lm_data[1], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains, init_params = map_log_vals)
+df_chain = DataFrame(chain_log_static)
+insert!.(eachcol(df_chain), 1, vcat([0,0],median.(eachcol(df_chain[:,3:end]))))
+chain_log_vals = df_chain[1,:]
+chain_log_param = SilerParam(b = chain_log_vals.b, B = chain_log_vals.B, c = chain_log_vals.c, C = chain_log_vals.C,
+    d = chain_log_vals.d, σ = chain_log_vals.σ)
 
-## Plot model fit
-plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Mortality")
-scatter!(m_data[1], markershape = :cross, markeralpha = 0.5, label = "Data ("*string(years[1])*")")
-plot!(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
-    median(chain_1[:c]), median(chain_1[:d]), ages), label = "Siler MCMC fit ("*string(years[1])*")")
-scatter!(m_data[T], markershape = :xcross, markeralpha = 0.5, label = "Data ("*string(years[T])*")")
-plot!(siler(median(chain_T[:B]), median(chain_T[:b]), median(chain_T[:C]),
-    median(chain_T[:c]), median(chain_T[:d]), ages), label = "Siler MCMC fit ("*string(years[T])*")")
-savefig("figures/Siler_static/log_siler_fit.pdf")
-
-plot(size = (500,300), legend = :topleft, xlab = "Age", ylab = "Log Mortality")
-scatter!(log.(m_data[1]), markershape = :cross, markeralpha = 0.5, label = "Data ("*string(years[1])*")")
-plot!(log.(siler(median(chain_1[:B]), median(chain_1[:b]), median(chain_1[:C]),
-    median(chain_1[:c]), median(chain_1[:d]), ages)),
-    label = "Siler MCMC fit ("*string(years[1])*")")
-scatter!(log.(m_data[T]), markershape = :xcross, markeralpha = 0.5, label = "Data ("*string(years[T])*")")
-plot!(log.(siler(median(chain_T[:B]), median(chain_T[:b]), median(chain_T[:C]),
-    median(chain_T[:c]), median(chain_T[:d]), ages)),
-    label = "Siler MCMC fit ("*string(years[T])*")")
-savefig("figures/Siler_static/log_siler_logfit.pdf")
-
-
-
-## Plot a summary of the sampling process for the parameter p, i.e. the probability of heads in a coin.
-plot(layout = (2,3), size = (800, 400))
-density!(vcat(chain_1[:B]...), title = L"B", label = string(years[1]), subplot = 1)
-density!(vcat(chain_T[:B]...), label = string(years[T]), subplot = 1, legend = :topright)
-density!(vcat(chain_1[:b]...), title = L"b", subplot = 2, legend = false)
-density!(vcat(chain_T[:b]...), subplot = 2, legend = false)
-density!(vcat(chain_1[:C]...), title = L"C", subplot = 4, legend = false)
-density!(vcat(chain_T[:C]...), subplot = 4, legend = false)
-density!(vcat(chain_1[:c]...), title = L"c", subplot = 5, legend = false)
-density!(vcat(chain_T[:c]...), subplot = 5, legend = false)
-density!(vcat(chain_1[:d]...), title = L"d", subplot = 3, legend = false)
-density!(vcat(chain_T[:d]...), subplot = 3, legend = false)
-density!(vcat(chain_1[:σ]...), title = L"\sigma", subplot = 6, legend = false)
-density!(vcat(chain_T[:σ]...), subplot = 6, legend = false, xrotation = 45.0, margin=3Plots.mm)
-savefig("figures/Siler_static/log_siler_1vsT.pdf")
+## Plot fit
+scatter(country_m_data[yy], markershape = :cross, markeralpha = 0.5,
+    label = "Data ("*string(country_years[1])*")", legend = :topleft)
+plot!(siler.([prior_param], 0:110, spec = :Colchero), label = "Static model prior")
+plot!(siler.([map_param], 0:110, spec = :Colchero), label = "Static model MAP", linestyle = :dash)
+plot!(siler.([chain_param], 0:110, spec = :Colchero), label = "Static model post. median", linestyle = :dot)
+plot!(siler.([map_log_param], 0:110, spec = :Colchero), label = "Static log model MAP", linestyle = :dash)
+plot!(siler.([chain_log_param], 0:110, spec = :Colchero), label = "Static log model post. median", linestyle = :dot)
 
 
 """
 Multiple independent Siler models
 """
-## Define Turing model
-@model function log_siler_indep(lm_data, ages)
-    # Dimensions
-    T = length(lm_data)
-    N = length(ages)
-    # Our prior beliefs
-    B ~ filldist(LogNormal(log(10), 2.0), T)
-    b ~ filldist(LogNormal(log(2), 1.0), T)
-    C ~ filldist(LogNormal(log(120), 2.0), T)
-    c ~ filldist(LogNormal(log(0.1), 1.0), T)
-    d ~ filldist(LogNormal(log(0.025), 1.0), T)
-    σ ~ filldist(LogNormal(log(0.1), 1.0), T)
-    # Define the logged parameters, which should be normally distributed
-    lB = log.(B)
-    lb = log.(b)
-    lC = log.(C)
-    lc = log.(c)
-    ld = log.(d)
-    lσ = log.(σ)
+# Adjust if you don't want every period
+periods = Int.(1:7:T)
+years_selected = Int.(round.(country_years[periods]))
 
-    for tt in 1:T
-        # Find mean using the siler mortality function
-        μs = exp.(-exp(lb[tt]).*(ages .+ exp(lB[tt]))) .+
-            exp.(exp(lc[tt]).*(ages .- exp(lC[tt]))) .+ exp(ld[tt])
-        lm_vars = exp(lσ[tt]).*ones(N)
-        lm_vars[lm_vars.<= 1e-10] .= 1e-10
-        # Variance matrix
-        Σ = Diagonal(lm_vars)
-        # Draw from truncated normal dist
-        lm_data[tt] ~ MvNormal(log.(μs), Σ)
-    end
-end
+## Find some starting points
+# MAP estimate for multiple independent models on log mortality
+map_indep = optimize(log_siler_indep(country_lm_data[periods], country_ages), MAP(), LBFGS(),
+    Optim.Options(iterations=60_000, allow_f_increases=true))
+map_indep_vals =  map_indep.values.array
+# Alternatively, we can simulate from the prior and start there
+prior_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), Prior(), 5000)
+df_prior = DataFrame(prior_indep)
+insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+prior_indep_vals = df_prior[1,3:(end-1)]
 
 ## Estimate the model
-periods = Int.(1:T)
-years_selected = Int.(round.(years[periods]))
-iterations = 4000
-# Find MAP estimate as starting point
-lm_data = [log.(m_dist) for m_dist in m_data]
-@time map_indep = optimize(log_siler_indep(lm_data[periods], ages), MAP(), LBFGS(),
-    Optim.Options(iterations=50_000, allow_f_increases=true))
+niters = 800
+nchains = 1
 # MCMC sampling
-@time chain_indep = sample(log_siler_indep(lm_data[periods], ages), NUTS(0.65), MCMCThreads(),
-    iterations, 4, init_params = map_indep.values.array)
+chain_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains, init_params = prior_indep_vals)
 display(chain_indep)
-
-parests_indep = extract_variables(chain_indep, periods, years_selected)
-
+parests_indep = extract_variables(chain_indep, years_selected, spec = :Colchero)
 plot_siler_params(parests_indep)
 savefig("figures/Siler_staticT/log_siler_staticT.pdf")
 

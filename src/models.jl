@@ -13,8 +13,8 @@ Static Siler model on non-logged data
     # The number of observations.
     N = length(m_dist)
     # Our prior beliefs
-    B ~ LogNormal(log(10), 2.0)
-    b ~ LogNormal(log(2), 1.0)
+    B ~ LogNormal(log(5), 2.0)
+    b ~ LogNormal(log(1), 1.0)
     C ~ LogNormal(log(10), 2.0)
     c ~ LogNormal(log(0.1), 1.0)
     d ~ LogNormal(log(0.025), 1.0)
@@ -39,15 +39,15 @@ Static Siler model on log data
     # The number of observations.
     N = length(lm_dist)
     # Our prior beliefs
-    B ~ LogNormal(log(10), 2.0)
-    b ~ LogNormal(log(2), 1.0)
-    C ~ LogNormal(log(120), 2.0)
+    B ~ LogNormal(log(5), 2.0)
+    b ~ LogNormal(log(1), 1.0)
+    C ~ LogNormal(log(10), 2.0)
     c ~ LogNormal(log(0.1), 1.0)
     d ~ LogNormal(log(0.025), 1.0)
     σ ~ LogNormal(log(0.001), 1.0)
     # Find mean using the siler mortality function
-    μs = B.*exp.(- b.* ages) .+ C.*exp.(c .* ages) .+ d
-    m_vars = exp(σ).*ones(N)
+    μs = exp.(- b.* ages .- B) .+ exp.(c .* ages .- C) .+ d
+    m_vars = σ.*ones(N)
     #m_vars[m_vars.<= 1e-10] .= 1e-10
     # Variance matrix
     Σ = Diagonal(m_vars)
@@ -63,18 +63,17 @@ end
 """
 Multiple independent Siler models
 """
-## Define Turing model
 @model function log_siler_indep(lm_data, ages)
     # Dimensions
     T = length(lm_data)
     N = length(ages)
     # Our prior beliefs
-    B ~ filldist(LogNormal(log(10), 2.0), T)
-    b ~ filldist(LogNormal(log(2), 1.0), T)
+    B ~ filldist(LogNormal(log(5), 2.0), T)
+    b ~ filldist(LogNormal(log(1), 1.0), T)
     C ~ filldist(LogNormal(log(10), 2.0), T)
     c ~ filldist(LogNormal(log(0.1), 1.0), T)
     d ~ filldist(LogNormal(log(0.025), 1.0), T)
-    σ ~ filldist(LogNormal(log(0.1), 1.0), T)
+    σ ~ filldist(LogNormal(log(0.001), 1.0), T)
     for tt in 1:T
         # Find mean using the siler mortality function
         μs = exp.(-b[tt].*ages .- B[tt]) .+ exp.(c[tt].*ages .- C[tt]) .+ d[tt]
@@ -188,14 +187,8 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     lσ = Vector(undef, T)
     # Priors on variance terms for parameter time series
     σ_pars ~ filldist(InverseGamma(2, 0.05),6)
-    # Correlation matrix of shocks to parameter time series
-    #ρ_block ~ LKJ(6, 4)
-    # Prior on variance terms for parameter time series
-    #Σ_ϵ = Diagonal(σ_par)#quad_form_diag(ρ_block, σ_par)
     # Priors on constant
     α_pars ~ filldist(Normal(0., 0.05), 6)
-    # Priors on time trend terms
-    #τ_pars ~ filldist(Normal(0, 0.05), 6)
     # Autoregressive coefficient
     β_pars ~ filldist(Normal(0.0, 0.3), 6)
 
@@ -205,8 +198,8 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         lb[tt] ~ Normal(log(2), 1.0)
         lC[tt] ~ Normal(log(10), 2.0)
         lc[tt] ~ Normal(log(0.1), 1.0)
-        ld[tt] ~ Normal(log(0.025), 1.0)
-        lσ[tt] ~ Normal(log(0.1), 1.0)
+        ld[tt] ~ Normal(log(0.01), 1.0)
+        lσ[tt] ~ Normal(log(0.01), 1.0)
         # Find mean using the siler mortality function
         μs = exp.(-(exp(lb[tt]).*ages .+ exp(lB[tt]))) .+
             exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
@@ -270,11 +263,11 @@ Dynamic Siler model with extensions
 
 Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is d.o.f., p is dimensions
 """
-@model function log_siler_dyn_ext(lm_data, ages)
+@model function log_siler_dyn_i2drift(lm_data, ages)
     # Dimensions
     T::Int64 = length(lm_data)
     N::Int64 = length(ages)
-    # Parameters
+    # Siler parameters
     lB = Vector(undef, T)
     lb = Vector(undef, T)
     lC = Vector(undef, T)
@@ -283,8 +276,7 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     lσ = Vector(undef, T)
     # Priors on variance terms for parameter time series
     σ_pars ~ filldist(InverseGamma(2, 0.05),6)
-    # Correlation matrix of shocks to parameter time series
-    # Priors on constant
+    # Time varying drift
     α_B = Vector(undef, T-1)
     α_b = Vector(undef, T-1)
     α_C = Vector(undef, T-1)
@@ -292,25 +284,21 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     α_d = Vector(undef, T-1)
     α_σ = Vector(undef, T-1)
     # Variance of drift random walk
-    σ_αB ~ InverseGamma(2, 0.01)
-    σ_αb ~ InverseGamma(2, 0.01)
-    σ_αC ~ InverseGamma(2, 0.01)
-    σ_αc ~ InverseGamma(2, 0.01)
-    σ_αd ~ InverseGamma(2, 0.01)
-    σ_ασ ~ InverseGamma(2, 0.01)
-    # Priors on time trend terms
-    #τ_pars ~ filldist(Normal(0, 0.05), 6)
-    # Autoregressive coefficient
-    #β_pars ~ filldist(Uniform(0.0, 0.99), 6
+    σ_αB ~ InverseGamma(2, 0.02)
+    σ_αb ~ InverseGamma(2, 0.02)
+    σ_αC ~ InverseGamma(2, 0.02)
+    σ_αc ~ InverseGamma(2, 0.02)
+    σ_αd ~ InverseGamma(2, 0.02)
+    σ_ασ ~ InverseGamma(2, 0.02)
     # First period from priors
-    lB[1] ~ Normal(log(10), 2.0)
-    lb[1] ~ Normal(log(2), 1.0)
-    lC[1] ~ Normal(log(120), 2.0)
+    lB[1] ~ Normal(log(5), 2.0)
+    lb[1] ~ Normal(log(1), 1.0)
+    lC[1] ~ Normal(log(10), 2.0)
     lc[1] ~ Normal(log(0.1), 1.0)
     ld[1] ~ Normal(log(0.025), 1.0)
     lσ[1] ~ Normal(log(0.1), 1.0)
     # Find mean using the siler mortality function
-    μs = exp.(-(exp(lb[1]).*ages .+ exp(lB[1]))) .+
+    μs = exp.(-exp(lb[1]).*ages .- exp(lB[1])) .+
         exp.(exp(lc[1]).*ages .- exp(lC[1])) .+ exp(ld[1])
     lm_vars = exp(lσ[1]).*ones(N)
     lm_vars[lm_vars.<= 1e-10] .= 1e-10
@@ -331,12 +319,6 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
     # Loop through random walk process
     for tt in 2:T
         # Calculate updated parameter means
-        #μ_B = α_pars[1] + β_pars[1]*lB[tt-1] + τ_pars[1]*(tt-1)
-        #μ_b = α_pars[2] + β_pars[2]*lb[tt-1] + τ_pars[2]*(tt-1)
-        #μ_C = α_pars[3] + β_pars[3]*lC[tt-1] + τ_pars[3]*(tt-1)
-        #μ_c = α_pars[4] + β_pars[4]*lc[tt-1] + τ_pars[4]*(tt-1)
-        #μ_d = α_pars[5] + β_pars[5]*ld[tt-1] + τ_pars[5]*(tt-1)
-        #μ_σ = α_pars[6] + β_pars[6]*lσ[tt-1] + τ_pars[6]*(tt-1)
         μ_B = α_B[tt-1] + lB[tt-1]
         μ_b = α_b[tt-1] + lb[tt-1]
         μ_C = α_C[tt-1] + lC[tt-1]
@@ -357,9 +339,8 @@ Note that mean of InverseWishart is S/(m - p - 1) where S is scale matrix, m is 
         lc[tt] ~ Normal(μ_c, var_c)
         ld[tt] ~ Normal(μ_d, var_d)
         lσ[tt] ~ Normal(μ_σ, var_σ)
-
         # Find mean using the siler mortality function
-        μs = exp.(-(exp(lb[tt]).*ages .+ exp(lB[tt]))) .+
+        μs = exp.(-exp(lb[tt]).*ages .- exp(lB[tt])) .+
             exp.(exp(lc[tt]).*ages .- exp(lC[tt])) .+ exp(ld[tt])
         lm_vars = exp(lσ[tt]).*ones(N)
         lm_vars[lm_vars.<= 1e-10] .= 1e-10
