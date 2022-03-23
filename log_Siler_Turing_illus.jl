@@ -28,25 +28,18 @@ include("src/MortalityEstimation.jl")
 ## Import the mortality data
 all_df = CSV.read("data/clean/all_lifetab.csv", DataFrame, ntasks = 1)
 
-# Select which bit to look at
-bp_df = all_df[(all_df.best_practice .== 1), :]
-mort_df = bp_df[(bp_df.year .>= 1900), :]
-mort_df = all_df[(all_df.code .== "SWE"), :]
-
-sort!(mort_df, [:year, :age])
-mort_df.mx = parse.([Float64], mort_df.mx)
+# Extract the best practice series
+bp_df = all_df[(all_df.best_practice .== 1) .& (all_df.year .>= 1900), :]
+sort!(bp_df, [:year, :age])
+bp_alt_df = all_df[(all_df.best_practice_alt .== 1) .& (all_df.year .>= 1900), :]
+sort!(bp_alt_df, [:year, :age])
+# Also a special case for whole sample period in SWE
+swe_df = all_df[(all_df.code .== "SWE"),:]
+sort!(swe_df, [:year, :age])
+# And a general post 1900 df
+mort_df = all_df[(all_df.year .>= 1900), :]
+sort!(mort_df, [:code, :year, :age])
 showtable(mort_df)
-
-# Convert this into a matrix of mortality rates over time
-chunk(arr, n) = [arr[i:min(i + n - 1, end)] for i in 1:n:length(arr)]
-m_data = chunk(mort_df.mx, 110)
-ages = Int64.(0:maximum(mort_df.age))
-years = unique(mort_df.year)
-year_brackets = unique(mort_df.years)
-T = length(m_data)
-
-@assert length(m_data)==length(years) "number of years doesn't match length of m_data"
-@assert length(m_data[1])==length(ages) "number of ages doesn't match length of m_data[1]"
 
 
 """
@@ -54,7 +47,7 @@ Plot priors
 """
 ## Set priors
 # Mean of IG is b/(a-1)
-plot(layout = (2,3), yticks = false, size = (1000,400))
+plot(layout = (2,3), yticks = false, size = (1000,500))
 plot!(LogNormal(log(10), 2.0), title = L"B_{1} \sim LogNormal(ln(10),2)",
     label = false, subplot = 1, xlims = (0,100))
 plot!(LogNormal(log(2), 1.0), xlim=(0,10), title = L"b_{1} \sim LogNormal(ln(2),2)",
@@ -67,12 +60,29 @@ plot!(LogNormal(log(0.025), 1.0), title = L"d_{1} \sim LogNormal(ln(0.025),2)",
     label = false, subplot = 3)
 plot!(LogNormal(log(0.001), 1.0), title = L"\sigma_{1} \sim LogNormal(ln(0.001),2)",
     label = false, subplot = 6)
-savefig("figures/Siler_static/log_siler_priors.pdf")
+savefig("figures/general/log_siler_priors.pdf")
 
 
-mean(LogNormal(log(0.01), 0.5))
-plot(LogNormal(log(0.01), 1.), xlim = (0.00, 0.1))
-plot!(InverseGamma(2, 0.01), xlim = (0.00, 0.1))
+"""
+Set up a single country/case to run through examples
+"""
+## Data prep for single coujntry
+code = "SWE"
+country_df = mort_df[(mort_df.code .== code), :]
+country_df = bp_df
+# Check data looks sensible
+plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
+# Convert this into a matrix of mortality rates over time, age and year vectors
+country_m_data = chunk(country_df.mx, 110)
+country_lm_data = [log.(m_dist) for m_dist in country_m_data]
+country_ages = Int64.(0:maximum(country_df.age))
+country_years = unique(country_df.year)
+T = length(country_lm_data)
+
+@assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
+@assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
+
+
 
 """
 Static Siler model
