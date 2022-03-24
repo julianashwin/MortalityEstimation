@@ -80,8 +80,10 @@ prior_vals = df_prior[1,3:(end-1)]
 # Estimate by MCMC
 @time chain_est = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
     750, 4, init_params = map_vals)
-
-
+parests_col = extract_variables(chain_est, years_selected, log_pars = true,
+    model_vers = :firstdiff, spec = :Colchero)
+p1 = plot_siler_params(parests_col)
+p2 = plot_ts_params(parests_col, model_vers = :i2drift)
 
 
 

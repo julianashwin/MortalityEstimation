@@ -68,9 +68,9 @@ Set up a single country/case to run through examples
 """
 ## Data prep for single coujntry
 code = "SWE"
-country_df = mort_df[(mort_df.code .== code), :]
-country_df = bp_df
-code = "Best Practice"
+country_df = all_df[(all_df.code .== code), :]
+#country_df = bp_df
+#code = "Best Practice"
 # Check data looks sensible
 plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
 # Convert this into a matrix of mortality rates over time, age and year vectors
@@ -118,7 +118,7 @@ niters = 800
 nchains = 1
 # Raw mortality model
 chain_static = sample(siler_static(country_m_data[1], country_ages), NUTS(0.65), MCMCThreads(),
-    niters, nchains, init_params = map_log_vals)
+    niters, nchains, init_params = map_vals)
 df_chain = DataFrame(chain_static)
 insert!.(eachcol(df_chain), 1, vcat([0,0],median.(eachcol(df_chain[:,3:end]))))
 chain_vals = df_chain[1,:]
@@ -148,7 +148,7 @@ savefig("figures/general/siler_vs_log_siler_fit.pdf")
 Multiple independent Siler models
 """
 # Adjust if you don't want every period
-periods = Int.(1:7:T)
+periods = Int.(1:T)
 years_selected = Int.(round.(country_years[periods]))
 
 ## Find some starting points
@@ -164,7 +164,7 @@ prior_indep_vals = df_prior[1,3:(end-1)]
 
 ## Estimate the model
 niters = 1000
-nchains = 1
+nchains = 4
 # MCMC sampling
 chain_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
     niters, nchains, init_params = map_indep_vals)
@@ -178,7 +178,7 @@ p1 = plot_siler_params(parests_indep_col)
 p_title = plot(title = "Multiple independent Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/general/siler_indep_params_col.pdf")
+savefig("figures/SWE/siler_indep_params_col.pdf")
 # With Scott specification
 parests_indep_sco = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Scott)
@@ -186,7 +186,7 @@ p1 = plot_siler_params(parests_indep_sco)
 p_title = plot(title = "Multiple independent Siler Scott parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/general/siler_indep_params_sco.pdf")
+savefig("figures/SWE/siler_indep_params_sco.pdf")
 # With Bergeron specification
 parests_indep_ber = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Bergeron)
@@ -194,7 +194,7 @@ p1 = plot_siler_params(parests_indep_ber)
 p_title = plot(title = "Multiple independent Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/general/siler_indep_params_ber.pdf")
+savefig("figures/SWE/siler_indep_params_ber.pdf")
 # With Standard specification
 parests_indep_sta = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Standard)
@@ -202,7 +202,7 @@ p1 = plot_siler_params(parests_indep_sta)
 p_title = plot(title = "Multiple independent Siler Standard parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/general/siler_indep_params_sta.pdf")
+savefig("figures/SWE/siler_indep_params_sta.pdf")
 
 
 
