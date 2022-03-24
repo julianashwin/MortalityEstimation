@@ -169,7 +169,7 @@ nchains = 4
 chain_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
     niters, nchains, init_params = map_indep_vals)
 display(chain_indep)
-
+CSV.write("figures/SWE/siler_indep_fullpost.csv", DataFrame(chain_indep))
 ## Plot Siler parameters
 # Display the parameters with Colchero specification
 parests_indep_col = extract_variables(chain_indep, years_selected, log_pars = false,
@@ -179,6 +179,7 @@ p_title = plot(title = "Multiple independent Siler Colchero parameters "*string(
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/SWE/siler_indep_params_col.pdf")
+CSV.write("figures/SWE/siler_indep_params_col.csv", parests_indep_col)
 # With Scott specification
 parests_indep_sco = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Scott)
@@ -187,6 +188,7 @@ p_title = plot(title = "Multiple independent Siler Scott parameters "*string(cod
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/SWE/siler_indep_params_sco.pdf")
+CSV.write("figures/SWE/siler_indep_params_sco.csv", parests_indep_sco)
 # With Bergeron specification
 parests_indep_ber = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Bergeron)
@@ -195,6 +197,7 @@ p_title = plot(title = "Multiple independent Siler Bergeron parameters "*string(
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/SWE/siler_indep_params_ber.pdf")
+CSV.write("figures/SWE/siler_indep_params_ber.csv", parests_indep_ber)
 # With Standard specification
 parests_indep_sta = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Standard)
@@ -203,7 +206,7 @@ p_title = plot(title = "Multiple independent Siler Standard parameters "*string(
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/SWE/siler_indep_params_sta.pdf")
-
+CSV.write("figures/SWE/siler_indep_params_sta.csv", parests_indep_sta)
 
 
 
