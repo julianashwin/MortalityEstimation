@@ -2,6 +2,7 @@ setwd("/Users/julianashwin/Documents/GitHub/MortalityEstimation/")
 rm(list=ls())
 
 require(ggplot2)
+require(ggpubr)
 require(HMDHFDplus)
 require(stringr)
 require(plyr)
@@ -11,33 +12,50 @@ require(plyr)
 Import data for all available countries
 "
 ## Mortality, survival and life expectancy
-# Initialise dataframe to fill with each country
-var_names <- c("code", "year", "age", "mx", "lx", "ex")
-lifetab_df <- as.data.frame(matrix(NA, nrow = 0, ncol = length(var_names)), var_names)
-# Identify which directory to import from
-import_dir <- "data/raw/bltper_1x1/"
-files <- dir(import_dir)
-for (file in files){
-  print(file)
-  country_code <- str_split(file, "\\.")[[1]][1]
-  country_df <- as.data.frame(read.table(paste0(import_dir,file), header = TRUE, skip = 2))
-  country_df <- cbind(code = country_code, country_df)  
-  country_df$year <- country_df$Year
-  country_df$age <- country_df$Age
-  country_df$mx[which(country_df$mx == ".")] <- NA
-  country_df$mx <- as.numeric(country_df$mx)
-  country_df$lx[which(country_df$lx == ".")] <- NA
-  country_df$lx <- as.numeric(country_df$lx)/100000
-  country_df$ex[which(country_df$ex == ".")] <- NA
-  country_df$ex <- as.numeric(country_df$ex)
-  
-  lifetab_df <- rbind(lifetab_df, country_df[,var_names])
-}
-rm(country_df)
 
-lifetab_df <- lifetab_df[which(lifetab_df$age != "110+"),]
-lifetab_df$age <- as.numeric(lifetab_df$age)
-lifetab_df <- lifetab_df[which(!is.na(lifetab_df$mx)),]
+# Function to import hmd lifetable data from a given directory
+import_hmd_data <- function(import_dir){
+  
+  var_names <- c("code", "year", "age", "mx", "lx", "ex")
+  # Initialise dataframe to fill with each country
+  lifetab_df <- as.data.frame(matrix(NA, nrow = 0, ncol = length(var_names)), var_names)
+  
+  files <- dir(import_dir)
+  for (file in files){
+    print(file)
+    country_code <- str_split(file, "\\.")[[1]][1]
+    country_df <- as.data.frame(read.table(paste0(import_dir,file), header = TRUE, skip = 2))
+    country_df <- cbind(code = country_code, country_df)  
+    country_df$year <- country_df$Year
+    country_df$age <- country_df$Age
+    country_df$mx[which(country_df$mx == ".")] <- NA
+    country_df$mx <- as.numeric(country_df$mx)
+    country_df$lx[which(country_df$lx == ".")] <- NA
+    country_df$lx <- as.numeric(country_df$lx)/100000
+    country_df$ex[which(country_df$ex == ".")] <- NA
+    country_df$ex <- as.numeric(country_df$ex)
+    
+    lifetab_df <- rbind(lifetab_df, country_df[,var_names])
+  }
+  
+  lifetab_df <- lifetab_df[which(lifetab_df$age != "110+"),]
+  lifetab_df$age <- as.numeric(lifetab_df$age)
+  lifetab_df <- lifetab_df[which(!is.na(lifetab_df$mx)),]
+  
+  return(lifetab_df)
+}
+lifetab_df_female <- import_hmd_data("data/raw/fltper_1x1/")
+lifetab_df_male <- import_hmd_data("data/raw/mltper_1x1/")
+lifetab_df_both <- import_hmd_data("data/raw/bltper_1x1/")
+
+
+# Combine these mortality curves for the separate genders
+names(lifetab_df_female)[4:6] <- paste0(c("mx","lx", "ex"),"_f")
+names(lifetab_df_male)[4:6] <- paste0(c("mx","lx", "ex"),"_m")
+
+lifetab_df <- merge(lifetab_df_both, lifetab_df_female, by = c("code", "year", "age"))
+lifetab_df <- merge(lifetab_df, lifetab_df_male, by = c("code", "year", "age"))
+rm(lifetab_df_both, lifetab_df_female, lifetab_df_male)
 
 ## Population
 # Initialise dataframe to fill with each country
@@ -70,8 +88,9 @@ pop_df <- pop_df[which(!is.na(pop_df$Total)),]
 
 
 
-lifetab_df <- merge(lifetab_df, pop_df, by = c("code", "year", "age"))
+lifetab_df <- merge(lifetab_df, pop_df, by = c("code", "year", "age"), all.x = T)
 lifetab_df <- lifetab_df[with(lifetab_df, order(code, year, age)), ]
+rm(pop_df)
 
 
 
@@ -81,9 +100,10 @@ lifetab_df <- lifetab_df[with(lifetab_df, order(code, year, age)), ]
 
 
 
-
-
-# Plot for most recent period
+"
+Some comparison plots
+"
+# Mortality rates
 plt_codes <- c("BEL", "DNK", "ENW", "FRA", "ITA", "NOR", "NZL_NM", "CHE", "FIN", "ISL", "NLD", "SWE")
 all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
                                          lifetab_df$code %in% plt_codes),], aes(x = age, y = mx)) + 
@@ -98,6 +118,22 @@ all1901_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1901" &
 ggarrange(all1901_plt,all2010_plt, nrow = 1, ncol=2, common.legend = TRUE)
 ggsave("figures/data/all_1990_2010_mortality_rates.pdf", width = 6, height = 4)
 
+# Life expectancy
+plt_codes <- c("BEL", "DNK", "ENW", "FRA", "ITA", "NOR", "NZL_NM", "CHE", "FIN", "ISL", "NLD", "SWE")
+all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex)) + 
+  geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
+  xlab("Age") + ylab("") + theme_bw() + ylim(c(0,85)) +
+  ggtitle("2010")
+all1901_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1901" & 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex)) + 
+  geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
+  xlab("Age") + ylab("Remaining life expectancy") + theme_bw() + ylim(c(0,85)) +
+  ggtitle("1901")
+ggarrange(all1901_plt,all2010_plt, nrow = 1, ncol=2, common.legend = TRUE)
+ggsave("figures/data/all_1990_2010_life_expectancies.pdf", width = 6, height = 4)
+
+# Population
 all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
                                          lifetab_df$code %in% plt_codes),], aes(x = age, y = Total)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
@@ -113,6 +149,9 @@ ggsave("figures/data/all_1990_2010_population.pdf", width = 6, height = 4)
 
 rm(all1901_plt, all2010_plt)
 
+
+
+
 "
 Get five year average
 "
@@ -126,89 +165,150 @@ lifetab_5y_df[,c("year_lower", "year_upper")] <-
   do.call(rbind, str_split(str_remove(str_remove(lifetab_5y_df$years, "\\("), "\\]"), ","))
 lifetab_5y_df$year <- as.numeric(lifetab_5y_df$year_lower) + 3
 
-# Plot an example
-enw_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "ENW" & lifetab_5y_df$year > 1900),], 
-       aes(x = age, y = mx)) + scale_color_continuous(name = "Year") + theme_bw() +
+## Plot some examples
+# ENW
+enw_plt_m <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "ENW" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_m)) + scale_color_continuous(name = "Year") + theme_bw() +
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
-  xlab("Age") + ylab("Mortality Rate") + ggtitle("England and Wales")
-jpn_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "JPN" & lifetab_5y_df$year > 1900),], 
-       aes(x = age, y = mx)) + scale_color_continuous(name = "Year") + theme_bw() +
+  xlab("Age") + ylab("Mortality Rate") + ggtitle("England and Wales (Male)")
+enw_plt_f <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "ENW" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
-  xlab("Age") + ylab("") + ggtitle("Japan")
-usa_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "USA" & lifetab_5y_df$year > 1900),], 
-                  aes(x = age, y = mx)) + scale_color_continuous(name = "Year") + theme_bw() +
+  xlab("Age") + ylab("Mortality Rate") + ggtitle("England and Wales (Female)")
+# JAP
+jpn_plt_m <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "JPN" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_m)) + scale_color_continuous(name = "Year") + theme_bw() +
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
-  xlab("Age") + ylab("") + ggtitle("USA")
-nzl_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "NZL_NM" & lifetab_5y_df$year > 1900),], 
-                  aes(x = age, y = mx)) + scale_color_continuous(name = "Year") + theme_bw() +
+  xlab("Age") + ylab("") + ggtitle("Japan (Male)")
+jpn_plt_f <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "JPN" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
-  xlab("Age") + ylab("") + ggtitle("New Zealand")
-ggarrange(enw_plt,jpn_plt,usa_plt, nrow = 1, ncol=3, common.legend = FALSE)
+  xlab("Age") + ylab("") + ggtitle("Japan (Female)")
+# USA
+usa_plt_m <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "USA" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_m)) + scale_color_continuous(name = "Year") + theme_bw() +
+  geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
+  xlab("Age") + ylab("") + ggtitle("USA (Male)")
+usa_plt_f <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "USA" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
+  geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
+  xlab("Age") + ylab("") + ggtitle("USA (Female)")
+# NZL_NM
+nzl_plt_m <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "NZL_NM" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_m)) + scale_color_continuous(name = "Year") + theme_bw() +
+  geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
+  xlab("Age") + ylab("") + ggtitle("New Zealand (Male)")
+nzl_plt_f <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "NZL_NM" & lifetab_5y_df$year > 1900),], 
+                    aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
+  geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
+  xlab("Age") + ylab("") + ggtitle("New Zealand (Female)")
+
+ggarrange(enw_plt_f,jpn_plt_f,usa_plt_f, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/mortality_rates_time.pdf", width = 12, height = 3)
-rm(enw_plt, jpn_plt, usa_plt, nzl_plt)
-     
+rm(enw_plt_m, enw_plt_f, jpn_plt_m, jpn_plt_f, usa_plt_m, usa_plt_f, nzl_plt_m, nzl_plt_f)
+
 "
 Calculate best practice
 "
-lifetab_5y_df$best_practice <- 0
-lifetab_5y_df$best_practice_alt <- 0
-all_years <- sort(unique(lifetab_5y_df$years))
-all_ages <- sort(unique(lifetab_5y_df$age))
-for (yy in all_years ){
-  print(yy)
-  # Find which country had best LE at birth 
-  year_df <- lifetab_5y_df[which(lifetab_5y_df$years == yy & 
-                                   lifetab_5y_df$age == 0),]
-  max_le <- max(year_df$ex, na.rm = T)
-  bp_country <- year_df$code[which(year_df$ex == max_le)]
-  # Assign best practice variable
-  lifetab_5y_df$best_practice[which(lifetab_5y_df$years == yy & 
-                        lifetab_5y_df$code == bp_country)] <- 1
-  # Alternative, find the lowest mortality rate at each age for that year
-  for (aa in all_ages){
-    age_df <- lifetab_5y_df[which(lifetab_5y_df$years == yy & 
-                                     lifetab_5y_df$age == aa),]
-    min_mx <- min(age_df$mx, na.rm = T)
-    bp_alt_country <- age_df$code[which(age_df$mx == min_mx)]
-    if (length(bp_alt_country) > 1){
-      print(paste(c("for",yy,"age",aa,"multiple countries:",bp_alt_country), collapse = " "))
-      lifetab_5y_df$best_practice_alt[
-        which(lifetab_5y_df$years == yy & lifetab_5y_df$age == aa &
-                lifetab_5y_df$code == bp_alt_country[1])] <- 1
-      lifetab_5y_df$best_practice_alt[
-        which(lifetab_5y_df$years == yy & lifetab_5y_df$age == aa &
-                lifetab_5y_df$code %in% bp_alt_country[2:length(bp_alt_country)])] <- 0.5
-      
-    } else{
-      lifetab_5y_df$best_practice_alt[which(lifetab_5y_df$years == yy & 
-                                          lifetab_5y_df$age == aa &
-                                          lifetab_5y_df$code == bp_alt_country)] <- 1
+identify_best_practice <- function(lifetab_df){
+  # Initialise indicators
+  lifetab_df$best_practice <- 0
+  lifetab_df$best_practice_gender <- NA
+  lifetab_df$best_practice_alt <- 0
+  # Identify the set of years and ages 
+  all_years <- sort(unique(lifetab_df$year))
+  all_ages <- sort(unique(lifetab_df$age))
+  for (yy in all_years ){
+    print(yy)
+    # Find which country had best LE at birth 
+    year_df <- lifetab_df[which(lifetab_df$year == yy & 
+                                     lifetab_df$age == 0),]
+    max_le_f <- max(year_df$ex_f, na.rm = T)
+    max_le_m <- max(year_df$ex_m, na.rm = T)
+    if (max_le_f >= max_le_m){
+      bp_country <- year_df$code[which(year_df$ex_f == max_le_f)]
+      bp_gender <- "F"
+    } else {
+      bp_country <- year_df$code[which(year_df$ex_m == max_le_m)]
+      bp_gender <- "M"
     }
     
+    # Assign best practice variable
+    lifetab_df$best_practice[which(lifetab_df$year == yy & 
+                                        lifetab_df$code == bp_country)] <- 1
+    lifetab_df$best_practice_gender[which(lifetab_df$year == yy & 
+                                     lifetab_df$code == bp_country)] <- bp_gender
+    # Alternative, find the lowest mortality rate at each age for that year
+    for (aa in all_ages){
+      age_df <- lifetab_df[which(lifetab_df$year == yy & 
+                                      lifetab_df$age == aa),]
+      min_mx <- min(age_df$mx_f, na.rm = T)
+      bp_alt_country <- age_df$code[which(age_df$mx_f == min_mx)]
+      if (length(bp_alt_country) > 1){
+        print(paste(c("for",yy,"age",aa,"multiple countries:",bp_alt_country), collapse = " "))
+        lifetab_df$best_practice_alt[
+          which(lifetab_df$year == yy & lifetab_df$age == aa &
+                  lifetab_df$code == bp_alt_country[1])] <- 1
+        lifetab_df$best_practice_alt[
+          which(lifetab_df$year == yy & lifetab_df$age == aa &
+                  lifetab_df$code %in% bp_alt_country[2:length(bp_alt_country)])] <- 0.5
+        
+      } else{
+        lifetab_df$best_practice_alt[which(lifetab_df$year == yy & 
+                                             lifetab_df$age == aa &
+                                             lifetab_df$code == bp_alt_country)] <- 1
+      }
+    }
   }
-  
+  return(lifetab_df)
 }
-rm(year_df, age_df, bp_country, bp_alt_country, min_mx, max_le, aa, yy, all_ages, all_years)
 
-# Plot BP life expectancy over time, survival and mortality curves
+lifetab_df <- identify_best_practice(lifetab_df)
+lifetab_5y_df <- identify_best_practice(lifetab_5y_df)
+
+" 
+Plot BP life expectancy over time, survival and mortality curves
+"
+# Five year intervals
 bp_le_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$age == 0 & lifetab_5y_df$year > 1900 &
                                           lifetab_5y_df$best_practice == 1),]) + theme_bw() +
-  geom_smooth(aes(x = year, y = ex), method = "lm") +
-  geom_point(aes(x = year, y = ex, color = code)) +
+  geom_smooth(aes(x = year, y = ex_f), method = "lm") +
+  geom_point(aes(x = year, y = ex_f, color = code)) +
   scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
   xlab("Year") + ylab("Life Expectancy at birth")
 bp_s_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1 & 
-                                   lifetab_5y_df$year > 1900),]) + theme_bw() +
-  geom_line(aes(x = age, y = lx, group = year, color = year)) + ylim(c(0,1)) +
+                                         lifetab_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
   scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
   ggtitle("Survival Rate")
 bp_m_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1 & 
-                                   lifetab_5y_df$year > 1900),]) + theme_bw() +
-  geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
+                                         lifetab_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = mx_f, group = year, color = year)) + ylim(c(0,1)) +
+  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
+  ggtitle("Mortality Rate")
+ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+ggsave("figures/data/best_practice_5y_data.pdf", width = 15, height = 4)
+
+# One year intervals
+bp_le_plt <- ggplot(lifetab_df[which(lifetab_df$age == 0 & lifetab_df$year > 1900 &
+                                       lifetab_df$best_practice == 1),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = ex_f), method = "lm") +
+  geom_point(aes(x = year, y = ex_f, color = code)) +
+  scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
+  xlab("Year") + ylab("Life Expectancy at birth")
+bp_s_plt <- ggplot(lifetab_df[which(lifetab_df$best_practice == 1 & 
+                                      lifetab_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
+  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
+  ggtitle("Survival Rate")
+bp_m_plt <- ggplot(lifetab_df[which(lifetab_df$best_practice == 1 & 
+                                         lifetab_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = mx_f, group = year, color = year)) + ylim(c(0,1)) +
   scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
   ggtitle("Mortality Rate")
 ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_data.pdf", width = 15, height = 4)
+
 rm(bp_le_plt, bp_s_plt, bp_m_plt)
 
 
@@ -224,37 +324,59 @@ m2S <- function(mx){
 }
 S2LE <- function(S){
   LE <- rep(NA, length(S))
-  for (aa in 1:length(mx)){
-    S_aa <- S[aa:length(mx)]/S[aa]
+  for (aa in 1:length(S)){
+    S_aa <- S[aa:length(S)]/S[aa]
     LE[aa] <- sum(S_aa)
   }
   return(LE) 
 }
 
-bp_df_alt <- lifetab_5y_df[which(lifetab_5y_df$best_practice_alt ==1 & 
-                                   lifetab_5y_df$year > 1900),]
-bp_df_alt <- bp_df_alt[with(bp_df_alt, order(year, age)),]
-bp_df_alt[,c("lx_alt", "ex_alt")] <- NA
-for (yy in unique(bp_df_alt$year)){
-  mx_alt <- bp_df_alt$mx[which(bp_df_alt$year == yy)]
-  lx_alt <- m2S(mx_alt)
-  ex_alt <- S2LE(lx_alt)
-  bp_df_alt$lx_alt[which(bp_df_alt$year == yy)] <- lx_alt
-  bp_df_alt$ex_alt[which(bp_df_alt$year == yy)] <- ex_alt
+create_bp_df <- function(lifetab_df){
+  bp_df_alt <- lifetab_df[which(lifetab_df$best_practice_alt ==1 & 
+                                     lifetab_df$year > 1900),]
+  bp_df_alt <- bp_df_alt[with(bp_df_alt, order(year, age)),]
+  bp_df_alt[,c("lx_alt", "ex_alt")] <- NA
+  for (yy in unique(bp_df_alt$year)){
+    mx_alt <- bp_df_alt$mx_f[which(bp_df_alt$year == yy)]
+    lx_alt <- m2S(mx_alt)
+    ex_alt <- S2LE(lx_alt)
+    bp_df_alt$lx_alt[which(bp_df_alt$year == yy)] <- lx_alt
+    bp_df_alt$ex_alt[which(bp_df_alt$year == yy)] <- ex_alt
+  }
+  return(bp_df_alt)
 }
-rm(mx_alt, lx_alt, ex_alt)
+bp_alt_df <- create_bp_df(lifetab_df)
+bp_alt_5y_df <- create_bp_df(lifetab_5y_df)
 
 
-bp_le_plt <- ggplot(bp_df_alt[which(lifetab_5y_df$age == 0),]) + theme_bw() +
+# 5 year intervals
+bp_le_plt <- ggplot(bp_alt_5y_df[which(bp_alt_5y_df$age == 0),]) + theme_bw() +
   geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
   geom_point(aes(x = year, y = ex_alt)) +
   scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
   xlab("Year") + ylab("Life Expectancy at birth")
-bp_s_plt <- ggplot(bp_df_alt) + theme_bw() +
+bp_s_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
   geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
   scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
   ggtitle("Survival Rate")
-bp_m_plt <- ggplot(bp_df_alt) + theme_bw() +
+bp_m_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
+  geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
+  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
+  ggtitle("Mortality Rate")
+ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+ggsave("figures/data/best_practice_5y_data_alt.pdf", width = 15, height = 4)
+rm(bp_le_plt, bp_s_plt, bp_m_plt)
+# One year intervals
+bp_le_plt <- ggplot(bp_alt_df[which(bp_alt_df$age == 0),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
+  geom_point(aes(x = year, y = ex_alt)) +
+  scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
+  xlab("Year") + ylab("Life Expectancy at birth")
+bp_s_plt <- ggplot(bp_alt_df) + theme_bw() +
+  geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
+  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
+  ggtitle("Survival Rate")
+bp_m_plt <- ggplot(bp_alt_df) + theme_bw() +
   geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
   scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
   ggtitle("Mortality Rate")
@@ -264,22 +386,22 @@ rm(bp_le_plt, bp_s_plt, bp_m_plt)
 
 ## Zoom in on a couple years
 # 2018 
-bp_2018_plt <- ggplot(bp_df_alt[which(bp_df_alt$year == 2018),]) + theme_bw() +
+bp_2018_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 2018),]) + theme_bw() +
   geom_point(aes(x = age, y = mx, color = code)) +
   xlab("Age") + ylab("Mortality Rate") +
   ggtitle("BP Mortality Rate 2018")
 # 1983
-bp_1983_plt <- ggplot(bp_df_alt[which(bp_df_alt$year == 1983),]) + theme_bw() +
+bp_1983_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1983),]) + theme_bw() +
   geom_point(aes(x = age, y = mx, color = code)) +
   xlab("Age") + ylab("Mortality Rate") +
   ggtitle("BP Mortality Rate 1983")
 # 1943
-bp_1943_plt <- ggplot(bp_df_alt[which(bp_df_alt$year == 1943),]) + theme_bw() +
+bp_1943_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1943),]) + theme_bw() +
   geom_point(aes(x = age, y = mx, color = code)) +
   xlab("Age") + ylab("Mortality Rate") +
   ggtitle("BP Mortality Rate 1943")
 # 1903
-bp_1903_plt <- ggplot(bp_df_alt[which(bp_df_alt$year == 1903),]) + theme_bw() +
+bp_1903_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1903),]) + theme_bw() +
   geom_point(aes(x = age, y = mx, color = code)) +
   xlab("Age") + ylab("Mortality Rate") +
   ggtitle("BP Mortality Rate 1903")
@@ -346,12 +468,20 @@ convert_df$name[which(convert_df$code== "USA")] <- "United States of America"
 
 
 lifetab_5y_export <- merge(lifetab_5y_df, convert_df, by = "code", all.x = TRUE)
+lifetab_export <- merge(lifetab_df, convert_df, by = "code", all.x = TRUE)
 
+
+lifetab_export <- lifetab_export[,c("code", "name", "year", "age",
+                                    "mx", "mx_f", "mx_m", "lx", "lx_f", "lx_m", 
+                                    "ex", "ex_f", "ex_m", "Total", "Male", "Female",
+                                    "best_practice", "best_practice_alt")]
 lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age",
-                                          "mx", "lx", "ex", "Total", 
+                                          "mx", "mx_f", "mx_m", "lx", "lx_f", "lx_m", 
+                                          "ex", "ex_f", "ex_m", "Total", "Male", "Female",
                                           "best_practice", "best_practice_alt")]
 
-write.csv(lifetab_5y_export, "data/clean/all_lifetab.csv", row.names = FALSE)
+write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
+write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
 
 
 

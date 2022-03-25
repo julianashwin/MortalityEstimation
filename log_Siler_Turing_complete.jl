@@ -78,12 +78,55 @@ prior_vals = df_prior[1,3:(end-1)]
 
 
 # Estimate by MCMC
-@time chain_est = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
-    750, 4, init_params = map_vals)
-parests_col = extract_variables(chain_est, years_selected, log_pars = true,
-    model_vers = :firstdiff, spec = :Colchero)
-p1 = plot_siler_params(parests_col)
-p2 = plot_ts_params(parests_col, model_vers = :i2drift)
+@time chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+    1000, 4, init_params = prior_vals)
+display(chain_i2)
+years_selected = country_years
+# Display the parameters with Colchero specification
+parests_i2_col = extract_variables(chain_i2, years_selected, log_pars = true,
+    model_vers = :i2drift, spec = :Colchero)
+p1 = plot_siler_params(parests_i2_col)
+p_title = plot(title = "I(2) Siler Colchero parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_i2_params_col.pdf")
+CSV.write("figures/general/siler_i2_params_col.csv", parests_i2_col)
+# With Scott specification
+parests_i2_sco = extract_variables(chain_i2, years_selected, log_pars = true,
+    model_vers = :i2drift, spec = :Scott)
+p1 = plot_siler_params(parests_i2_sco)
+p_title = plot(title = "I(2) Siler Scott parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_i2_params_sco.pdf")
+CSV.write("figures/general/siler_i2_params_sco.csv", parests_i2_sco)
+# With Bergeron specification
+parests_i2_ber = extract_variables(chain_i2, years_selected, log_pars = true,
+    model_vers = :i2drift, spec = :Bergeron)
+p1 = plot_siler_params(parests_i2_ber)
+p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_i2_params_ber.pdf")
+CSV.write("figures/general/siler_i2_params_ber.csv", parests_i2_ber)
+# With Standard specification
+parests_i2_sta = extract_variables(chain_i2, years_selected, log_pars = true,
+    model_vers = :i2drift, spec = :Standard)
+p1 = plot_siler_params(parests_i2_sta)
+p_title = plot(title = "I(2) Siler Standard parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_i2_params_sta.pdf")
+CSV.write("figures/general/siler_i2_params_sta.csv", parests_i2_sta)
+
+## Plot time series parameters
+p2 = plot_ts_params(parests_i2_col, model_vers = :i2drift)
+p_title = plot(title = "I(2) Siler Colcher ts params "*string(code), grid = false, showaxis = false,
+    bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
+savefig("figures/general/siler_i2_ts_params_col.pdf")
+
+
 
 
 
