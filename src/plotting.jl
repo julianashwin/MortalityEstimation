@@ -311,3 +311,35 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :justrw)
     return plt
 
 end
+
+
+
+"""
+Plot a decomposition of the evolution of LE or H in terms of each parameter
+"""
+function plot_decomp(decomp_df, variable)
+  # Define variables to plot
+  if variable == :LE
+    b = decomp_df.Δb.*decomp_df.LE_b
+    B = decomp_df.ΔB.*decomp_df.LE_B
+    c = decomp_df.Δc.*decomp_df.LE_c
+    C = decomp_df.ΔC.*decomp_df.LE_C
+    d = decomp_df.Δd.*decomp_df.LE_d
+    var = decomp_df.ΔLE_mod
+  elseif variable == :H
+    b = decomp_df.Δb.*decomp_df.H_b
+    B = decomp_df.ΔB.*decomp_df.H_B
+    c = decomp_df.Δc.*decomp_df.H_c
+    C = decomp_df.ΔC.*decomp_df.H_C
+    d = decomp_df.Δd.*decomp_df.H_d
+    var = decomp_df.ΔH_mod
+  end
+  # Plot decomposition
+  p1 = groupedbar(decomp_df.year, [b B c C d], label=["b" "B" "c" "C" "d"],
+    bar_position = :stack, linecolor=nothing,
+    xlabel = "Year", ylabel = "Δ"*string(variable))
+  p1 = plot!(decomp_df.year, var, color = :black, label = false)
+  p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
+
+  return p1
+end

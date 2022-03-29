@@ -38,25 +38,33 @@ par_fills <- scale_fill_manual("Parameter", values = par_cols)
 "
 Import data and results
 "
+mult_codes <- FALSE
 # Import parameter estimates
-parests_df <- read.csv("results_firstdiff/select_country_siler_est_results.csv", stringsAsFactors = FALSE)
+parests_df <- read.csv("figures/general/siler_i2_params_col.csv", stringsAsFactors = FALSE)
 #other_parests_df <- read.csv("results_justrw/other_country_siler_est_results.csv", stringsAsFactors = FALSE)
-# Shorten USA to United States
-parests_df$name[which(parests_df$code == "USA")] <- "United States"
-# year = 0 means year should be NA
-parests_df$year[which(parests_df$year == 0)] <- NA
-#other_parests_df$year[which(other_parests_df$year == 0)] <- NA
-# Combine
-all_parests_df <- rbind(parests_df)#, other_parests_df)
+if (mult_codes){
+  # Shorten USA to United States
+  parests_df$name[which(parests_df$code == "USA")] <- "United States"
+  # year = 0 means year should be NA
+  parests_df$year[which(parests_df$year == 0)] <- NA
+  #other_parests_df$year[which(other_parests_df$year == 0)] <- NA
+  # Combine
+  all_parests_df <- rbind(parests_df)#, other_parests_df)
+  
+  # Include only countries that have a full sample (plus UK, US and Japan)
+  full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 162)])
+  full_codes <- c(full_codes, "GBR", "USA", "JPN")
+  full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
+} else {
+  full_parests_df <- parests_df
+  full_parests_df$code <- "BestPractice"
+  full_parests_df$name <- "Best Practice"
+}
 
-# Include only countries that have a full sample (plus UK, US and Japan)
-full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 162)])
-full_codes <- c(full_codes, "GBR", "USA", "JPN")
-full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
 
 
 # Import mortality data
-mort_df <- read.csv("data/clean/all_lifetab.csv", stringsAsFactors = FALSE)
+mort_df <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
 
 # Compute empirical lifespan inequality from the mortality data
 mort_df$Hx <- NA
@@ -88,6 +96,10 @@ bp_df <- mort_df[which(mort_df$best_practice == 1),]
 bp_df$code <- "BestPractice"
 bp_df$name <- "Best Practice"
 mort_df <- rbind(mort_df, bp_df)
+bp_df <- mort_df[which(mort_df$best_practice_alt == 1),]
+bp_df$code <- "BestPractice_alt"
+bp_df$name <- "Best Practice (alt)"
+mort_df <- rbind(mort_df, bp_df)
 
 
 
@@ -102,7 +114,7 @@ decomp_df <- merge(decomp_df, mort_df[which(mort_df$age == 0), c("code", "year",
 # Get the model-based LE, H and derivatives
 decomp_df[,c("LE_mod", "H_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
              "H_b", "H_B", "H_c", "H_C", "H_d")] <- NA
-eval_age <- 65
+eval_age <- 0
 
 for (code in unique(decomp_df$code)){
   print(code)

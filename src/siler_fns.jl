@@ -36,6 +36,9 @@ function siler_S(param::SilerParam, aa::Real, tt::Real; spec::Symbol = :Colchero
 	elseif spec == :Bergeron
 		S_aa = exp( - d*aa + (B/b)*(exp(- b*aa) - 1) - (exp(c*(aa - C)) - exp(-c*C)) )
 		S_tt = exp( - d*tt + (B/b)*(exp(- b*tt) - 1) - (exp(c*(tt - C)) - exp(-c*C)) )
+	elseif spec == :Standard
+		S_aa = exp( - d*aa + (B/b)*(exp(- b*aa) - 1) - (C/c)*(exp(c*aa) - 1) )
+		S_tt = exp( - d*tt + (B/b)*(exp(- b*tt) - 1) - (C/c)*(exp(c*tt) - 1) )
 	end
 	if S_tt == 0.
 		S_at = 0.

@@ -81,6 +81,7 @@ prior_vals = df_prior[1,3:(end-1)]
 @time chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
     1000, 4, init_params = prior_vals)
 display(chain_i2)
+CSV.write("figures/general/siler_i2_params_fullpost.csv", DataFrame(chain_i2))
 years_selected = country_years
 # Display the parameters with Colchero specification
 parests_i2_col = extract_variables(chain_i2, years_selected, log_pars = true,

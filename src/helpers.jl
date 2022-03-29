@@ -195,3 +195,62 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
     return par_ests
 
 end
+
+
+
+
+
+"""
+Function to create a decomposed df from parameter estimates
+"""
+function create_decomp(parests_df; spec = :Colchero, eval_age = 0)
+
+    # Convert from long to wide
+    decomp_df = parests_df[.!occursin.("_",string.(parests_df.parameter)),
+        ["year", "parameter", "median"]]
+    decomp_df = unstack(decomp_df, :year, :parameter, :median)
+    decomp_df = hcat(DataFrame(year = decomp_df[:,1]),Float64.(decomp_df[:,2:end]))
+    # Make suer we're ordered chronologically
+    decomp_df = sort!(decomp_df, :year)
+
+    decomp_vars = ["LE_mod", "H_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
+        "H_b", "H_B", "H_c", "H_C", "H_d", "Δb", "ΔB", "Δc", "ΔC", "Δd", "ΔLE_mod", "ΔH_mod"]
+    decomp_df = hcat(decomp_df,DataFrame(NaN.*zeros(nrow(decomp_df), length(decomp_vars)), decomp_vars))
+
+    # Get LE, H, changes and derivatives
+    for ii in 1:nrow(decomp_df)
+
+        # Identify parameters for that year
+        row = NamedTuple(decomp_df[ii,:])
+        params = SilerParam(b = row.b, B = row.B, c = row.c, C = row.C, d = row.d)
+        # Compute model-impled life expectancy and inequality
+        S_mod = siler_S.([params], [eval_age], eval_age:200, spec = spec)
+        decomp_df.LE_mod[ii] = LE(params, eval_age, spec = spec)
+        decomp_df.H_mod[ii] = H(params, eval_age, spec = spec)
+        # Compute LE gradient for each parameter
+        decomp_df.LE_B[ii] = LEgrad(params, eval_age, :B, spec = spec)
+        decomp_df.LE_b[ii] = LEgrad(params, eval_age, :b, spec = spec)
+        decomp_df.LE_C[ii] = LEgrad(params, eval_age, :C, spec = spec)
+        decomp_df.LE_c[ii] = LEgrad(params, eval_age, :c, spec = spec)
+        decomp_df.LE_d[ii] = LEgrad(params, eval_age, :d, spec = spec)
+        # Compute H gradient for each parameter
+        decomp_df.H_B[ii] = Hgrad(params, eval_age, :B, spec = spec)
+        decomp_df.H_b[ii] = Hgrad(params, eval_age, :b, spec = spec)
+        decomp_df.H_C[ii] = Hgrad(params, eval_age, :C, spec = spec)
+        decomp_df.H_c[ii] = Hgrad(params, eval_age, :c, spec = spec)
+        decomp_df.H_d[ii] = Hgrad(params, eval_age, :d, spec = spec)
+
+        if ii > 1
+            decomp_df.ΔB[ii] = decomp_df.B[ii] - decomp_df.B[ii-1]
+            decomp_df.Δb[ii] = decomp_df.b[ii] - decomp_df.b[ii-1]
+            decomp_df.ΔC[ii] = decomp_df.C[ii] - decomp_df.C[ii-1]
+            decomp_df.Δc[ii] = decomp_df.c[ii] - decomp_df.c[ii-1]
+            decomp_df.Δd[ii] = decomp_df.d[ii] - decomp_df.d[ii-1]
+            decomp_df.ΔLE_mod[ii] = decomp_df.LE_mod[ii] - decomp_df.LE_mod[ii-1]
+            decomp_df.ΔH_mod[ii] = decomp_df.H_mod[ii] - decomp_df.H_mod[ii-1]
+        end
+
+    end
+    return decomp_df
+
+end
