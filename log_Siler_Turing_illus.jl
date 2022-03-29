@@ -20,7 +20,8 @@ workers()
 # Import libraries.
 using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra, Optim
 using TruncatedDistributions, PDMats
-using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
+using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings, JLD2
+
 
 include("src/MortalityEstimation.jl")
 
@@ -70,7 +71,7 @@ Set up a single country/case to run through examples
 code = "Best Practice"
 folder = "best_practice"
 #country_df = mort_df[(mort_df.code .== code), :]
-country_df = bp_alt_df
+country_df = bp_df
 # Need to remove any zeros
 country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[:,:mx_f] .> 0.0,:mx_f])
 # Check data looks sensible
@@ -374,6 +375,8 @@ savefig("figures/"*folder*"/siler_fd_ts_params_col.pdf")
 """
 Dynamic Siler model with parameters i(2) random walk with drift
 """
+# Define model and folder to save results
+model = "i2"
 # Adjust if you don't want every period
 periods = Int.(1:T)
 years_selected = Int.(round.(country_years[periods]))
@@ -394,6 +397,7 @@ nchains = 4
 chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
     niters, nchains, init_params = prior_i2_vals)
 display(chain_i2)
+@save "figures/"*folder*"/siler_i2_chain.jld2" chain_i2
 CSV.write("figures/"*folder*"/siler_i2_fullpost.csv", DataFrame(chain_i2))
 
 ## Plot Siler parameters
@@ -405,7 +409,7 @@ p_title = plot(title = "I(2) Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_i2_params_col.pdf")
-CSV.write("figures/"*folder*"/siler_i2_params_col.csv", parests_indep_sco)
+CSV.write("figures/"*folder*"/siler_i2_params_col.csv", parests_i2_col)
 # With Scott specification
 parests_i2_sco = extract_variables(chain_i2, years_selected, log_pars = true,
     model_vers = :i2drift, spec = :Scott)
@@ -414,7 +418,7 @@ p_title = plot(title = "I(2) Siler Scott parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_i2_params_sco.pdf")
-CSV.write("figures/"*folder*"/siler_i2_params_sco.csv", parests_indep_sco)
+CSV.write("figures/"*folder*"/siler_i2_params_sco.csv", parests_i2_sco)
 # With Bergeron specification
 parests_i2_ber = extract_variables(chain_i2, years_selected, log_pars = true,
     model_vers = :i2drift, spec = :Bergeron)
@@ -423,7 +427,7 @@ p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_i2_params_ber.pdf")
-CSV.write("figures/"*folder*"/siler_i2_params_ber.csv", parests_indep_sco)
+CSV.write("figures/"*folder*"/siler_i2_params_ber.csv", parests_i2_ber)
 # With Standard specification
 parests_i2_sta = extract_variables(chain_i2, years_selected, log_pars = true,
     model_vers = :i2drift, spec = :Standard)
@@ -432,7 +436,7 @@ p_title = plot(title = "I(2) Siler Standard parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_i2_params_sta.pdf")
-CSV.write("figures/"*folder*"/siler_i2_params_sta.csv", parests_indep_sco)
+CSV.write("figures/"*folder*"/siler_i2_params_sta.csv", parests_i2_sta)
 
 ## Plot time series parameters
 p2 = plot_ts_params(parests_i2_col, model_vers = :i2drift)
@@ -441,6 +445,49 @@ p_title = plot(title = "I(2) Siler Colcher ts params "*string(code), grid = fals
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_i2_ts_params_col.pdf")
 
+
+
+## Plot decomposition
+# Colchero specification
+decomp_df_col = create_decomp(parests_i2_col; spec = :Colchero, eval_age = 0)
+le_p = plot_decomp(decomp_df_col, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_col, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Colchero parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_col.pdf")
+# Scott specification
+decomp_df_sco = create_decomp(parests_i2_sco; spec = :Scott, eval_age = 0)
+le_p = plot_decomp(decomp_df_sco, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_sco, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Scott parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_sco.pdf")
+# Bergeron specification
+decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_df_ber, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_ber, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
+# Standard specification
+decomp_df_sta = create_decomp(parests_i2_sta; spec = :Standard, eval_age = 0)
+le_p = plot_decomp(decomp_df_sta, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_sta, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Standard parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_sta.pdf")
 
 
 

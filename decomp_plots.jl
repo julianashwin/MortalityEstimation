@@ -22,7 +22,7 @@ gr()
 Import data
 """
 # Which data do we want to look at
-code = "Best Practice"
+code = "SWE"
 folder = "figures/SWE/"
 model = "indep"
 # Full raw samples
@@ -34,10 +34,10 @@ parests_df_sco =  CSV.read(folder*"siler_"*model*"_params_sco.csv", DataFrame, n
 parests_df_ber =  CSV.read(folder*"siler_"*model*"_params_ber.csv", DataFrame, ntasks = 1)
 parests_df_sta =  CSV.read(folder*"siler_"*model*"_params_sta.csv", DataFrame, ntasks = 1)
 # Clean up the year column for the non-time-varying variables
-parests_df_col.year[parests_df_col.year .== 0] .= NaN
-parests_df_sco.year[parests_df_sco.year .== 0] .= NaN
-parests_df_ber.year[parests_df_ber.year .== 0] .= NaN
-parests_df_sta.year[parests_df_sta.year .== 0] .= NaN
+#parests_df_col.year[parests_df_col.year .== 0] .= NaN
+#parests_df_sco.year[parests_df_sco.year .== 0] .= NaN
+#parests_df_ber.year[parests_df_ber.year .== 0] .= NaN
+#parests_df_sta.year[parests_df_sta.year .== 0] .= NaN
 # Also the underlying mortality data for comparison
 mort_df = CSV.read("data/clean/all_lifetab_5y.csv", DataFrame, ntasks = 1)
 mort_df = mort_df[mort_df.best_practice.==1,:]
@@ -51,7 +51,7 @@ decomp_df_col = create_decomp(parests_df_col; spec = :Colchero, eval_age = 0)
 decomp_df_sco = create_decomp(parests_df_sco; spec = :Scott, eval_age = 0)
 decomp_df_ber = create_decomp(parests_df_ber; spec = :Bergeron, eval_age = 0)
 decomp_df_sta = create_decomp(parests_df_sta; spec = :Standard, eval_age = 0)
-
+# Plot model implied LE as a sense check (should be the same across as specifications
 scatter(decomp_df_col.year, decomp_df_col.LE_mod, markershape = :circle)
 scatter!(decomp_df_sco.year, decomp_df_sco.LE_mod, markershape = :cross)
 scatter!(decomp_df_sco.year, decomp_df_sco.LE_mod, markershape = :xcross)
@@ -120,12 +120,13 @@ function plot_LEgrads(decomp_df)
 end
 # Colchero
 le_p = plot_LEgrads(decomp_df_col)
-
+savefig(folder*"siler_"*model*"_LEgrad_col.pdf")
 # Scott
 le_p = plot_LEgrads(decomp_df_sco)
-
+savefig(folder*"siler_"*model*"_LEgrad_sco.pdf")
 # Bergeron
 le_p = plot_LEgrads(decomp_df_ber)
-
+savefig(folder*"siler_"*model*"_LEgrad_ber.pdf")
 # Standard
 le_p = plot_LEgrads(decomp_df_sta)
+savefig(folder*"siler_"*model*"_LEgrad_sta.pdf")
