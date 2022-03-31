@@ -51,6 +51,41 @@ function summarise_stats(df_sum, stats_post, years; parname = :unknown)
 end
 
 
+
+"""
+Function to extract summary statistics from time series forecasts
+"""
+function summarise_forecasts(df_sum, all_years; parname = :unknown)
+
+    rename!(df_sum, string.(all_years))
+    df_ests = describe(df_sum)
+    rename!(df_ests, Dict(:variable => :year))
+    df_ests.year = parse.(Int64,string.(df_ests.year))
+    insertcols!(df_ests, 1, :parameter => repeat([parname], nrow(df_ests)) )
+
+    # Add some percentiles
+    df_ests[:,:std] .= 0.0
+    df_ests[:,:pc975] .= 0.0
+    df_ests[:,:pc025] .= 0.0
+    df_ests[:,:pc85] .= 0.0
+    df_ests[:,:pc15] .= 0.0
+    df_ests[:,:pc75] .= 0.0
+    df_ests[:,:pc25] .= 0.0
+    for yy in 1:ncol(df_sum)
+        df_ests.std[(yy)] = std(df_sum[:,yy])
+        df_ests.pc975[(yy)] = percentile(df_sum[:,yy], 97.5)
+        df_ests.pc025[(yy)] = percentile(df_sum[:,yy], 2.5)
+        df_ests.pc85[(yy)] = percentile(df_sum[:,yy], 85)
+        df_ests.pc15[(yy)] = percentile(df_sum[:,yy], 15)
+        df_ests.pc75[(yy)] = percentile(df_sum[:,yy], 75)
+        df_ests.pc25[(yy)] = percentile(df_sum[:,yy], 25)
+    end
+
+    return(df_ests)
+end
+
+
+
 """
 Function that creates summary dataframes for each Siler parameter
     spec defines which Siler specification we want (Colchero, Scott, Bergeron or Standard)
@@ -252,5 +287,134 @@ function create_decomp(parests_df; spec = :Colchero, eval_age = 0)
 
     end
     return decomp_df
+
+end
+
+
+
+
+"""
+A function that extracts a vector of SilerParam structures from rows of a DataFrame
+    of samples from a posterior distribution
+"""
+function particles2params(df_particle, Tptt, Bs, bs, Cs, cs, ds; log_pars = true)
+    params = repeat([SilerParam()], nrow(df_particle))
+    if log_pars
+        for ii in 1:nrow(df_particle)
+            params[ii] = SilerParam(b = exp(df_particle[ii,bs[Tptt]]), B = exp(df_particle[ii,Bs[Tptt]]),
+                c = exp(df_particle[ii,cs[Tptt]]), C = exp(df_particle[ii,Cs[Tptt]]),
+                d = exp(df_particle[ii,ds[Tptt]]))
+        end
+    else
+        for ii in 1:nrow(df_particle)
+            params[ii] = SilerParam(b = df_particle[ii,bs[Tptt]], B = df_particle[ii,Bs[Tptt]],
+                c = df_particle[ii,cs[Tptt]], C = df_particle[ii,Cs[Tptt]], d = df_particle[ii,ds[Tptt]])
+        end
+    end
+    return params
+end
+
+
+
+
+
+"""
+Function that creates summary dataframes for current and forecast Siler parameters
+    Need to specify which years are past and which are future
+
+"""
+function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_years;
+        log_pars = false, spec = :Colchero, model_vers = :i2drift)
+
+    if model_vers != :i2drift
+        throw("Only supported for i2drift")
+    end
+    all_years = vcat(past_years, fut_years)
+    # Siler parameter names
+    if log_pars
+        Bs = Symbol.("lB[".*string.(1:length(all_years)).*"]")
+        bs = Symbol.("lb[".*string.(1:length(all_years)).*"]")
+        Cs = Symbol.("lC[".*string.(1:length(all_years)).*"]")
+        cs = Symbol.("lc[".*string.(1:length(all_years)).*"]")
+        ds = Symbol.("ld[".*string.(1:length(all_years)).*"]")
+        σs = Symbol.("lσ[".*string.(1:length(all_years)).*"]")
+        # If parameters are logged, then convert now
+        df_pred[:, Bs] = exp.(df_pred[:, Bs])
+        df_pred[:, bs] = exp.(df_pred[:, bs])
+        df_pred[:, Cs] = exp.(df_pred[:, Cs])
+        df_pred[:, cs] = exp.(df_pred[:, cs])
+        df_pred[:, ds] = exp.(df_pred[:, ds])
+        df_pred[:, σs] = exp.(df_pred[:, σs])
+    else
+        Bs = Symbol.("B[".*string.(1:length(all_years)).*"]")
+        bs = Symbol.("b[".*string.(1:length(all_years)).*"]")
+        Cs = Symbol.("C[".*string.(1:length(all_years)).*"]")
+        cs = Symbol.("c[".*string.(1:length(all_years)).*"]")
+        ds = Symbol.("d[".*string.(1:length(all_years)).*"]")
+        σs = Symbol.("σ[".*string.(1:length(all_years)).*"]")
+    end
+
+    if spec == :Colchero
+        df_pred[:, Bs] = df_pred[:, Bs]
+        df_pred[:, Cs] = df_pred[:, Cs]
+    elseif spec == :Scott
+        df_pred[:, Bs] = Matrix(df_pred[:, Bs])./Matrix(df_pred[:, bs])
+        df_pred[:, Cs] = Matrix(df_pred[:, Cs])./Matrix(df_pred[:, cs])
+    elseif spec == :Bergeron
+        df_pred[:, Bs] = exp.(.- Matrix(df_pred[:, Bs]))
+        df_pred[:, Cs] = (Matrix(df_pred[:, Cs]) .+ log.(Matrix(df_pred[:, cs])))./Matrix(df_pred[:, cs])
+    elseif spec == :Standard
+        df_pred[:, Bs] = exp.(.- Matrix(df_pred[:, Bs]))
+        df_pred[:, Cs] = exp.(.- Matrix(df_pred[:, Cs]))
+    end
+
+
+    B_ests = summarise_forecasts(df_pred[:,Bs], all_years, parname = :B)
+    b_ests = summarise_forecasts(df_pred[:,bs], all_years, parname = :b)
+    C_ests = summarise_forecasts(df_pred[:,Cs], all_years, parname = :C)
+    c_ests = summarise_forecasts(df_pred[:,cs], all_years, parname = :c)
+    d_ests = summarise_forecasts(df_pred[:,ds], all_years, parname = :d)
+    σ_ests = summarise_forecasts(df_pred[:,σs], all_years, parname = :σ)
+
+    par_ests = vcat(B_ests, b_ests, C_ests, c_ests, d_ests, σ_ests)
+
+    # If we have a dynamic model with various time series parameters, add these
+    if model_vers == :justrw
+
+    elseif model_vers == :firstdiff
+
+    elseif model_vers == :i2drift
+        α_Bs = Symbol.("α_B[".*string.(1:length(all_years)-1).*"]")
+        α_bs = Symbol.("α_b[".*string.(1:length(all_years)-1).*"]")
+        α_Cs = Symbol.("α_C[".*string.(1:length(all_years)-1).*"]")
+        α_cs = Symbol.("α_c[".*string.(1:length(all_years)-1).*"]")
+        α_ds = Symbol.("α_d[".*string.(1:length(all_years)-1).*"]")
+        α_σs = Symbol.("α_σ[".*string.(1:length(all_years)-1).*"]")
+
+        α_B_ests = summarise_forecasts(df_pred[:,α_Bs], all_years[2:end], parname = :α_B)
+        α_b_ests = summarise_forecasts(df_pred[:,α_bs], all_years[2:end], parname = :α_b)
+        α_C_ests = summarise_forecasts(df_pred[:,α_Cs], all_years[2:end], parname = :α_C)
+        α_c_ests = summarise_forecasts(df_pred[:,α_cs], all_years[2:end], parname = :α_c)
+        α_d_ests = summarise_forecasts(df_pred[:,α_ds], all_years[2:end], parname = :α_d)
+        α_σ_ests = summarise_forecasts(df_pred[:,α_σs], all_years[2:end], parname = :α_σ)
+
+        par_ests = vcat(par_ests, α_B_ests, α_b_ests, α_C_ests, α_c_ests, α_d_ests, α_σ_ests)
+
+    end
+
+    # Extrac the model implied forecasts of LE and H
+    LEs = Symbol.("LE[".*string.(1:length(all_years)).*"]")
+    Hs = Symbol.("H[".*string.(1:length(all_years)).*"]")
+
+    LE_ests = summarise_forecasts(df_pred[:,LEs], all_years, parname = :LE)
+    H_ests = summarise_forecasts(df_pred[:,Hs], all_years, parname = :H)
+
+    par_ests = vcat(par_ests, LE_ests, H_ests)
+
+
+    insertcols!(par_ests, 2, :forecast => repeat([0], nrow(par_ests)) )
+    par_ests.forecast[in.(par_ests.year, fut_years)] .= 1
+
+    return par_ests
 
 end
