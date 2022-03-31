@@ -297,23 +297,137 @@ end
 A function that extracts a vector of SilerParam structures from rows of a DataFrame
     of samples from a posterior distribution
 """
-function particles2params(df_particle, Tptt, Bs, bs, Cs, cs, ds; log_pars = true)
+function particles2params(df_particle, Tptt; log_pars = true)
+     B = Symbol("lB["*string(Tptt)*"]")
+     b = Symbol("lb["*string(Tptt)*"]")
+     C = Symbol("lC["*string(Tptt)*"]")
+     c = Symbol("lc["*string(Tptt)*"]")
+     d = Symbol("ld["*string(Tptt)*"]")
+
     params = repeat([SilerParam()], nrow(df_particle))
     if log_pars
         for ii in 1:nrow(df_particle)
-            params[ii] = SilerParam(b = exp(df_particle[ii,bs[Tptt]]), B = exp(df_particle[ii,Bs[Tptt]]),
-                c = exp(df_particle[ii,cs[Tptt]]), C = exp(df_particle[ii,Cs[Tptt]]),
-                d = exp(df_particle[ii,ds[Tptt]]))
+            params[ii] = SilerParam(b = exp(df_particle[ii,b]), B = exp(df_particle[ii,B]),
+                c = exp(df_particle[ii,c]), C = exp(df_particle[ii,C]),
+                d = exp(df_particle[ii,d]))
         end
     else
         for ii in 1:nrow(df_particle)
-            params[ii] = SilerParam(b = df_particle[ii,bs[Tptt]], B = df_particle[ii,Bs[Tptt]],
-                c = df_particle[ii,cs[Tptt]], C = df_particle[ii,Cs[Tptt]], d = df_particle[ii,ds[Tptt]])
+            params[ii] = SilerParam(b = df_particle[ii,b], B = df_particle[ii,B],
+                c = df_particle[ii,c], C = df_particle[ii,C], d = df_particle[ii,d])
         end
     end
     return params
 end
 
+
+
+## For each particle, simulate one step forward
+"""
+Function to compute predictive distribution nahead periods ahead with ndraws draws for
+    the path of future shocks
+"""
+function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
+
+    # Siler parameters
+    Bs = Symbol.("lB[".*string.(1:length(years)+nahead).*"]")
+    bs = Symbol.("lb[".*string.(1:length(years)+nahead).*"]")
+    Cs = Symbol.("lC[".*string.(1:length(years)+nahead).*"]")
+    cs = Symbol.("lc[".*string.(1:length(years)+nahead).*"]")
+    ds = Symbol.("ld[".*string.(1:length(years)+nahead).*"]")
+    σs = Symbol.("lσ[".*string.(1:length(years)+nahead).*"]")
+    # Drift terms (remeber lB[tt] = α_B[tt-1] + lB[tt-1] = shock)
+    α_Bs = Symbol.("α_B[".*string.(1:length(years)-1+nahead).*"]")
+    α_bs = Symbol.("α_b[".*string.(1:length(years)-1+nahead).*"]")
+    α_Cs = Symbol.("α_C[".*string.(1:length(years)-1+nahead).*"]")
+    α_cs = Symbol.("α_c[".*string.(1:length(years)-1+nahead).*"]")
+    α_ds = Symbol.("α_d[".*string.(1:length(years)-1+nahead).*"]")
+    α_σs = Symbol.("α_σ[".*string.(1:length(years)-1+nahead).*"]")
+    # Future parameters
+    B_f = Symbol.("lB[".*string.(length(years)+1:length(years)+nahead).*"]")
+    b_f = Symbol.("lb[".*string.(length(years)+1:length(years)+nahead).*"]")
+    C_f = Symbol.("lC[".*string.(length(years)+1:length(years)+nahead).*"]")
+    c_f = Symbol.("lc[".*string.(length(years)+1:length(years)+nahead).*"]")
+    d_f = Symbol.("ld[".*string.(length(years)+1:length(years)+nahead).*"]")
+    σ_f = Symbol.("lσ[".*string.(length(years)+1:length(years)+nahead).*"]")
+    # Future drift terms
+    α_B_f = Symbol.("α_B[".*string.(length(years):length(years)-1+nahead).*"]")
+    α_b_f = Symbol.("α_b[".*string.(length(years):length(years)-1+nahead).*"]")
+    α_C_f = Symbol.("α_C[".*string.(length(years):length(years)-1+nahead).*"]")
+    α_c_f = Symbol.("α_c[".*string.(length(years):length(years)-1+nahead).*"]")
+    α_d_f = Symbol.("α_d[".*string.(length(years):length(years)-1+nahead).*"]")
+    α_σ_f = Symbol.("α_σ[".*string.(length(years):length(years)-1+nahead).*"]")
+    # The model-implied variables
+    LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
+    Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
+
+    # Extend dataframe to account for forward simulations
+    df_pred = repeat(df_post, inner = ndraws)
+    insertcols!(df_pred, 1, :particle => repeat([NaN], nrow(df_pred)) )
+    df_pred[:,:particle] .= df_pred.iteration .+ df_pred.chain./10
+    # Add extra columns for predicted values
+    pred_vars = vcat(α_B_f, α_b_f, α_C_f, α_c_f, α_d_f, α_σ_f, B_f, b_f, C_f, c_f, d_f, σ_f)
+    df_pred = hcat(df_pred,DataFrame(NaN.*zeros(nrow(df_pred), length(pred_vars)), pred_vars))
+    # Split into groups for more efficient simulation
+    df_grpd = groupby(df_pred, :particle)
+
+    # Loop through years ahead for forecasts
+    T = length(years)
+    for tt in 1:nahead
+        Tptt = T + tt
+
+        # Loop through each particle
+        prog = Progress(length(df_grpd), desc = "Simulating "*string(tt)*" periods ahead: ")
+        for gg in 1:length(df_grpd)
+            df_particle = df_grpd[gg]
+            # Parameter variance terms for this particle
+            σ_ϵB = df_particle[1,Symbol("σ_pars[1]")]
+            σ_ϵb = df_particle[1,Symbol("σ_pars[2]")]
+            σ_ϵC = df_particle[1,Symbol("σ_pars[3]")]
+            σ_ϵc = df_particle[1,Symbol("σ_pars[4]")]
+            σ_ϵd = df_particle[1,Symbol("σ_pars[5]")]
+            σ_ϵσ = df_particle[1,Symbol("σ_pars[6]")]
+            # Drift variance terms for this particle
+            σ_ξB = df_particle[1,Symbol("σ_αB")]
+            σ_ξb = df_particle[1,Symbol("σ_αb")]
+            σ_ξC = df_particle[1,Symbol("σ_αC")]
+            σ_ξc = df_particle[1,Symbol("σ_αc")]
+            σ_ξd = df_particle[1,Symbol("σ_αd")]
+            σ_ξσ = df_particle[1,Symbol("σ_ασ")]
+
+            # Forecast drift terms (remeber that we need to go one further back for these)
+            df_particle[:,α_Bs[Tptt-1]] = df_particle[:,α_Bs[Tptt-2]] + rand(Normal(0.0, σ_ξB),ndraws)
+            df_particle[:,α_bs[Tptt-1]] = df_particle[:,α_bs[Tptt-2]] + rand(Normal(0.0, σ_ξb),ndraws)
+            df_particle[:,α_Cs[Tptt-1]] = df_particle[:,α_Cs[Tptt-2]] + rand(Normal(0.0, σ_ξC),ndraws)
+            df_particle[:,α_cs[Tptt-1]] = df_particle[:,α_cs[Tptt-2]] + rand(Normal(0.0, σ_ξc),ndraws)
+            df_particle[:,α_ds[Tptt-1]] = df_particle[:,α_ds[Tptt-2]] + rand(Normal(0.0, σ_ξd),ndraws)
+            df_particle[:,α_σs[Tptt-1]] = df_particle[:,α_σs[Tptt-2]] + rand(Normal(0.0, σ_ξσ),ndraws)
+
+            # Forecast the parameters
+            df_particle[:,Bs[Tptt]] = df_particle[:,α_Bs[Tptt-1]] + df_particle[:,Bs[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵB),ndraws)
+            df_particle[:,bs[Tptt]] = df_particle[:,α_bs[Tptt-1]] + df_particle[:,bs[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵb),ndraws)
+            df_particle[:,Cs[Tptt]] = df_particle[:,α_Cs[Tptt-1]] + df_particle[:,Cs[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵC),ndraws)
+            df_particle[:,cs[Tptt]] = df_particle[:,α_cs[Tptt-1]] + df_particle[:,cs[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵc),ndraws)
+            df_particle[:,ds[Tptt]] = df_particle[:,α_ds[Tptt-1]] + df_particle[:,ds[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵd),ndraws)
+            df_particle[:,σs[Tptt]] = df_particle[:,α_σs[Tptt-1]] + df_particle[:,σs[Tptt-1]] +
+                rand(Normal(0.0, σ_ϵd),ndraws)
+
+            # Compute the model implied LE and H overtime
+            params = particles2params(df_particle, Tptt, Bs, bs, Cs, cs, ds; log_pars = true)
+            df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
+            df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
+
+            next!(prog)
+        end
+    end
+
+    return df_pred
+end
 
 
 
@@ -324,8 +438,11 @@ Function that creates summary dataframes for current and forecast Siler paramete
 
 """
 function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_years;
-        log_pars = false, spec = :Colchero, model_vers = :i2drift)
+        log_pars = true, spec = :Colchero, model_vers = :i2drift)
 
+
+    # Work on deep copy version as we might transform to account for logs
+    df_in = deepcopy(df_pred)
     if model_vers != :i2drift
         throw("Only supported for i2drift")
     end
@@ -339,12 +456,12 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
         ds = Symbol.("ld[".*string.(1:length(all_years)).*"]")
         σs = Symbol.("lσ[".*string.(1:length(all_years)).*"]")
         # If parameters are logged, then convert now
-        df_pred[:, Bs] = exp.(df_pred[:, Bs])
-        df_pred[:, bs] = exp.(df_pred[:, bs])
-        df_pred[:, Cs] = exp.(df_pred[:, Cs])
-        df_pred[:, cs] = exp.(df_pred[:, cs])
-        df_pred[:, ds] = exp.(df_pred[:, ds])
-        df_pred[:, σs] = exp.(df_pred[:, σs])
+        df_in[:, Bs] = exp.(df_in[:, Bs])
+        df_in[:, bs] = exp.(df_in[:, bs])
+        df_in[:, Cs] = exp.(df_in[:, Cs])
+        df_in[:, cs] = exp.(df_in[:, cs])
+        df_in[:, ds] = exp.(df_in[:, ds])
+        df_in[:, σs] = exp.(df_in[:, σs])
     else
         Bs = Symbol.("B[".*string.(1:length(all_years)).*"]")
         bs = Symbol.("b[".*string.(1:length(all_years)).*"]")
@@ -355,26 +472,26 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     end
 
     if spec == :Colchero
-        df_pred[:, Bs] = df_pred[:, Bs]
-        df_pred[:, Cs] = df_pred[:, Cs]
+        df_in[:, Bs] = df_in[:, Bs]
+        df_in[:, Cs] = df_in[:, Cs]
     elseif spec == :Scott
-        df_pred[:, Bs] = Matrix(df_pred[:, Bs])./Matrix(df_pred[:, bs])
-        df_pred[:, Cs] = Matrix(df_pred[:, Cs])./Matrix(df_pred[:, cs])
+        df_in[:, Bs] = Matrix(df_in[:, Bs])./Matrix(df_in[:, bs])
+        df_in[:, Cs] = Matrix(df_in[:, Cs])./Matrix(df_in[:, cs])
     elseif spec == :Bergeron
-        df_pred[:, Bs] = exp.(.- Matrix(df_pred[:, Bs]))
-        df_pred[:, Cs] = (Matrix(df_pred[:, Cs]) .+ log.(Matrix(df_pred[:, cs])))./Matrix(df_pred[:, cs])
+        df_in[:, Bs] = exp.(.- Matrix(df_in[:, Bs]))
+        df_in[:, Cs] = (Matrix(df_in[:, Cs]) .+ log.(Matrix(df_in[:, cs])))./Matrix(df_in[:, cs])
     elseif spec == :Standard
-        df_pred[:, Bs] = exp.(.- Matrix(df_pred[:, Bs]))
-        df_pred[:, Cs] = exp.(.- Matrix(df_pred[:, Cs]))
+        df_in[:, Bs] = exp.(.- Matrix(df_in[:, Bs]))
+        df_in[:, Cs] = exp.(.- Matrix(df_in[:, Cs]))
     end
 
 
-    B_ests = summarise_forecasts(df_pred[:,Bs], all_years, parname = :B)
-    b_ests = summarise_forecasts(df_pred[:,bs], all_years, parname = :b)
-    C_ests = summarise_forecasts(df_pred[:,Cs], all_years, parname = :C)
-    c_ests = summarise_forecasts(df_pred[:,cs], all_years, parname = :c)
-    d_ests = summarise_forecasts(df_pred[:,ds], all_years, parname = :d)
-    σ_ests = summarise_forecasts(df_pred[:,σs], all_years, parname = :σ)
+    B_ests = summarise_forecasts(df_in[:,Bs], all_years, parname = :B)
+    b_ests = summarise_forecasts(df_in[:,bs], all_years, parname = :b)
+    C_ests = summarise_forecasts(df_in[:,Cs], all_years, parname = :C)
+    c_ests = summarise_forecasts(df_in[:,cs], all_years, parname = :c)
+    d_ests = summarise_forecasts(df_in[:,ds], all_years, parname = :d)
+    σ_ests = summarise_forecasts(df_in[:,σs], all_years, parname = :σ)
 
     par_ests = vcat(B_ests, b_ests, C_ests, c_ests, d_ests, σ_ests)
 
@@ -384,6 +501,19 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     elseif model_vers == :firstdiff
 
     elseif model_vers == :i2drift
+
+        σ_par_names = Symbol.("σ_pars[".*string.(1:6).*"]")
+        σ_pars_ests = summarise_forecasts(df_in[:,σ_par_names],Int.(1:6), parname = :σ_par)
+        σ_pars_ests.parameter = [:σ_B, :σ_b, :σ_C, :σ_c, :σ_d, :σ_σ]
+        σ_pars_ests.year .= 0
+        par_ests = vcat(par_ests, σ_pars_ests)
+
+        σ_α_par_names = Symbol.("σ_α".*["B", "b", "C", "c", "d", "σ"])
+        σ_α_pars_ests = summarise_forecasts(df_in[:,(σ_α_par_names)], Int.(1:6), parname = :σ_α_par)
+        σ_α_pars_ests.parameter = [:σ_αB, :σ_αb, :σ_αC, :σ_αc, :σ_αd, :σ_ασ]
+        σ_α_pars_ests.year .= 0
+        par_ests = vcat(par_ests, σ_α_pars_ests)
+
         α_Bs = Symbol.("α_B[".*string.(1:length(all_years)-1).*"]")
         α_bs = Symbol.("α_b[".*string.(1:length(all_years)-1).*"]")
         α_Cs = Symbol.("α_C[".*string.(1:length(all_years)-1).*"]")
@@ -391,12 +521,12 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
         α_ds = Symbol.("α_d[".*string.(1:length(all_years)-1).*"]")
         α_σs = Symbol.("α_σ[".*string.(1:length(all_years)-1).*"]")
 
-        α_B_ests = summarise_forecasts(df_pred[:,α_Bs], all_years[2:end], parname = :α_B)
-        α_b_ests = summarise_forecasts(df_pred[:,α_bs], all_years[2:end], parname = :α_b)
-        α_C_ests = summarise_forecasts(df_pred[:,α_Cs], all_years[2:end], parname = :α_C)
-        α_c_ests = summarise_forecasts(df_pred[:,α_cs], all_years[2:end], parname = :α_c)
-        α_d_ests = summarise_forecasts(df_pred[:,α_ds], all_years[2:end], parname = :α_d)
-        α_σ_ests = summarise_forecasts(df_pred[:,α_σs], all_years[2:end], parname = :α_σ)
+        α_B_ests = summarise_forecasts(df_in[:,α_Bs], all_years[2:end], parname = :α_B)
+        α_b_ests = summarise_forecasts(df_in[:,α_bs], all_years[2:end], parname = :α_b)
+        α_C_ests = summarise_forecasts(df_in[:,α_Cs], all_years[2:end], parname = :α_C)
+        α_c_ests = summarise_forecasts(df_in[:,α_cs], all_years[2:end], parname = :α_c)
+        α_d_ests = summarise_forecasts(df_in[:,α_ds], all_years[2:end], parname = :α_d)
+        α_σ_ests = summarise_forecasts(df_in[:,α_σs], all_years[2:end], parname = :α_σ)
 
         par_ests = vcat(par_ests, α_B_ests, α_b_ests, α_C_ests, α_c_ests, α_d_ests, α_σ_ests)
 
@@ -406,14 +536,14 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     LEs = Symbol.("LE[".*string.(1:length(all_years)).*"]")
     Hs = Symbol.("H[".*string.(1:length(all_years)).*"]")
 
-    LE_ests = summarise_forecasts(df_pred[:,LEs], all_years, parname = :LE)
-    H_ests = summarise_forecasts(df_pred[:,Hs], all_years, parname = :H)
+    LE_ests = summarise_forecasts(df_in[:,LEs], all_years, parname = :LE)
+    H_ests = summarise_forecasts(df_in[:,Hs], all_years, parname = :H)
 
     par_ests = vcat(par_ests, LE_ests, H_ests)
 
 
     insertcols!(par_ests, 2, :forecast => repeat([0], nrow(par_ests)) )
-    par_ests.forecast[in.(par_ests.year, fut_years)] .= 1
+    par_ests.forecast[in.(par_ests.year, [vcat(fut_years, past_years[end])])] .= 1
 
     return par_ests
 
