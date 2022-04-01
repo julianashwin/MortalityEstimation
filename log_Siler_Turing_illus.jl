@@ -141,11 +141,11 @@ chain_log_param = SilerParam(b = chain_log_vals.b, B = chain_log_vals.B, c = cha
 ## Plot fit
 scatter(country_m_data[yy], markershape = :cross, markeralpha = 0.5,
     label = "Data ("*string(country_years[1])*")", legend = :topleft)
-plot!(siler.([prior_param], 0:110, spec = :Colchero), label = "Static model prior")
-plot!(siler.([map_param], 0:110, spec = :Colchero), label = "Static model MAP", linestyle = :dash)
-plot!(siler.([chain_param], 0:110, spec = :Colchero), label = "Static model post. median", linestyle = :dot)
-plot!(siler.([map_log_param], 0:110, spec = :Colchero), label = "Static log model MAP", linestyle = :dash)
-plot!(siler.([chain_log_param], 0:110, spec = :Colchero), label = "Static log model post. median", linestyle = :dot)
+plot!(siler.([prior_param], 0:110, spec = :Bergeron), label = "Static model prior")
+plot!(siler.([map_param], 0:110, spec = :Bergeron), label = "Static model MAP", linestyle = :dash)
+plot!(siler.([chain_param], 0:110, spec = :Bergeron), label = "Static model post. median", linestyle = :dot)
+plot!(siler.([map_log_param], 0:110, spec = :Bergeron), label = "Static log model MAP", linestyle = :dash)
+plot!(siler.([chain_log_param], 0:110, spec = :Bergeron), label = "Static log model post. median", linestyle = :dot)
 savefig("figures/"*folder*"/siler_vs_log_siler_fit.pdf")
 
 
@@ -153,7 +153,7 @@ savefig("figures/"*folder*"/siler_vs_log_siler_fit.pdf")
 Multiple independent Siler models
 """
 # Adjust if you don't want every period
-periods = Int.(1:T)
+periods = Int.(1:7:T)
 years_selected = Int.(round.(country_years[periods]))
 
 ## Find some starting points

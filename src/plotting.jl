@@ -442,37 +442,45 @@ end
 """
 Function to plot model implied LE and H
 """
-function plot_LE_H(par_ests; forecasts = false)
+function plot_LE_H(par_ests; forecasts = false, bands = false)
     plt = plot(layout = (1,2), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
     LE_ests = par_ests[par_ests.parameter .== :LE,:]
     plot!(LE_ests.year, LE_ests.median, title = L"LE_{t}", label = false, color = 1, subplot = 1)
-    plot!(LE_ests.year, LE_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(LE_ests.year, LE_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(LE_ests.year, LE_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-    plot!(LE_ests.year, LE_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
+    if bands
+        plot!(LE_ests.year, LE_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year, LE_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year, LE_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year, LE_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
+    end
     if forecasts
         frc_ests = LE_ests[LE_ests.forecast .== 1,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 1)
-        plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 1)
-        plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 1)
-        plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 1)
-        plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 1)
+        if bands
+            plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 1)
+            plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 1)
+            plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 1)
+            plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 1)
+        end
     end
 
     H_ests = par_ests[par_ests.parameter .== :H,:]
     plot!(H_ests.year, H_ests.median, title = L"H_{t}", label = false, color = 1, subplot = 2)
-    plot!(H_ests.year, H_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(H_ests.year, H_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(H_ests.year, H_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-    plot!(H_ests.year, H_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
+    if bands
+        plot!(H_ests.year, H_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year, H_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year, H_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year, H_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
+    end
     if forecasts
         frc_ests = H_ests[H_ests.forecast .== 1,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 2)
-        plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 2)
-        plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 2)
-        plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 2)
-        plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 2)
+        if bands
+            plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 2)
+            plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 2)
+            plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 2)
+            plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 2)
+        end
     end
 
     return plt

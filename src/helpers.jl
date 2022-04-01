@@ -122,15 +122,16 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
         df_post[:, σs] = exp.(df_post[:, σs])
     end
     if spec == :Colchero
+        df_post[:, Bs] = Matrix(df_post[:, bs]).*Matrix(df_post[:, Bs]) .- log.(Matrix(df_post[:, bs]))
+        df_post[:, Cs] = Matrix(df_post[:, cs]).*Matrix(df_post[:, Cs]) .- log.(Matrix(df_post[:, cs]))
+    elseif spec == :Scott
+        df_post[:, Bs] = Matrix(df_post[:, Bs]) .- log.(Matrix(df_post[:, bs]))./Matrix(df_post[:, bs])
+        df_post[:, Cs] = Matrix(df_post[:, Cs]) .- log.(Matrix(df_post[:, cs]))./Matrix(df_post[:, cs])
+    elseif spec == :Bergeron
         df_post[:, Bs] = df_post[:, Bs]
         df_post[:, Cs] = df_post[:, Cs]
-    elseif spec == :Scott
-        df_post[:, Bs] = Matrix(df_post[:, Bs])./Matrix(df_post[:, bs])
-        df_post[:, Cs] = Matrix(df_post[:, Cs])./Matrix(df_post[:, cs])
-    elseif spec == :Bergeron
-        df_post[:, Bs] = exp.(.- Matrix(df_post[:, Bs]))
-        df_post[:, Cs] = (Matrix(df_post[:, Cs]) .+ log.(Matrix(df_post[:, cs])))./Matrix(df_post[:, cs])
     elseif spec == :Standard
+        throw("Haven't worked out the new conversion for Standard yet")
         df_post[:, Bs] = exp.(.- Matrix(df_post[:, Bs]))
         df_post[:, Cs] = exp.(.- Matrix(df_post[:, Cs]))
     end
@@ -238,7 +239,7 @@ end
 """
 Function to create a decomposed df from parameter estimates
 """
-function create_decomp(parests_df; spec = :Colchero, eval_age = 0)
+function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
 
     # Convert from long to wide
     decomp_df = parests_df[.!occursin.("_",string.(parests_df.parameter)),
@@ -438,7 +439,7 @@ Function that creates summary dataframes for current and forecast Siler paramete
 
 """
 function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_years;
-        log_pars = true, spec = :Colchero, model_vers = :i2drift)
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
 
 
     # Work on deep copy version as we might transform to account for logs
@@ -472,19 +473,19 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     end
 
     if spec == :Colchero
+        df_in[:, Bs] = Matrix(df_in[:, bs]).*Matrix(df_in[:, Bs]) .- log.(Matrix(df_in[:, bs]))
+        df_in[:, Cs] = Matrix(df_in[:, cs]).*Matrix(df_in[:, Cs]) .- log.(Matrix(df_in[:, cs]))
+    elseif spec == :Scott
+        df_in[:, Bs] = Matrix(df_in[:, Bs]) .- log.(Matrix(df_in[:, bs]))./Matrix(df_in[:, bs])
+        df_in[:, Cs] = Matrix(df_in[:, Cs]) .- log.(Matrix(df_in[:, cs]))./Matrix(df_in[:, cs])
+    elseif spec == :Bergeron
         df_in[:, Bs] = df_in[:, Bs]
         df_in[:, Cs] = df_in[:, Cs]
-    elseif spec == :Scott
-        df_in[:, Bs] = Matrix(df_in[:, Bs])./Matrix(df_in[:, bs])
-        df_in[:, Cs] = Matrix(df_in[:, Cs])./Matrix(df_in[:, cs])
-    elseif spec == :Bergeron
-        df_in[:, Bs] = exp.(.- Matrix(df_in[:, Bs]))
-        df_in[:, Cs] = (Matrix(df_in[:, Cs]) .+ log.(Matrix(df_in[:, cs])))./Matrix(df_in[:, cs])
     elseif spec == :Standard
+        throw("Haven't worked out the new conversion for Standard yet")
         df_in[:, Bs] = exp.(.- Matrix(df_in[:, Bs]))
         df_in[:, Cs] = exp.(.- Matrix(df_in[:, Cs]))
     end
-
 
     B_ests = summarise_forecasts(df_in[:,Bs], all_years, parname = :B)
     b_ests = summarise_forecasts(df_in[:,bs], all_years, parname = :b)

@@ -9,9 +9,7 @@ function siler(param::SilerParam, age::Real; spec::Symbol = :Colchero )
 	elseif spec == :Scott
 		μ = exp.(- b.* (age .+ B)) .+ exp.(c .* (age.- C)) .+ d
 	elseif spec == :Bergeron
-		μ = B.*exp.(- b.* age) .+ c.*exp.(c .* (age.- C)) .+ d
-	elseif spec == :Standard
-		μ = B.*exp.(- b.* age) .+ C.*exp.(c .* age) .+ d
+		μ = b.*exp.(- b.* (age + B)) .+ c.*exp.(c .* (age.- C)) .+ d
 	end
 	μ = min.(μ, 1.0)
 
@@ -34,11 +32,8 @@ function siler_S(param::SilerParam, aa::Real, tt::Real; spec::Symbol = :Colchero
 		S_aa = exp( - d*aa + (1/b)*(exp(-b*(aa + B)) - exp(-b*B)) - (1/c)*(exp(c*(aa - C)) - exp(-c*C)) )
 		S_tt = exp( - d*tt + (1/b)*(exp(-b*(tt + B)) - exp(-b*B)) - (1/c)*(exp(c*(tt - C)) - exp(-c*C)) )
 	elseif spec == :Bergeron
-		S_aa = exp( - d*aa + (B/b)*(exp(- b*aa) - 1) - (exp(c*(aa - C)) - exp(-c*C)) )
-		S_tt = exp( - d*tt + (B/b)*(exp(- b*tt) - 1) - (exp(c*(tt - C)) - exp(-c*C)) )
-	elseif spec == :Standard
-		S_aa = exp( - d*aa + (B/b)*(exp(- b*aa) - 1) - (C/c)*(exp(c*aa) - 1) )
-		S_tt = exp( - d*tt + (B/b)*(exp(- b*tt) - 1) - (C/c)*(exp(c*tt) - 1) )
+		S_aa = exp( - d*aa + (exp(-b*(aa + B)) - exp(-b*B)) - (exp(c*(aa - C)) - exp(-c*C)) )
+		S_tt = exp( - d*tt + (exp(-b*(tt + B)) - exp(-b*B)) - (exp(c*(tt - C)) - exp(-c*C)) )
 	end
 	if S_tt == 0.
 		S_at = 0.

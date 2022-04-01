@@ -85,7 +85,7 @@ years_selected = country_years
 
 ## Plots the Siler parameters
 # Display the parameters with Colchero specification
-parests_i2_col = extract_variables(chain_i2, years_selected, log_pars = true,
+parests_i2_col = extract_variables(chain_i2, years, log_pars = true,
     model_vers = :i2drift, spec = :Colchero)
 p1 = plot_siler_params(parests_i2_col)
 p_title = plot(title = "I(2) Siler Colchero parameters "*string(code),

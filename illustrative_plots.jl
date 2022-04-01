@@ -24,7 +24,7 @@ Select parameters
 param_col_1 = SilerParam(b = 1.0, B = 1.25, c = 0.15, C = 10.0, d = 0.001)
 param_sco_1 = SilerParam(b = param_col_1.b, B = param_col_1.B/param_col_1.b,
     c = param_col_1.c, C = param_col_1.C/param_col_1.c, d = param_col_1.d)
-param_ber_1 = SilerParam(b = param_col_1.b, B= exp(-param_col_1.B),
+param_ber_1 = SilerParam(b = param_col_1.b, B= (param_col_1.B + log(param_col_1.b))/param_col_1.b,
     c = param_col_1.c, C = (param_col_1.C + log(param_col_1.c))/param_col_1.c,
     d = param_col_1.d)
 plot(siler.([param_col_1], 0:110, spec = :Colchero), label = "Colchero")
@@ -37,7 +37,7 @@ H_base_1 = H(param_col_1, 0., spec = :Colchero)
 param_col_2 = SilerParam(b = 2.0, B = 3.5, c = 0.1, C = 10.0, d = 0.001)
 param_sco_2 = SilerParam(b = param_col_2.b, B = param_col_2.B/param_col_2.b,
     c = param_col_2.c, C = param_col_2.C/param_col_2.c, d = param_col_2.d)
-param_ber_2 = SilerParam(b = param_col_2.b, B= exp(-param_col_2.B),
+param_ber_2 = SilerParam(b = param_col_2.b, B= (param_col_2.B + log(param_col_2.b))/param_col_2.b,
     c = param_col_2.c, C = (param_col_2.C + log(param_col_2.c))/param_col_2.c,
     d = param_col_2.d)
 plot(siler.([param_col_2], 0:110, spec = :Colchero), label = "Colchero")
@@ -123,7 +123,7 @@ savefig("figures/interpret/bergeron_example.pdf")
 
 
 # Special case to show effect of C on H can be positive
-param_ber_special = SilerParam(b = 5.0, B = 0.00, c = 0.1, C = 75, d = 0.01)
+param_ber_special = SilerParam(b = 1.0, B = 5.0, c = 0.1, C = 75, d = 0.01)
 plot(siler.([param_ber_special], 0:110, spec = :Bergeron), label = "Bergeron")
 Hgrad.([param_ber_special], 0:10, [:C], spec = :Bergeron)
 ber_df_special = init_illus(param_ber_special, :Bergeron)

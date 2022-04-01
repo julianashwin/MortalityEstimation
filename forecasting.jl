@@ -21,7 +21,7 @@ code = "Best Practice"
 folder = "figures/benchmark/"
 model = "i2"
 ndraws = 10 # Number of draws to approximate each future shock
-nahead = 4 # Number of periods to forecast ahead
+nahead = 6 # Number of periods to forecast ahead
 
 # Import the full posterior
 @load folder*"siler_"*model*"_chain.jld2" chain_i2
@@ -67,7 +67,7 @@ df_pred = compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
 past_years = years
 fut_years = Int.(maximum(years) .+ 5.0.*(1:nahead))
 parests_pred_col = extract_forecast_variables(df_pred, past_years, fut_years,
-    log_pars = true, spec = :Colchero, model_vers = :i2drift)
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
 CSV.write(folder*"/siler_"*model*"_preds_col.csv", parests_pred_col)
 # Plot Siler parameter forecasts
 plot_siler_params(parests_pred_col, forecasts = true)
@@ -76,7 +76,7 @@ savefig(folder*"/siler_"*model*"_param_pred_col.pdf")
 plot_ts_params(parests_pred_col, model_vers = :i2drift, forecasts = true)
 savefig(folder*"/siler_"*model*"_ts_pred_col.pdf")
 # Plot forecasts for model implied LE and H
-plot_LE_H(parests_pred_col, forecasts = true)
+plot_LE_H(parests_pred_col, forecasts = true, bands = false)
 savefig(folder*"/siler_"*model*"_leh_pred_col.pdf")
 # Forecast decomposition of future LE and H
 decomp_pred_col = create_decomp(parests_pred_col[parests_pred_col.year .> 1985,:],
@@ -89,3 +89,40 @@ p_title = plot(title = "Future decomposition Siler Colchero parameters "*string(
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
 savefig(folder*"/siler_"*model*"_decomp_pred_col.pdf")
+
+
+"""
+Check the life expectancy at later ages
+"""
+# Which extra ages do we want?
+eval_ages = Int.(0:10:90)
+# Add extra rows for these remianing life expectancies
+rle_df = DataFrame(year = unique(parests_pred_col.year[parests_pred_col.year.>0]), LE0 = 0.)
+for eval_age in eval_ages
+    rle_df[:,Symbol("LE"*string(eval_age))] .= NaN
+    for yy in rle_df.year
+        year_df = parests_pred_col[parests_pred_col.year .== yy,:]
+        params = SilerParam(b = year_df.median[year_df.parameter.==:b][1],
+            B = year_df.median[year_df.parameter.==:B][1],
+            c = year_df.median[year_df.parameter.==:c][1],
+            C = year_df.median[year_df.parameter.==:C][1],
+            d = year_df.median[year_df.parameter.==:d][1])
+
+        rle_df[rle_df.year .== yy,Symbol("LE"*string(eval_age))] .=
+            LE(params, eval_age, spec = :Colchero)
+    end
+end
+
+plot(rle_df.year, rle_df.LE0, label = "Age 0",
+    legend = :topleft, xlabel = "Year", ylabel = "Remaining LE")
+plot!(rle_df.year, rle_df.LE10, label = "Age 10")
+plot!(rle_df.year, rle_df.LE20, label = "Age 20")
+plot!(rle_df.year, rle_df.LE30, label = "Age 30")
+plot!(rle_df.year, rle_df.LE40, label = "Age 40")
+plot!(rle_df.year, rle_df.LE50, label = "Age 50")
+plot!(rle_df.year, rle_df.LE60, label = "Age 60")
+plot!(rle_df.year, rle_df.LE70, label = "Age 70")
+plot!(rle_df.year, rle_df.LE80, label = "Age 80")
+plot!(rle_df.year, rle_df.LE90, label = "Age 90")
+vline!([2020,2020], linestyle=:dot, color = :black, label = false)
+plot!(size = (600,600))

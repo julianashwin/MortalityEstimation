@@ -106,12 +106,12 @@ Some comparison plots
 # Mortality rates
 plt_codes <- c("BEL", "DNK", "ENW", "FRA", "ITA", "NOR", "NZL_NM", "CHE", "FIN", "ISL", "NLD", "SWE")
 all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = mx)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = mx_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("") + theme_bw() + ylim(c(0,0.85)) +
   ggtitle("2010")
 all1901_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1901" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = mx)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = mx_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("Mortality Rate") + theme_bw() + ylim(c(0,0.85)) +
   ggtitle("1901")
@@ -121,12 +121,12 @@ ggsave("figures/data/all_1990_2010_mortality_rates.pdf", width = 6, height = 4)
 # Life expectancy
 plt_codes <- c("BEL", "DNK", "ENW", "FRA", "ITA", "NOR", "NZL_NM", "CHE", "FIN", "ISL", "NLD", "SWE")
 all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("") + theme_bw() + ylim(c(0,85)) +
   ggtitle("2010")
 all1901_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1901" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = ex_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("Remaining life expectancy") + theme_bw() + ylim(c(0,85)) +
   ggtitle("1901")
@@ -135,12 +135,12 @@ ggsave("figures/data/all_1990_2010_life_expectancies.pdf", width = 6, height = 4
 
 # Population
 all2010_plt <- ggplot(lifetab_df[which(lifetab_df$year == "2010" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = Total)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = Female)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("") + theme_bw() + 
   ggtitle("2010")
 all1901_plt <- ggplot(lifetab_df[which(lifetab_df$year == "1901" & 
-                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = Total)) + 
+                                         lifetab_df$code %in% plt_codes),], aes(x = age, y = Female)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Age") + ylab("Population") + theme_bw() + 
   ggtitle("1901")
@@ -484,36 +484,51 @@ write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
 write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
 
 
+bp_df <-  lifetab_export[which(lifetab_export$best_practice == 1),]
+bp_alt_df <-  lifetab_export[which(lifetab_export$best_practice_alt == 1),]
 
+bp_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice == 1),]
+bp_alt_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice_alt == 1),]
 
 
 "
-Back out a mortality rate from raw deaths and population data
+Look at life expectancy at older ages
 "
-deaths_df <- read.csv("data/raw/USA_deaths.csv", stringsAsFactors = FALSE)
+plt_df <- bp_df[which(bp_df$age %in% c(0,10,20,30,40,50,60,70,80,90)),]
+plt_df <- plt_df[order(plt_df$year, plt_df$age),]
+bp_rle_plt <- ggplot(plt_df, aes(x = year)) + theme_bw() + 
+  geom_line(aes(y = ex_f, color = as.factor(age))) + 
+  scale_color_discrete(name = "Age") + 
+  xlab("Year") + ylab("Remaining LE") + ggtitle("Best practice")
+  
 
-pop_df <- as.data.frame(read.table("data/raw/USA_population.txt", header = TRUE))
-
-# Pre-cleaningh
-pop_df$Age[which(pop_df$Age == "110+")] <- "110"
-pop_df$Age <- as.numeric(pop_df$Age)
-pop_df$Year[which(pop_df$Year == "1959+")] <- "1959"
-pop_df <- pop_df[which(pop_df$Year != "1959-"),] 
-pop_df$Year <- as.numeric(pop_df$Year)
-names(pop_df)[1:2] <- c("year", "age")
-
-
-
-years <- c(1933, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020)
-ggplot(pop_df[which(pop_df$year %in% years),], aes(x = age, y = Total)) + 
-  geom_line(aes(group = year, color = as.factor(year))) +
-  xlab("Age") + ylab("Population") + theme_bw() +
-  ggtitle("US Population over time")
-ggsave("figures/USA/population.pdf", width = 6, height = 4)
-
-
-write.csv(pop_df, "data/clean/USA_population.csv", row.names = FALSE)
+plt_df <- bp_alt_df[which(bp_alt_df$age %in% c(0,10,20,30,40,50,60,70,80,90)),]
+plt_df <- plt_df[order(plt_df$year, plt_df$age),]
+bp_alt_rle_plt <- ggplot(plt_df, aes(x = year)) + theme_bw() + 
+  geom_line(aes(y = ex_f, color = as.factor(age))) + 
+  scale_color_discrete(name = "Age") + 
+  xlab("Year") + ylab("Remaining LE") + ggtitle("Best practice (alternative)")
 
 
 
+
+plt_df <- bp_5y_df[which(bp_5y_df$age %in% c(0,10,20,30,40,50,60,70,80,90)),]
+plt_df <- plt_df[order(plt_df$year, plt_df$age),]
+bp_rle_plt <- ggplot(plt_df, aes(x = year)) + theme_bw() + 
+  geom_line(aes(y = ex_f, color = as.factor(age))) + 
+  scale_color_discrete(name = "Age") + 
+  xlab("Year") + ylab("Remaining LE") + ggtitle("Best practice")
+
+
+plt_df <- bp_alt_5y_df[which(bp_alt_5y_df$age %in% c(0,10,20,30,40,50,60,70,80,90)),]
+plt_df <- plt_df[order(plt_df$year, plt_df$age),]
+bp_alt_rle_plt <- ggplot(plt_df, aes(x = year)) + theme_bw() + 
+  geom_line(aes(y = ex_f, color = as.factor(age))) + 
+  scale_color_discrete(name = "Age") + 
+  xlab("Year") + ylab("Remaining LE") + ggtitle("Best practice (alternative)")
+
+
+ggarrange(bp_rle_plt, bp_alt_rle_plt, nrow = 1, ncol=2, common.legend = FALSE)
+ggsave("figures/data/best_practice_rle.pdf", width = 10, height = 5)
+rm(bp_rle_plt, bp_alt_rle_plt)
 
