@@ -138,14 +138,32 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
 
     plt = plot(layout = (2,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
-    b_ests = par_ests[par_ests.parameter .== :b,:]
-    plot!(b_ests.year, b_ests.median, title = L"b_{t}", label = false, color = 1, subplot = 1)
-    plot!(b_ests.year, b_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(b_ests.year, b_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-    plot!(b_ests.year, b_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-    plot!(b_ests.year, b_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
     if forecasts
-        frc_ests = b_ests[b_ests.forecast .== 1,:]
+        b_ests = par_ests[par_ests.parameter .== :b,:]
+        frc_obs = Int.(1:nrow(b_ests))[(b_ests.forecast .== 1)]
+        obs =  vcat(Int.(1:nrow(b_ests))[(b_ests.forecast .== 0)], frc_obs[1])
+
+    else
+        b_ests = par_ests[par_ests.parameter .== :b,:]
+        obs = Int.(1:nrow(b_ests))
+    end
+
+    if forecasts
+        b_ests = par_ests[par_ests.parameter .== :b,:]
+        obs = Int.(1:nrow(b_ests))[(b_ests.forecast .== 0)]
+        frc_obs = vcat(obs[end], Int.(1:nrow(b_ests))[(b_ests.forecast .== 1)])
+    else
+        b_ests = par_ests[par_ests.parameter .== :b,:]
+        obs = Int.(1:nrow(b_ests))
+    end
+
+    plot!(b_ests.year[obs], b_ests.median[obs], title = L"b_{t}", label = false, color = 1, subplot = 1)
+    plot!(b_ests.year[obs], b_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year[obs], b_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year[obs], b_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 1)
+    plot!(b_ests.year[obs], b_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 1)
+    if forecasts
+        frc_ests = b_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 1)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 1)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 1)
@@ -154,13 +172,13 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
     end
 
     B_ests = par_ests[par_ests.parameter .== :B,:]
-    plot!(B_ests.year, B_ests.median, title = L"B_{t}", label = false, color = 1, subplot = 2)
-    plot!(B_ests.year, B_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(B_ests.year, B_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-    plot!(B_ests.year, B_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-    plot!(B_ests.year, B_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year[obs], B_ests.median[obs], title = L"B_{t}", label = false, color = 1, subplot = 2)
+    plot!(B_ests.year[obs], B_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year[obs], B_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year[obs], B_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
+    plot!(B_ests.year[obs], B_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
     if forecasts
-        frc_ests = B_ests[B_ests.forecast .== 1,:]
+        frc_ests = B_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 2)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 2)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 2)
@@ -169,13 +187,13 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
     end
 
     c_ests = par_ests[par_ests.parameter .== :c,:]
-    plot!(c_ests.year, c_ests.median, title = L"c_{t}", label = false, color = 1, subplot = 4)
-    plot!(c_ests.year, c_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 4)
-    plot!(c_ests.year, c_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 4)
-    plot!(c_ests.year, c_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 4)
-    plot!(c_ests.year, c_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year[obs], c_ests.median[obs], title = L"c_{t}", label = false, color = 1, subplot = 4)
+    plot!(c_ests.year[obs], c_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year[obs], c_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year[obs], c_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 4)
+    plot!(c_ests.year[obs], c_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 4)
     if forecasts
-        frc_ests = c_ests[c_ests.forecast .== 1,:]
+        frc_ests = c_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 4)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 4)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 4)
@@ -184,13 +202,13 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
     end
 
     C_ests = par_ests[par_ests.parameter .== :C,:]
-    plot!(C_ests.year, C_ests.median, title = L"C_{t}", label = false, color = 1, subplot = 5)
-    plot!(C_ests.year, C_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 5)
-    plot!(C_ests.year, C_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 5)
-    plot!(C_ests.year, C_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 5)
-    plot!(C_ests.year, C_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year[obs], C_ests.median[obs], title = L"C_{t}", label = false, color = 1, subplot = 5)
+    plot!(C_ests.year[obs], C_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year[obs], C_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year[obs], C_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 5)
+    plot!(C_ests.year[obs], C_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 5)
     if forecasts
-        frc_ests = C_ests[C_ests.forecast .== 1,:]
+        frc_ests = C_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 5)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 5)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 5)
@@ -199,13 +217,13 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
     end
 
     d_ests = par_ests[par_ests.parameter .== :d,:]
-    plot!(d_ests.year, d_ests.median, title = L"d_{t}", label = false, color = 1, subplot = 3)
-    plot!(d_ests.year, d_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 3)
-    plot!(d_ests.year, d_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 3)
-    plot!(d_ests.year, d_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 3)
-    plot!(d_ests.year, d_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 3)
+    plot!(d_ests.year[obs], d_ests.median[obs], title = L"d_{t}", label = false, color = 1, subplot = 3)
+    plot!(d_ests.year[obs], d_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 3)
+    plot!(d_ests.year[obs], d_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 3)
+    plot!(d_ests.year[obs], d_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 3)
+    plot!(d_ests.year[obs], d_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 3)
     if forecasts
-        frc_ests = d_ests[d_ests.forecast .== 1,:]
+        frc_ests = d_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 3)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 3)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 3)
@@ -214,13 +232,13 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
     end
 
     σ_ests = par_ests[par_ests.parameter .== :σ,:]
-    plot!(σ_ests.year, σ_ests.median, title = L"\sigma_{t}", label = false, color = 1, subplot = 6)#, ylim = (0.0, 0.1))
-    plot!(σ_ests.year, σ_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 6)
-    plot!(σ_ests.year, σ_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 6)
-    plot!(σ_ests.year, σ_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 6)
-    plot!(σ_ests.year, σ_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 6)
+    plot!(σ_ests.year[obs], σ_ests.median[obs], title = L"\sigma_{t}", label = false, color = 1, subplot = 6)#, ylim = (0.0, 0.1))
+    plot!(σ_ests.year[obs], σ_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 6)
+    plot!(σ_ests.year[obs], σ_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 6)
+    plot!(σ_ests.year[obs], σ_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 6)
+    plot!(σ_ests.year[obs], σ_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 6)
     if forecasts
-        frc_ests = σ_ests[σ_ests.forecast .== 1,:]
+        frc_ests = σ_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 6)
         plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 6)
         plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 6)
@@ -287,7 +305,7 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
-        hline!([0], linestyle=:dashdot, color = :black, label = false)
+        p_σ =hline!([0], linestyle=:dashdot, color = :black, label = false)
         # Drift parameter
         ασ_ests = par_ests[(occursin.("σ_α", string.(par_ests.parameter))),:]
         p_ασ = scatter(string.(ασ_ests.parameter), ασ_ests.median, title = "σ_α", legend = false, color = 1)
@@ -295,18 +313,28 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc025, color = 1,markershape = :cross)
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc85, color = 1,markershape = :vline)
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc15, color = 1,markershape = :vline)
-        hline!([0], linestyle=:dashdot, color = :black, label = false)
+        p_ασ = hline!([0], linestyle=:dashdot, color = :black, label = false)
 
+
+        if forecasts
+            b_ests = par_ests[par_ests.parameter .== :α_b,:]
+            frc_obs = Int.(1:nrow(b_ests))[(b_ests.forecast .== 1)]
+            obs =  vcat(Int.(1:nrow(b_ests))[(b_ests.forecast .== 0)], frc_obs[1])
+
+        else
+            b_ests = par_ests[par_ests.parameter .== :α_b,:]
+            obs = Int.(1:nrow(b_ests))
+        end
 
         b_ests = par_ests[par_ests.parameter .== :α_b,:]
-        b_plt = plot(b_ests.year, b_ests.median, label = "α_b", color = 1, xticks = false)
-        plot!(b_ests.year, b_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(b_ests.year, b_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(b_ests.year, b_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(b_ests.year, b_ests.pc15, linestyle = :dash, label = false, color = 1)
+        b_plt = plot(b_ests.year[obs], b_ests.median[obs], label = "α_b", color = 1, xticks = false)
+        plot!(b_ests.year[obs], b_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(b_ests.year[obs], b_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(b_ests.year[obs], b_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(b_ests.year[obs], b_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = b_ests[b_ests.forecast .== 1,:]
+            frc_ests = b_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -315,14 +343,14 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         end
 
         B_ests = par_ests[par_ests.parameter .== :α_B,:]
-        B_plt = plot(B_ests.year, B_ests.median, label = "α_B", color = 1, xticks = false)
-        plot!(B_ests.year, B_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(B_ests.year, B_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(B_ests.year, B_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(B_ests.year, B_ests.pc15, linestyle = :dash, label = false, color = 1)
+        B_plt = plot(B_ests.year[obs], B_ests.median[obs], label = "α_B", color = 1, xticks = false)
+        plot!(B_ests.year[obs], B_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(B_ests.year[obs], B_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(B_ests.year[obs], B_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(B_ests.year[obs], B_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = B_ests[B_ests.forecast .== 1,:]
+            frc_ests = B_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -331,14 +359,14 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         end
 
         c_ests = par_ests[par_ests.parameter .== :α_c,:]
-        c_plt = plot(c_ests.year, c_ests.median, label = "α_c", color = 1, xticks = false)
-        plot!(c_ests.year, c_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(c_ests.year, c_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(c_ests.year, c_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(c_ests.year, c_ests.pc15, linestyle = :dash, label = false, color = 1)
+        c_plt = plot(c_ests.year[obs], c_ests.median[obs], label = "α_c", color = 1, xticks = false)
+        plot!(c_ests.year[obs], c_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(c_ests.year[obs], c_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(c_ests.year[obs], c_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(c_ests.year[obs], c_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = c_ests[c_ests.forecast .== 1,:]
+            frc_ests = c_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -347,14 +375,14 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         end
 
         C_ests = par_ests[par_ests.parameter .== :α_C,:]
-        C_plt = plot(C_ests.year, C_ests.median, label = "α_C", color = 1, xticks = false)
-        plot!(C_ests.year, C_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(C_ests.year, C_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(C_ests.year, C_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(C_ests.year, C_ests.pc15, linestyle = :dash, label = false, color = 1)
+        C_plt = plot(C_ests.year[obs], C_ests.median[obs], label = "α_C", color = 1, xticks = false)
+        plot!(C_ests.year[obs], C_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(C_ests.year[obs], C_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(C_ests.year[obs], C_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(C_ests.year[obs], C_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = C_ests[C_ests.forecast .== 1,:]
+            frc_ests = C_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -363,14 +391,14 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         end
 
         d_ests = par_ests[par_ests.parameter .== :α_d,:]
-        d_plt = plot(d_ests.year, d_ests.median, label = "α_d", color = 1, xticks = false)
-        plot!(d_ests.year, d_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(d_ests.year, d_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(d_ests.year, d_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(d_ests.year, d_ests.pc15, linestyle = :dash, label = false, color = 1)
+        d_plt = plot(d_ests.year[obs], d_ests.median[obs], label = "α_d", color = 1, xticks = false)
+        plot!(d_ests.year[obs], d_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(d_ests.year[obs], d_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(d_ests.year[obs], d_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(d_ests.year[obs], d_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = d_ests[d_ests.forecast .== 1,:]
+            frc_ests = d_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -379,14 +407,14 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         end
 
         σ_ests = par_ests[par_ests.parameter .== :α_σ,:]
-        σ_plt = plot(σ_ests.year, σ_ests.median, label = "α_σ", color = 1)
-        plot!(σ_ests.year, σ_ests.pc975, linestyle = :dot, label = false, color = 1)
-        plot!(σ_ests.year, σ_ests.pc025, linestyle = :dot, label = false, color = 1)
-        plot!(σ_ests.year, σ_ests.pc85, linestyle = :dash, label = false, color = 1)
-        plot!(σ_ests.year, σ_ests.pc15, linestyle = :dash, label = false, color = 1)
+        σ_plt = plot(σ_ests.year[obs], σ_ests.median[obs], label = "α_σ", color = 1)
+        plot!(σ_ests.year[obs], σ_ests.pc975[obs], linestyle = :dot, label = false, color = 1)
+        plot!(σ_ests.year[obs], σ_ests.pc025[obs], linestyle = :dot, label = false, color = 1)
+        plot!(σ_ests.year[obs], σ_ests.pc85[obs], linestyle = :dash, label = false, color = 1)
+        plot!(σ_ests.year[obs], σ_ests.pc15[obs], linestyle = :dash, label = false, color = 1)
         hline!([0], linestyle=:dashdot, color = :black, label = false)
         if forecasts
-            frc_ests = σ_ests[σ_ests.forecast .== 1,:]
+            frc_ests = σ_ests[frc_obs,:]
             plot!(frc_ests.year, frc_ests.median, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2)
@@ -445,16 +473,27 @@ Function to plot model implied LE and H
 function plot_LE_H(par_ests; forecasts = false, bands = false)
     plt = plot(layout = (1,2), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
+
+    if forecasts
+        LE_ests = par_ests[par_ests.parameter .== :LE,:]
+        frc_obs = Int.(1:nrow(LE_ests))[(LE_ests.forecast .== 1)]
+        obs =  vcat(Int.(1:nrow(LE_ests))[(LE_ests.forecast .== 0)], frc_obs[1])
+
+    else
+        LE_ests = par_ests[par_ests.parameter .== :LE,:]
+        obs = Int.(1:nrow(LE_ests))
+    end
+
     LE_ests = par_ests[par_ests.parameter .== :LE,:]
-    plot!(LE_ests.year, LE_ests.median, title = L"LE_{t}", label = false, color = 1, subplot = 1)
+    plot!(LE_ests.year[obs], LE_ests.median[obs], title = L"LE_{t}", label = false, color = 1, subplot = 1)
     if bands
-        plot!(LE_ests.year, LE_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 1)
-        plot!(LE_ests.year, LE_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 1)
-        plot!(LE_ests.year, LE_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 1)
-        plot!(LE_ests.year, LE_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year[obs], LE_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year[obs], LE_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year[obs], LE_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 1)
+        plot!(LE_ests.year[obs], LE_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 1)
     end
     if forecasts
-        frc_ests = LE_ests[LE_ests.forecast .== 1,:]
+        frc_ests = LE_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 1)
         if bands
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 1)
@@ -465,15 +504,15 @@ function plot_LE_H(par_ests; forecasts = false, bands = false)
     end
 
     H_ests = par_ests[par_ests.parameter .== :H,:]
-    plot!(H_ests.year, H_ests.median, title = L"H_{t}", label = false, color = 1, subplot = 2)
+    plot!(H_ests.year[obs], H_ests.median[obs], title = L"H_{t}", label = false, color = 1, subplot = 2)
     if bands
-        plot!(H_ests.year, H_ests.pc975, linestyle = :dot, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year, H_ests.pc025, linestyle = :dot, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year, H_ests.pc85, linestyle = :dash, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year, H_ests.pc15, linestyle = :dash, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year[obs], H_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year[obs], H_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year[obs], H_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
+        plot!(H_ests.year[obs], H_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
     end
     if forecasts
-        frc_ests = H_ests[H_ests.forecast .== 1,:]
+        frc_ests = H_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 2)
         if bands
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 2)

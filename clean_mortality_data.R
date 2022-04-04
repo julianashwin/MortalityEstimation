@@ -279,13 +279,13 @@ bp_le_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$age == 0 & lifetab_5y_df$y
 bp_s_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1 & 
                                          lifetab_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
-  ggtitle("Survival Rate")
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Survival Rate") + ggtitle("Survival Rate")
 bp_m_plt <- ggplot(lifetab_5y_df[which(lifetab_5y_df$best_practice == 1 & 
                                          lifetab_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = mx_f, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
-  ggtitle("Mortality Rate")
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Mortality  Rate") + ggtitle("Mortality Rate")
 ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_5y_data.pdf", width = 15, height = 4)
 
@@ -485,11 +485,16 @@ write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
 
 
 bp_df <-  lifetab_export[which(lifetab_export$best_practice == 1),]
+write.csv(bp_df, "data/clean/bp.csv", row.names = FALSE)
+
 bp_alt_df <-  lifetab_export[which(lifetab_export$best_practice_alt == 1),]
+write.csv(bp_alt_df, "data/clean/bp_alt.csv", row.names = FALSE)
 
 bp_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice == 1),]
-bp_alt_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice_alt == 1),]
+write.csv(bp_5y_df, "data/clean/bp_5y.csv", row.names = FALSE)
 
+bp_alt_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice_alt == 1),]
+write.csv(bp_alt_5y_df, "data/clean/bp_alt_5y.csv", row.names = FALSE)
 
 "
 Look at life expectancy at older ages

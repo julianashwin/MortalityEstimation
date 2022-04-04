@@ -36,25 +36,8 @@ parests_df_col_check = extract_variables(chain_i2, years, log_pars = true,
 plot_siler_params(parests_df_col_check)
 plot_ts_params(parests_df_col_check, model_vers = :i2drift)
 
-
-
-"""
- Compute the model implied LE and H for the in-sample periods
-"""
-# Add extra columns for model impled LE and H
-LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
-Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
-impl_vars = vcat(LEs, Hs)
-df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
-# Loop through each period
-prog = Progress(length(years), desc = "Calculating model implied LE and H: ")
-for ii in 1:length(years)
-    params = particles2params(df_post, ii, log_pars = true)
-    df_post[:, LEs[ii]] = LE.(params, [0.0], spec = :Colchero)
-    df_post[:, Hs[ii]] = H.(params, [0.0], spec = :Colchero)
-    next!(prog)
-end
-
+# Compute the model implied LE and H for the in-sample periods
+df_post = compute_LE_post(df_post, years, nahead, spec = :Bergeron)
 
 
 

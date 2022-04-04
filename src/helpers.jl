@@ -323,7 +323,30 @@ end
 
 
 
-## For each particle, simulate one step forward
+"""
+ Compute the model implied LE and H for the in-sample periods
+"""
+function compute_LE_post(df_post, years, nahead; spec = :Bergeron)
+    # Add extra columns for model impled LE and H
+    LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
+    Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
+    impl_vars = vcat(LEs, Hs)
+    df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
+    # Loop through each period
+    prog = Progress(length(years), desc = "Calculating model implied LE and H: ")
+    for ii in 1:length(years)
+        params = particles2params(df_post, ii, log_pars = true)
+        df_post[:, LEs[ii]] = LE.(params, [0.0], spec = spec)
+        df_post[:, Hs[ii]] = H.(params, [0.0], spec = spec)
+        next!(prog)
+    end
+
+    return df_post
+
+end
+
+
+
 """
 Function to compute predictive distribution nahead periods ahead with ndraws draws for
     the path of future shocks
@@ -419,7 +442,7 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
                 rand(Normal(0.0, σ_ϵd),ndraws)
 
             # Compute the model implied LE and H overtime
-            params = particles2params(df_particle, Tptt, Bs, bs, Cs, cs, ds; log_pars = true)
+            params = particles2params(df_particle, Tptt, log_pars = true)
             df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
             df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
 

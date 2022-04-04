@@ -69,6 +69,51 @@ base_plt(ber_df_2, param_ber_2); plot!(title = "Bergeron senescent baseline")
 
 
 """
+Bergeron specification example
+"""
+# Compute parameter changes
+ber_df_1, b_plt = param_change_plt(ber_df_1[1:31,:], param_ber_1, :b; LE_change = 5, spec = :Bergeron)
+ber_df_1, B_plt = param_change_plt(ber_df_1, param_ber_1, :B; LE_change = 5, spec = :Bergeron)
+ber_df_2, c_plt = param_change_plt(ber_df_2, param_ber_2, :c; LE_change = 5, spec = :Bergeron)
+ber_df_2, C_plt = param_change_plt(ber_df_2, param_ber_2, :C; LE_change = 5, spec = :Bergeron)
+# Plot
+l = @layout [a{0.48w} _ b{0.48w}; c{0.48w} _ d{0.48w}]
+plot(b_plt, c_plt, B_plt, C_plt, layout  = l, size = (1200,800), margin = 40Plots.mm)
+savefig("figures/interpret/bergeron_example.pdf")
+
+# Figure for the paper
+ber_df_c, c_plt = param_change_plt(ber_df_2, param_ber_2, :c; LE_change = 5, spec = :Bergeron)
+ber_df_C, C_plt = param_change_plt(ber_df_2, param_ber_2, :C; LE_change = 5, spec = :Bergeron)
+plot(ber_df_c.age, ber_df_c.S_base, label = "Baseline", ylabel = "Survival Rate", xlabel = "Age")
+plot!(ber_df_c.age, ber_df_c.S_cchange, linestyle = :dash, label = "Change to c")
+plot!(ber_df_C.age, ber_df_C.S_Cchange, linestyle = :dash, label = "Change to C")
+plot!(legend = :bottomleft, size = (400,300))
+savefig("figures/interpret/survival_c_example.pdf")
+
+ber_df_b, b_plt = param_change_plt(ber_df_1, param_ber_1, :b; LE_change = 5, spec = :Bergeron)
+ber_df_B, B_plt = param_change_plt(ber_df_1, param_ber_1, :B; LE_change = 5, spec = :Bergeron)
+plot(ber_df_b.age, ber_df_b.S_base, label = "Baseline", ylabel = "Survival Rate", xlabel = "Age")
+plot!(ber_df_b.age, ber_df_b.S_bchange, linestyle = :dash, label = "Change to b")
+plot!(ber_df_B.age, ber_df_B.S_Bchange, linestyle = :dash, label = "Change to B")
+plot!(legend = :bottomleft, size = (400,300))
+savefig("figures/interpret/survival_b_example.pdf")
+
+
+
+# Special case to show effect of C on H can be positive
+param_ber_special = SilerParam(b = 1.0, B = 5.0, c = 0.1, C = 75, d = 0.01)
+plot(siler.([param_ber_special], 0:110, spec = :Bergeron), label = "Bergeron")
+Hgrad.([param_ber_special], 0:10, [:C], spec = :Bergeron)
+ber_df_special = init_illus(param_ber_special, :Bergeron)
+base_plt(ber_df_special, param_ber_special)
+ber_df_special, C_plt = param_change_plt(ber_df_special, param_ber_special,
+    :C; LE_change = 5, spec = :Bergeron)
+C_plt
+savefig("figures/interpret/bergeron_special_case.pdf")
+
+
+
+"""
 Colchero specification example
 """
 # Compute parameter changes
@@ -105,30 +150,3 @@ sco_df_special, C_plt = param_change_plt(sco_df_special, param_sco_special,
     :C; LE_change = 5, spec = :Scott)
 C_plt
 savefig("figures/interpret/scott_special_case.pdf")
-
-
-
-"""
-Bergeron specification example
-"""
-# Compute parameter changes
-ber_df_1, b_plt = param_change_plt(ber_df_1[1:31,:], param_ber_1, :b; LE_change = 5, spec = :Bergeron)
-ber_df_1, B_plt = param_change_plt(ber_df_1, param_ber_1, :B; LE_change = 5, spec = :Bergeron)
-ber_df_2, c_plt = param_change_plt(ber_df_2, param_ber_2, :c; LE_change = 5, spec = :Bergeron)
-ber_df_2, C_plt = param_change_plt(ber_df_2, param_ber_2, :C; LE_change = 5, spec = :Bergeron)
-# Plot
-l = @layout [a{0.48w} _ b{0.48w}; c{0.48w} _ d{0.48w}]
-plot(b_plt, c_plt, B_plt, C_plt, layout  = l, size = (1200,800), margin = 40Plots.mm)
-savefig("figures/interpret/bergeron_example.pdf")
-
-
-# Special case to show effect of C on H can be positive
-param_ber_special = SilerParam(b = 1.0, B = 5.0, c = 0.1, C = 75, d = 0.01)
-plot(siler.([param_ber_special], 0:110, spec = :Bergeron), label = "Bergeron")
-Hgrad.([param_ber_special], 0:10, [:C], spec = :Bergeron)
-ber_df_special = init_illus(param_ber_special, :Bergeron)
-base_plt(ber_df_special, param_ber_special)
-ber_df_special, C_plt = param_change_plt(ber_df_special, param_ber_special,
-    :C; LE_change = 5, spec = :Bergeron)
-C_plt
-savefig("figures/interpret/bergeron_special_case.pdf")

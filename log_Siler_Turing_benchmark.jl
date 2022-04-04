@@ -95,11 +95,21 @@ niters = 1000
 nchains = 4
 # MCMC sampling
 chain_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
-    niters, nchains, init_params = map_indep_vals)
+    niters, nchains, init_params = prior_indep_vals)
 display(chain_indep)
 @save "figures/"*folder*"/siler_"*model*"_chain.jld2" chain_indep
+
 ## Plot Siler parameters
-# Display the parameters with Colchero specification
+# Display the parameters with Bergeron specification
+parests_indep_ber = extract_variables(chain_indep, years_selected, log_pars = false,
+    model_vers = :indep, spec = :Bergeron)
+p1 = plot_siler_params(parests_indep_ber)
+p_title = plot(title = "Multiple independent Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/"*folder*"/siler_"*model*"_params_ber.pdf")
+CSV.write("figures/"*folder*"/siler_"*model*"_params_ber.csv", parests_indep_ber)
+# With Colchero specification
 parests_indep_col = extract_variables(chain_indep, years_selected, log_pars = false,
     model_vers = :indep, spec = :Colchero)
 p1 = plot_siler_params(parests_indep_col)
@@ -117,26 +127,18 @@ p_title = plot(title = "Multiple independent Siler Scott parameters "*string(cod
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_"*model*"_params_sco.pdf")
 CSV.write("figures/"*folder*"/siler_"*model*"_params_sco.csv", parests_indep_sco)
-# With Bergeron specification
-parests_indep_ber = extract_variables(chain_indep, years_selected, log_pars = false,
-    model_vers = :indep, spec = :Bergeron)
-p1 = plot_siler_params(parests_indep_ber)
-p_title = plot(title = "Multiple independent Siler Bergeron parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_params_ber.pdf")
-CSV.write("figures/"*folder*"/siler_"*model*"_params_ber.csv", parests_indep_ber)
-# With Standard specification
-parests_indep_sta = extract_variables(chain_indep, years_selected, log_pars = false,
-    model_vers = :indep, spec = :Standard)
-p1 = plot_siler_params(parests_indep_sta)
-p_title = plot(title = "Multiple independent Siler Standard parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_params_sta.pdf")
-CSV.write("figures/"*folder*"/siler_"*model*"_params_sta.csv", parests_indep_sta)
 
 ## Plot decomposition
+# Bergeron specification
+decomp_df_ber = create_decomp(parests_indep_ber; spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_df_ber, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_ber, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
 # Colchero specification
 decomp_df_col = create_decomp(parests_indep_col; spec = :Colchero, eval_age = 0)
 le_p = plot_decomp(decomp_df_col, :LE)
@@ -157,26 +159,6 @@ p_title = plot(title = "Historical decomposition Siler Scott parameters "*string
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_sco.pdf")
-# Bergeron specification
-decomp_df_ber = create_decomp(parests_indep_ber; spec = :Bergeron, eval_age = 0)
-le_p = plot_decomp(decomp_df_ber, :LE)
-le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_df_ber, :H)
-h_p = plot!(title = "Lifespan Inequality")
-p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
-savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
-# Standard specification
-decomp_df_sta = create_decomp(parests_indep_sta; spec = :Standard, eval_age = 0)
-le_p = plot_decomp(decomp_df_sta, :LE)
-le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_df_sta, :H)
-h_p = plot!(title = "Lifespan Inequality")
-p_title = plot(title = "Historical decomposition Siler Standard parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
-savefig("figures/"*folder*"/siler_"*model*"_decomp_sta.pdf")
 
 
 """
@@ -209,8 +191,20 @@ display(chain_i2)
 @save "figures/"*folder*"/siler_"*model*"_chain.jld2" chain_i2
 
 
-## Plot Siler parameters
-# Display the parameters with Colchero specification
+
+"""
+Plot Siler parameters
+"""
+# Display the parameters with Bergeron specification
+parests_i2_ber = extract_variables(chain_i2, years_selected, log_pars = true,
+    model_vers = :i2drift, spec = :Bergeron)
+p1 = plot_siler_params(parests_i2_ber)
+p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
+savefig("figures/"*folder*"/siler_"*model*"_params_ber.pdf")
+CSV.write("figures/"*folder*"/siler_"*model*"_params_ber.csv", parests_i2_ber)
+# with Colchero specification
 parests_i2_col = extract_variables(chain_i2, years_selected, log_pars = true,
     model_vers = :i2drift, spec = :Colchero)
 p1 = plot_siler_params(parests_i2_col)
@@ -228,33 +222,29 @@ p_title = plot(title = "I(2) Siler Scott parameters "*string(code),
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_"*model*"_params_sco.pdf")
 CSV.write("figures/"*folder*"/siler_"*model*"_params_sco.csv", parests_i2_sco)
-# With Bergeron specification
-parests_i2_ber = extract_variables(chain_i2, years_selected, log_pars = true,
-    model_vers = :i2drift, spec = :Bergeron)
-p1 = plot_siler_params(parests_i2_ber)
-p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_params_ber.pdf")
-CSV.write("figures/"*folder*"/siler_"*model*"_params_ber.csv", parests_i2_ber)
-# With Standard specification
-parests_i2_sta = extract_variables(chain_i2, years_selected, log_pars = true,
-    model_vers = :i2drift, spec = :Standard)
-p1 = plot_siler_params(parests_i2_sta)
-p_title = plot(title = "I(2) Siler Standard parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_params_sta.pdf")
-CSV.write("figures/"*folder*"/siler_"*model*"_params_sta.csv", parests_i2_sta)
+
 
 ## Plot time series parameters
 p2 = plot_ts_params(parests_i2_col, model_vers = :i2drift)
-p_title = plot(title = "I(2) Siler Colcher ts params "*string(code), grid = false, showaxis = false,
+p_title = plot(title = "I(2) Siler Bergeron ts params "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_ts_params_col.pdf")
+savefig("figures/"*folder*"/siler_"*model*"_ts_params.pdf")
 
-## Plot decomposition
+
+"""
+Plot decomposition
+"""
+# Bergeron specification
+decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_df_ber, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_ber, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
 # Colchero specification
 decomp_df_col = create_decomp(parests_i2_col; spec = :Colchero, eval_age = 0)
 le_p = plot_decomp(decomp_df_col, :LE)
@@ -275,30 +265,46 @@ p_title = plot(title = "Historical decomposition Siler Scott parameters "*string
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_sco.pdf")
-# Bergeron specification
-decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
-le_p = plot_decomp(decomp_df_ber, :LE)
+
+
+"""
+Forecasts
+"""
+# Options
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
+df_post = DataFrame(chain_i2)
+# Compute the model implied LE and H for the in-sample periods
+df_post = compute_LE_post(df_post, years_selected, nahead, spec = :Bergeron)
+# Compute df_pred which extends df_post with predictions
+df_pred = compute_forecasts(df_post, nahead, ndraws, years_selected, spec = :Bergeron)
+# Summarize past and forecast variables
+past_years = years_selected
+fut_years = Int.(maximum(years_selected) .+ 5.0.*(1:nahead))
+parests_pred = extract_forecast_variables(df_pred, past_years, fut_years,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+CSV.write("figures/"*folder*"/siler_"*model*"_preds.csv", parests_pred)
+
+# Plot Siler parameter forecasts
+plot_siler_params(parests_pred, forecasts = true)
+savefig("figures/"*folder*"/siler_"*model*"_param_pred.pdf")
+# Plot time series parameter forecasts
+plot_ts_params(parests_pred, model_vers = :i2drift, forecasts = true)
+savefig("figures/"*folder*"/siler_"*model*"_ts_pred.pdf")
+# Plot forecasts for model implied LE and H
+plot_LE_H(parests_pred, forecasts = true, bands = true)
+savefig("figures/"*folder*"/siler_"*model*"_leh_pred.pdf")
+# Forecast decomposition of future LE and H
+decomp_pred_col = create_decomp(parests_pred_col[parests_pred_col.year .> 1985,:],
+    spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_pred_col, :LE)
 le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_df_ber, :H)
+h_p = plot_decomp(decomp_pred_col, :H)
 h_p = plot!(title = "Lifespan Inequality")
-p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
-savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
-# Standard specification
-decomp_df_sta = create_decomp(parests_i2_sta; spec = :Standard, eval_age = 0)
-le_p = plot_decomp(decomp_df_sta, :LE)
-le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_df_sta, :H)
-h_p = plot!(title = "Lifespan Inequality")
-p_title = plot(title = "Historical decomposition Siler Standard parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
-savefig("figures/"*folder*"/siler_"*model*"_decomp_sta.pdf")
-
-
-
-
+savefig("figures/"*folder*"/siler_"*model*"_decomp_pred.pdf")
 
 
 

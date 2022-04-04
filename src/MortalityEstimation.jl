@@ -1,6 +1,6 @@
 using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra, Optim
 using TruncatedDistributions, PDMats, Parameters, FiniteDifferences, QuadGK, Roots
-using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings
+using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings, JLD2, ProgressMeter
 
 
 
