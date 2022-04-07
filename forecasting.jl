@@ -83,6 +83,7 @@ display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
 savefig(folder*"/siler_"*model*"_decomp_col.pdf")
 
 
+
 """
 Compute predictive distribution of forecasts
 """
@@ -95,28 +96,32 @@ parests_pred = extract_forecast_variables(df_pred, past_years, fut_years,
     log_pars = true, spec = :Bergeron, model_vers = :i2drift)
 #CSV.write(folder*"/siler_"*model*"_preds_col.csv", parests_pred_col)
 # Plot Siler parameter forecasts
-plot_siler_params(parests_pred_col, forecasts = true)
+plot_siler_params(parests_pred, forecasts = true)
 #savefig(folder*"/siler_"*model*"_param_pred_col.pdf")
 # Plot time series parameter forecasts
-plot_ts_params(parests_pred_col, model_vers = :i2drift, forecasts = true)
+plot_ts_params(parests_pred, model_vers = :i2drift, forecasts = true)
 #savefig(folder*"/siler_"*model*"_ts_pred_col.pdf")
 # Plot forecasts for model implied LE and H
-plot_LE_H(parests_pred_col, forecasts = true, bands = true)
+plot_LE_H(parests_pred, forecasts = true, bands = true)
 #savefig(folder*"/siler_"*model*"_leh_pred_col.pdf")
 # Forecast decomposition of future LE and H
-decomp_pred_col = create_decomp(parests_pred_col[parests_pred_col.year .> 1985,:],
+decomp_pred = create_decomp(parests_pred[parests_pred_col.year .> 1985,:],
     spec = :Bergeron, eval_age = 0)
-le_p = plot_decomp(decomp_pred_col, :LE)
+le_p = plot_decomp(decomp_pred, :LE)
 le_p = plot!(legend = false, title = "Life Expectancy")
 vline!([2020.5,2020.5], linestyle=:dot, color = :red, label = false)
-h_p = plot_decomp(decomp_pred_col, :H)
+h_p = plot_decomp(decomp_pred, :H)
 h_p = plot!(title = "Lifespan Inequality")
 vline!([2020.5,2020.5], linestyle=:dot, color = :red, label = false)
-p_title = plot(title = "Future decomposition Siler Colchero parameters "*string(code),
+p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400))
 display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
 savefig(folder*"/siler_"*model*"_decomp_pred.pdf")
+
+
+decomp_post2020 = decomp_pred[decomp_pred.year .>= 2020,:]
+sum(decomp_post2020.ΔC.*decomp_post2020.LE_C)/sum(decomp_post2020.ΔLE_mod)
 
 
 """
@@ -191,6 +196,51 @@ function plot_LEgrads(decomp_df)
 
     return le_p
 end
+
+decomp_pred = create_decomp(parests_pred, spec = :Bergeron, eval_age = 0)
+pre_2020 = decomp_pred.year .<= 2018
+post_2020 = decomp_pred.year .>= 2018
 # Bergeron
-le_p = plot_LEgrads(decomp_df_ber)
-savefig(folder*"siler_"*model*"_LEgrad_ber.pdf")
+bB_plt = plot(layout = (2,2), legend = false)
+plot!(decomp_pred.year[pre_2020], decomp_pred.LE_b[pre_2020], title = L"LE_b", subplot = 1)
+plot!(decomp_pred.year[post_2020], decomp_pred.LE_b[post_2020], linestyle = :dash,subplot = 1)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 1, ylims = (0,7))
+plot!(decomp_pred.year[pre_2020], decomp_pred.LE_B[pre_2020], title = L"LE_B", subplot = 2)
+plot!(decomp_pred.year[post_2020], decomp_pred.LE_B[post_2020], linestyle = :dash,subplot = 2)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 2, ylims = (0,3))
+plot!(decomp_pred.year[pre_2020], decomp_pred.H_b[pre_2020], title = L"H_b", subplot = 3)
+plot!(decomp_pred.year[post_2020], decomp_pred.H_b[post_2020], linestyle = :dash,subplot = 3)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 3, ylims = (-0.1,0), xmirror = true)
+plot!(decomp_pred.year[pre_2020], decomp_pred.H_B[pre_2020], title = L"H_B", subplot = 4)
+plot!(decomp_pred.year[post_2020], decomp_pred.H_B[post_2020], linestyle = :dash,subplot = 4)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 4, ylims = (-0.05,0), xmirror = true)
+plot!(size = (600,300))
+savefig(folder*"siler_"*model*"_LEgrad_bB.pdf")
+
+
+cC_plt = plot(layout = (2,2), legend = false)
+plot!(decomp_pred.year[pre_2020], decomp_pred.LE_c[pre_2020], title = L"LE_c", subplot = 1)
+plot!(decomp_pred.year[post_2020], decomp_pred.LE_c[post_2020], linestyle = :dash,subplot = 1)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 1, ylims = (0,75))
+plot!(decomp_pred.year[pre_2020], decomp_pred.LE_C[pre_2020], title = L"LE_C", subplot = 2)
+plot!(decomp_pred.year[post_2020], decomp_pred.LE_C[post_2020], linestyle = :dash,subplot = 2)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 2, ylims = (0,1))
+plot!(decomp_pred.year[pre_2020], decomp_pred.H_c[pre_2020], title = L"H_c", subplot = 3)
+plot!(decomp_pred.year[post_2020], decomp_pred.H_c[post_2020], linestyle = :dash,subplot = 3)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 3, ylims = (-2.4,0), xmirror = true)
+plot!(decomp_pred.year[pre_2020], decomp_pred.H_C[pre_2020], title = L"H_C", subplot = 4)
+plot!(decomp_pred.year[post_2020], decomp_pred.H_C[post_2020], linestyle = :dash,subplot = 4)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 4, ylims = (-0.002,0), xmirror = true)
+plot!(size = (600,300))
+savefig(folder*"siler_"*model*"_LEgrad_cC.pdf")
+
+
+# What if we set d to zero?
+decomp_today = decomp_df[decomp_df.year .== 2018,[:B,:b,:C,:c,:d,:σ, :LE_mod]]
+param_today = SilerParam(b= decomp_today.b[1], B = decomp_today.B[1], c = decomp_today.c[1],
+    C = decomp_today.C[1], d = decomp_today.d[1])
+param_dzero = SilerParam(b= decomp_today.b[1], B = decomp_today.B[1], c = decomp_today.c[1],
+    C = decomp_today.C[1], d = 0.)
+
+LE(param_today, 0.0, spec = :Bergeron)
+LE(param_dzero, 0.0, spec = :Bergeron)

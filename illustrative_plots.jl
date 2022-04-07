@@ -127,6 +127,16 @@ plot(b_plt, c_plt, B_plt, C_plt, layout  = l, size = (1200,800), margin = 40Plot
 savefig("figures/interpret/colchero_example.pdf")
 
 
+# Figure for the paper
+col_df_c, c_plt = param_change_plt(col_df_2, param_col_2, :c; LE_change = 5, spec = :Colchero)
+col_df_C, C_plt = param_change_plt(col_df_2, param_col_2, :C; LE_change = 5, spec = :Colchero)
+plot(col_df_c.age, col_df_c.S_base, label = "Baseline", ylabel = "Survival Rate", xlabel = "Age")
+plot!(col_df_c.age, col_df_c.S_cchange, linestyle = :dash, label = "Change to c")
+plot!(col_df_C.age, col_df_C.S_Cchange, linestyle = :dash, label = "Change to C")
+plot!(legend = :bottomleft, size = (400,300))
+savefig("figures/interpret/survival_c_example_col.pdf")
+
+
 """
 Scott specification example
 """
