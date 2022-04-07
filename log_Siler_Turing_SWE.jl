@@ -44,13 +44,34 @@ showtable(mort_df)
 
 
 """
+Plot priors
+"""
+## Set priors
+# Mean of IG is b/(a-1)
+plot(layout = (2,3), yticks = false, size = (1000,500))
+plot!(LogNormal(log(2), 2.0), title = L"B_{1} \sim LogNormal(2,2)",
+    label = false, subplot = 1, xlims = (0,100))
+plot!(LogNormal(log(1), 1.0), xlim=(0,10), title = L"b_{1} \sim LogNormal(1,2)",
+    label = false, subplot = 2)
+plot!(LogNormal(log(80), 2.0), title = L"C_{1} \sim LogNormal(80,2)",
+    label = false, subplot = 4, xlims = (0,200))
+plot!(LogNormal(log(0.1), 1.0), xlim=(0,1), title = L"c_{1} \sim LogNormal(0.1,2)",
+    label = false, subplot = 5)
+plot!(LogNormal(log(0.01), 1.0), title = L"d_{1} \sim LogNormal(0.01,2)",
+    label = false, subplot = 3)
+plot!(LogNormal(log(0.001), 1.0), title = L"\sigma_{1} \sim LogNormal(0.001,2)",
+    label = false, subplot = 6)
+savefig("figures/general/log_siler_priors.pdf")
+
+
+"""
 Set up a single country/case to run through examples
 """
 ## Data prep for single coujntry
-code = "Best Practice"
-folder = "benchmark"
+code = "SWE"
+folder = "SWE"
 #country_df = mort_df[(mort_df.code .== code), :]
-country_df = bp_df
+country_df = swe_df
 # Need to remove any zeros
 country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[:,:mx_f] .> 0.0,:mx_f])
 # Check data looks sensible
@@ -298,11 +319,11 @@ savefig("figures/"*folder*"/siler_"*model*"_ts_pred.pdf")
 plot_LE_H(parests_pred, forecasts = true, bands = true)
 savefig("figures/"*folder*"/siler_"*model*"_leh_pred.pdf")
 # Forecast decomposition of future LE and H
-decomp_pred = create_decomp(parests_pred[parests_pred.year .> 1985,:],
+decomp_pred_col = create_decomp(parests_pred_col[parests_pred_col.year .> 1985,:],
     spec = :Bergeron, eval_age = 0)
-le_p = plot_decomp(decomp_pred, :LE)
+le_p = plot_decomp(decomp_pred_col, :LE)
 le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_pred, :H)
+h_p = plot_decomp(decomp_pred_col, :H)
 h_p = plot!(title = "Lifespan Inequality")
 p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
