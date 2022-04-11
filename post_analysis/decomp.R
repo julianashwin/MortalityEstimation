@@ -40,7 +40,7 @@ Import data and results
 "
 mult_codes <- FALSE
 # Import parameter estimates
-parests_df <- read.csv("figures/general/siler_i2_params_col.csv", stringsAsFactors = FALSE)
+parests_df <- read.csv("figures/benchmark/siler_i2_params_ber.csv", stringsAsFactors = FALSE)
 #other_parests_df <- read.csv("results_justrw/other_country_siler_est_results.csv", stringsAsFactors = FALSE)
 if (mult_codes){
   # Shorten USA to United States
@@ -60,6 +60,17 @@ if (mult_codes){
   full_parests_df$code <- "BestPractice"
   full_parests_df$name <- "Best Practice"
 }
+
+
+## P\ot Rhat
+# Selected countries that cover the full sample period
+ggplot(parests_df) + theme_bw() +
+  geom_density(aes(x = rhat, color = year)) + 
+  line_colors + fill_colors + guides(fill=FALSE) +
+  ylab("Density") + xlab(expression(hat(R)))
+ggsave("figures/benchmark/rhat_convergence.pdf", width = 4, height = 4)
+
+
 
 
 

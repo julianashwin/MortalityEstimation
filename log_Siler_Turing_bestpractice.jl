@@ -45,6 +45,7 @@ code = "Best Practice"
 select_df = bp_df
 m_var = :mx_f
 
+sort!(select_df, [:year, :age])
 plot(select_df.age, select_df[:,m_var], group = select_df.year, legend = :top)
 
 """
@@ -80,30 +81,11 @@ prior_vals = df_prior[1,3:(end-1)]
 @time chain_i2 = sample(log_siler_dyn_i2drift(lm_data, ages), NUTS(0.65), MCMCThreads(),
     1000, 4, init_params = prior_vals)
 display(chain_i2)
-CSV.write("figures/best_practice/siler_i2_params_fullpost.csv", DataFrame(chain_i2))
-years_selected = country_years
+@save "figures/best_practice/siler_i2_chain.jld2" chain_i2
 
 ## Plots the Siler parameters
-# Display the parameters with Colchero specification
-parests_i2_col = extract_variables(chain_i2, years, log_pars = true,
-    model_vers = :i2drift, spec = :Colchero)
-p1 = plot_siler_params(parests_i2_col)
-p_title = plot(title = "I(2) Siler Colchero parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/best_practice/siler_i2_params_col.pdf")
-CSV.write("figures/best_practice/siler_i2_params_col.csv", parests_i2_col)
-# With Scott specification
-parests_i2_sco = extract_variables(chain_i2, years_selected, log_pars = true,
-    model_vers = :i2drift, spec = :Scott)
-p1 = plot_siler_params(parests_i2_sco)
-p_title = plot(title = "I(2) Siler Scott parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/best_practice/siler_i2_params_sco.pdf")
-CSV.write("figures/best_practice/siler_i2_params_sco.csv", parests_i2_sco)
-# With Bergeron specification
-parests_i2_ber = extract_variables(chain_i2, years_selected, log_pars = true,
+# Display the parameters with Bergeron specification
+parests_i2_ber = extract_variables(chain_i2, years, log_pars = true,
     model_vers = :i2drift, spec = :Bergeron)
 p1 = plot_siler_params(parests_i2_ber)
 p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
@@ -111,30 +93,62 @@ p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/best_practice/siler_i2_params_ber.pdf")
 CSV.write("figures/best_practice/siler_i2_params_ber.csv", parests_i2_ber)
-# With Standard specification
-parests_i2_sta = extract_variables(chain_i2, years_selected, log_pars = true,
-    model_vers = :i2drift, spec = :Standard)
-p1 = plot_siler_params(parests_i2_sta)
-p_title = plot(title = "I(2) Siler Standard parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/best_practice/siler_i2_params_sta.pdf")
-CSV.write("figures/best_practice/siler_i2_params_sta.csv", parests_i2_sta)
-
 ## Plot time series parameters
-p2 = plot_ts_params(parests_i2_col, model_vers = :i2drift)
-p_title = plot(title = "I(2) Siler Colcher ts params "*string(code), grid = false, showaxis = false,
+p2 = plot_ts_params(parests_i2_ber, model_vers = :i2drift)
+p_title = plot(title = "I(2) Siler Bergeron ts params "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
 savefig("figures/best_practice/siler_i2_ts_params_col.pdf")
 
 
 ## Plot a decomposition of LE and H
+decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_df_ber, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_df_ber, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400))
+display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
+savefig("figures/best_practice/siler_i2_decomp_ber.pdf")
 
 
 
 ## Compute some forecasts
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
+df_post = DataFrame(chain_i2)
+# Compute the model implied LE and H for the in-sample periods
+df_post = compute_LE_post(df_post, years, nahead, spec = :Bergeron)
+# Compute df_pred which extends df_post with predictions
+df_pred = compute_forecasts(df_post, nahead, ndraws, years, spec = :Bergeron)
+# Summarize past and forecast variables
+past_years = years
+fut_years = Int.(maximum(years) .+ 5.0.*(1:nahead))
+parests_pred = extract_forecast_variables(df_pred, past_years, fut_years,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
 
+# Plot Siler parameter forecasts
+plot_siler_params(parests_pred, forecasts = true)
+savefig("figures/best_practice/siler_i2_param_pred.pdf")
+# Plot time series parameter forecasts
+plot_ts_params(parests_pred, model_vers = :i2drift, forecasts = true)
+savefig("figures/best_practice/siler_i2_ts_pred.pdf")
+# Plot forecasts for model implied LE and H
+plot_LE_H(parests_pred, forecasts = true, bands = true)
+savefig("figures/best_practice/siler_i2_leh_pred.pdf")
+# Forecast decomposition of future LE and H
+decomp_pred_col = create_decomp(parests_pred_col[parests_pred_col.year .> 1985,:],
+    spec = :Bergeron, eval_age = 0)
+le_p = plot_decomp(decomp_pred_col, :LE)
+le_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_pred_col, :H)
+h_p = plot!(title = "Lifespan Inequality")
+p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
+    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+savefig("figures/best_practice/siler_i2_decomp_pred.pdf")
 
 
 
