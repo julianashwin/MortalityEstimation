@@ -102,9 +102,9 @@ years_selected = Int.(round.(country_years[periods]))
 
 ## Find some starting points
 # MAP estimate for multiple independent models on log mortality
-map_indep = optimize(log_siler_indep(country_lm_data[periods], country_ages), MAP(), LBFGS(),
-    Optim.Options(iterations=60_000, allow_f_increases=true))
-map_indep_vals =  map_indep.values.array
+#map_indep = optimize(log_siler_indep(country_lm_data[periods], country_ages), MAP(), LBFGS(),
+#    Optim.Options(iterations=60_000, allow_f_increases=true))
+#map_indep_vals =  map_indep.values.array
 # Alternatively, we can simulate from the prior and start there
 prior_indep = sample(log_siler_indep(country_lm_data[periods], country_ages), Prior(), 5000)
 df_prior = DataFrame(prior_indep)
@@ -246,7 +246,7 @@ CSV.write("figures/"*folder*"/siler_"*model*"_params_sco.csv", parests_i2_sco)
 
 
 ## Plot time series parameters
-p2 = plot_ts_params(parests_i2_col, model_vers = :i2drift)
+p2 = plot_ts_params(parests_i2_ber, model_vers = :i2drift)
 p_title = plot(title = "I(2) Siler Bergeron ts params "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))

@@ -152,6 +152,22 @@ rm(all1901_plt, all2010_plt)
 
 
 
+
+"
+Who's looking good in the 21st century?
+"
+current_ex_df <- lifetab_df[which(lifetab_df$year >= 2010 & lifetab_df$age == 0 & 
+                                  lifetab_df$ex_f >= 84),]
+ggplot(current_ex_df, aes(x = year, y = ex_f)) + 
+  geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
+  xlab("Year") + ylab("LE(0)") + theme_bw() +
+  ggtitle("2010")
+current_ex_df <- lifetab_df[which(lifetab_df$year == 2018 & lifetab_df$age == 0 & 
+                                    lifetab_df$ex_f >= 84),]
+
+
+rm(current_ex_df)
+
 "
 Get five year average
 "

@@ -28,25 +28,150 @@ include("src/MortalityEstimation.jl")
 Import and clean data
 """
 ## Import the mortality data
-all_df = CSV.read("data/clean/all_lifetab.csv", DataFrame, ntasks = 1)
+all_df = CSV.read("data/clean/all_lifetab_5y.csv", DataFrame, ntasks = 1)
 
 # Best practice data
-mort_df = all_df[(all_df.year .>= 1900), :]
+mort_df = deepcopy(all_df)  # [(all_df.year .>= 1700), :]
 sort!(mort_df, [:code, :year, :age])
 bp_df = mort_df[(mort_df.best_practice .== 1), :]
 plot(bp_df.age, bp_df.mx, group = bp_df.year, legend = :top)
+sort!(bp_df, [:year, :age])
 
 # Restrict to G7 post 1900 for now
-G7_countries = ["Canada", "France", "West Germany", "Italy", "Japan", "United Kingdom",
-    "United States of America"]
-G7_df = mort_df[.!in.(mort_df.name, [G7_countries]),:]
+country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", "HKG", "ITA", "ISL",
+    "JPN", "KOR", "NZL_NM", "NOR", "PRT", "USA"]
+select_df = mort_df[in.(mort_df.code, [country_codes]),:]
+
+## Set model and folder to save results
+folder = "countries"
+model = "i2"
+
+
+"""
+Check data looks sensible for a single country
+"""
+## Data prep for single coujntry
+code = "KOR"
+#country_df = mort_df[(mort_df.code .== code), :]
+country_df = select_df[select_df.code .== "KOR",:]
+# Need to remove any zeros
+country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[:,:mx_f] .> 0.0,:mx_f])
+# Check data looks sensible
+plot(country_df.age, country_df.mx_f, group = country_df.year, legend = :top)
+# Convert this into a matrix of mortality rates over time, age and year vectors
+country_m_data = chunk(country_df.mx_f, 110)
+plot(country_m_data, legend = false)
+country_lm_data = [log.(m_dist) for m_dist in country_m_data]
+plot(country_lm_data, legend = false)
+country_ages = Int64.(0:maximum(country_df.age))
+country_years = unique(country_df.year)
+T = length(country_lm_data)
+
+@assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
+@assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
+
+
+
+
+"""
+Estimate the I(2) model on each of the selected countries
+"""
+# Number of iterations and chains for sampler
+niters = 1250
+nchains = 4
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
+# Loop through the selected codes
+for code in country_codes
+    print("Working on model for "*code)
+    # Extract and convert relevant data into correct form
+    country_df = select_df[(select_df.code .== code), :]
+    sort!(select_df, [:year, :age])
+    # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
+    country_df.mx_f[country_df.mx_f .== 0.0] .=  minimum(country_df.mx_f[country_df.mx_f .> 0.0])
+    # Get data into right format
+    country_m_data = chunk(country_df.mx_f, 110)
+    country_lm_data = [log.(m_dist) for m_dist in country_m_data]
+    country_ages = Int64.(0:maximum(country_df.age))
+    country_years = unique(country_df.year)
+    T = length(country_lm_data)
+    name = country_df.name[1]
+    # Simulate from prior as starting point
+    prior_i2 = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), Prior(), 5000)
+    df_prior = DataFrame(prior_i2)
+    insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+    prior_i2_vals = df_prior[1,3:(end-1)]
+    # Estimate posterior with NUTS sampler
+    chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data, country_ages), NUTS(0.65), MCMCThreads(),
+        niters, nchains, init_params = prior_i2_vals)
+    # Save chain
+    @save "figures/"*folder*"/"*code*"_"*model*"_chain.jld2" chain_i2
+    # Extract some summary statistics
+    parests_i2 = extract_variables(chain_i2, country_years, log_pars = true,
+        model_vers = :i2drift, spec = :Bergeron)
+    CSV.write("figures/"*folder*"/"*code*"_"*model*"_params.csv", parests_i2)
+    # Plot the parameters
+    display(plot_siler_params(parests_i2))
+    savefig("figures/"*folder*"/"*code*"_"*model*"_params.pdf")
+    plot_ts_params(parests_i2, model_vers = :i2drift)
+    savefig("figures/"*folder*"/"*code*"_"*model*"_ts_params.pdf")
+    # Compute decomposition and plot
+    decomp_df = create_decomp(parests_i2; spec = :Bergeron, eval_age = 0)
+    le_p = plot_decomp(decomp_df, :LE)
+    le_p = plot!(legend = false, title = "Life Expectancy")
+    h_p = plot_decomp(decomp_df, :H)
+    h_p = plot!(title = "Lifespan Inequality")
+    p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
+        grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
+    plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400))
+    display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
+    savefig("figures/"*folder*"/"*code*"_"*model*"_decomp.pdf")
+    # Compute some forecasts
+    df_post = DataFrame(chain_i2)
+    # Compute the model implied LE and H for the in-sample periods
+    df_post = compute_LE_post(df_post, country_years, nahead, spec = :Bergeron)
+    # Compute df_pred which extends df_post with predictions
+    df_pred = compute_forecasts(df_post, nahead, ndraws, country_years, spec = :Bergeron)
+    # Extract forecasts
+    parests_pred = extract_forecast_variables(df_pred, country_years, Int.(maximum(country_years) .+ 5.0.*(1:nahead)),
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    CSV.write("figures/"*folder*"/"*code*"_"*model*"_preds.csv", parests_pred)
+    # Plot forecasts
+    plot_siler_params(parests_pred, forecasts = true)
+    savefig("figures/"*folder*"/"*code*"_"*model*"_param_pred.pdf")
+    plot_ts_params(parests_pred, model_vers = :i2drift, forecasts = true)
+    savefig("figures/"*folder*"/"*code*"_"*model*"_ts_pred.pdf")
+    plot_LE_H(parests_pred, forecasts = true, bands = true)
+    savefig("figures/"*folder*"/"*code*"_"*model*"_leh_pred.pdf")
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 """
 Preliminary checks and illustrative estimation of first and last period
 """
 ## Data prep for single coujntry
-country_df = G7_df[(G7_df.code .== "UKR"), :]
+country_df = select_df[(select_df.code .== "UKR"), :]
 # Check data looks sensible
 plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
 # Convert this into a matrix of mortality rates over time, age and year vectors
