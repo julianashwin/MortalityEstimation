@@ -2,7 +2,7 @@
 """
 Basic Siler mortality function
 """
-function siler(param::SilerParam, age::Real; spec::Symbol = :Colchero )
+function siler(param::SilerParam, age::Real; spec::Symbol = :Bergeron )
     @unpack b, B, c, C, d = param
 	if spec == :Colchero
     	μ = exp.(- (b.* age .+ B)) .+ exp.(c .* age.- C) .+ d
@@ -23,7 +23,7 @@ end
 """
 Siler survival function for individual aged aa until age tt
 """
-function siler_S(param::SilerParam, aa::Real, tt::Real; spec::Symbol = :Colchero)
+function siler_S(param::SilerParam, aa::Real, tt::Real; spec::Symbol = :Bergeron)
 	@unpack b, B, c, C, d = param
 	if spec == :Colchero
 		S_aa = exp( - d*aa + (1/b)*(exp(-(b*aa + B)) - exp(-B)) - (1/c)*(exp(c*aa - C) - exp(-C)) )
@@ -47,7 +47,7 @@ end
 """
 Computes gradient of survivor rate from age aa to age tt, wrt θ
 """
-function siler_Sgrad(param::SilerParam, aa::Real, tt::Real, θ::Symbol; spec::Symbol = :Colchero)
+function siler_Sgrad(param::SilerParam, aa::Real, tt::Real, θ::Symbol; spec::Symbol = :Bergeron)
 	# First deriviate of surviving until aa wrt opts.param
 	grad = central_fdm(5,1,
 		max_range = getfield(param, θ))(function(x)
@@ -61,7 +61,7 @@ end
 """
 Computes remaining life expectancy from age aa given siler parameters
 """
-function LE(param::SilerParam, aa::Real; spec::Symbol = :Colchero)
+function LE(param::SilerParam, aa::Real; spec::Symbol = :Bergeron)
     # Compute LE variable
 	v, err = quadgk(tt -> siler_S(param, aa, tt, spec = spec),aa,200)
     life_exp = v
@@ -71,7 +71,7 @@ end
 """
 Computes gradient remaining life expectancy from age aa, wrt θ
 """
-function LEgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero)
+function LEgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron)
 
 	grad = central_fdm(5,1,
 		max_range = getfield(param, θ))(function(x)
@@ -84,7 +84,7 @@ end
 """
 Computes remaining lifespan inequality from age aa given siler parameters
 """
-function H(param::SilerParam, aa::Real; spec::Symbol = :Colchero)
+function H(param::SilerParam, aa::Real; spec::Symbol = :Bergeron)
 	LE_aa = LE(param, aa, spec = spec)
 	S_at = siler_S.([param], [aa], aa:200, spec = spec)
 	S_at = S_at[S_at.> 0]
@@ -97,7 +97,7 @@ end
 """
 Computes gradient of remaining lifespan inequality from age aa wrt θ
 """
-function Hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero)
+function Hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron)
 
 	grad = central_fdm(5,1,
 		max_range = getfield(param, θ))(function(x)
@@ -111,7 +111,7 @@ end
 """
 Computes remaining lifespan equality from age aa given siler parameters
 """
-function h(param::SilerParam, aa::Real; spec::Symbol = :Colchero)
+function h(param::SilerParam, aa::Real; spec::Symbol = :Bergeron)
 	H_aa = H(param, aa, spec = spec)
 	h_aa = -log(H_aa)
 
@@ -122,7 +122,7 @@ end
 """
 Computes gradient of remaining lifespan inequality from age aa wrt θ
 """
-function hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero)
+function hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron)
 
 	grad = central_fdm(5,1,
 		max_range = getfield(param, θ))(function(x)

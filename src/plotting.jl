@@ -148,15 +148,6 @@ function plot_siler_params(par_ests::DataFrame; forecasts = false)
         obs = Int.(1:nrow(b_ests))
     end
 
-    if forecasts
-        b_ests = par_ests[par_ests.parameter .== :b,:]
-        obs = Int.(1:nrow(b_ests))[(b_ests.forecast .== 0)]
-        frc_obs = vcat(obs[end], Int.(1:nrow(b_ests))[(b_ests.forecast .== 1)])
-    else
-        b_ests = par_ests[par_ests.parameter .== :b,:]
-        obs = Int.(1:nrow(b_ests))
-    end
-
     plot!(b_ests.year[obs], b_ests.median[obs], title = L"b_{t}", label = false, color = 1, subplot = 1)
     plot!(b_ests.year[obs], b_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
     plot!(b_ests.year[obs], b_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 1)
@@ -454,7 +445,7 @@ end
 """
 Plot a decomposition of the evolution of LE or H in terms of each parameter
 """
-function plot_decomp(decomp_df, variable)
+function plot_decomp(decomp_df, variable; forecasts = false)
     # Define variables to plot
     if variable == :LE
         b = decomp_df.Δb.*decomp_df.LE_b
@@ -479,11 +470,31 @@ function plot_decomp(decomp_df, variable)
         var = decomp_df.Δh_mod
     end
     # Plot decomposition
-    p1 = groupedbar(decomp_df.year, [b B c C d], label=["b" "B" "c" "C" "d"],
-    bar_position = :stack, linecolor=nothing,
-    xlabel = "Year", ylabel = "Δ"*string(variable))
-    p1 = plot!(decomp_df.year, var, color = :black, label = false)
-    p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
+    if forecasts
+        frc_obs =  Int.(1:nrow(decomp_df))[decomp_df.forecast .== 1]
+        obs = vcat(Int.(1:nrow(decomp_df))[decomp_df.forecast .== 0], frc_obs[1])
+        frc_obs = frc_obs[2:end]
+        sw_yr = maximum(decomp_df.year[obs]) +
+            (minimum(decomp_df.year[frc_obs]) - maximum(decomp_df.year[obs]))/2
+        # Plot in sample
+        p1 = groupedbar(decomp_df.year[obs], [b[obs] B[obs] c[obs] C[obs] d[obs]], label=["b" "B" "c" "C" "d"],
+            bar_position = :stack, linecolor=nothing, color = reshape(palette(:auto)[1:5], (1,5)),
+            xlabel = "Year", ylabel = "Δ"*string(variable))
+        # Plot out of sample
+        p1 = groupedbar!(decomp_df.year[frc_obs], [b[frc_obs] B[frc_obs] c[frc_obs] C[frc_obs] d[frc_obs]],
+            label=false, color = reshape(palette(:auto)[1:5], (1,5)),
+            bar_position = :stack,  linealpha = 0, alpha = 0.5)
+
+        p1 = plot!(decomp_df.year, var, color = :black, label = false)
+        p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
+        p1 = vline!([sw_yr,sw_yr], color = :red, linestyle = :dash, label = false)
+    else
+        p1 = groupedbar(decomp_df.year, [b B c C d], label=["b" "B" "c" "C" "d"],
+            bar_position = :stack, linecolor=nothing,
+            xlabel = "Year", ylabel = "Δ"*string(variable))
+        p1 = plot!(decomp_df.year, var, color = :black, label = false)
+        p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
+    end
 
   return p1
 end
@@ -493,7 +504,7 @@ end
 Function to plot model implied LE and H
 """
 function plot_LE_H(par_ests; forecasts = false, bands = false)
-    plt = plot(layout = (1,2), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
+    plt = plot(layout = (1,3), xrotation = 45.0, margin=3Plots.mm, size = (800,400))
 
 
     if forecasts
@@ -525,22 +536,41 @@ function plot_LE_H(par_ests; forecasts = false, bands = false)
         end
     end
 
-    H_ests = par_ests[par_ests.parameter .== :H,:]
-    plot!(H_ests.year[obs], H_ests.median[obs], title = L"H_{t}", label = false, color = 1, subplot = 2)
+    h_ests = par_ests[par_ests.parameter .== :h,:]
+    plot!(h_ests.year[obs], h_ests.median[obs], title = L"h_{t}", label = false, color = 1, subplot = 2)
     if bands
-        plot!(H_ests.year[obs], H_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year[obs], H_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year[obs], H_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
-        plot!(H_ests.year[obs], H_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
+        plot!(h_ests.year[obs], h_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(h_ests.year[obs], h_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 2)
+        plot!(h_ests.year[obs], h_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
+        plot!(h_ests.year[obs], h_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 2)
     end
     if forecasts
-        frc_ests = H_ests[frc_obs,:]
+        frc_ests = h_ests[frc_obs,:]
         plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 2)
         if bands
             plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 2)
             plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 2)
             plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 2)
             plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 2)
+        end
+    end
+
+    H_ests = par_ests[par_ests.parameter .== :H,:]
+    plot!(H_ests.year[obs], H_ests.median[obs], title = L"H_{t}", label = false, color = 1, subplot = 3)
+    if bands
+        plot!(H_ests.year[obs], H_ests.pc975[obs], linestyle = :dot, label = false, color = 1, subplot = 3)
+        plot!(H_ests.year[obs], H_ests.pc025[obs], linestyle = :dot, label = false, color = 1, subplot = 3)
+        plot!(H_ests.year[obs], H_ests.pc85[obs], linestyle = :dash, label = false, color = 1, subplot = 3)
+        plot!(H_ests.year[obs], H_ests.pc15[obs], linestyle = :dash, label = false, color = 1, subplot = 3)
+    end
+    if forecasts
+        frc_ests = H_ests[frc_obs,:]
+        plot!(frc_ests.year, frc_ests.median, label = false, color = 2, subplot = 3)
+        if bands
+            plot!(frc_ests.year, frc_ests.pc975, linestyle = :dot, label = false, color = 2, subplot = 3)
+            plot!(frc_ests.year, frc_ests.pc025, linestyle = :dot, label = false, color = 2, subplot = 3)
+            plot!(frc_ests.year, frc_ests.pc85, linestyle = :dash, label = false, color = 2, subplot = 3)
+            plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2, subplot = 3)
         end
     end
 

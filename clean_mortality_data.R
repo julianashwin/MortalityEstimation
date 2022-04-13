@@ -230,60 +230,64 @@ rm(enw_plt_m, enw_plt_f, jpn_plt_m, jpn_plt_f, usa_plt_m, usa_plt_f, nzl_plt_m, 
 "
 Compute empirical lifespan inequality from the mortality data
 " 
-lifetab_5y_df$Hx <- NA
-lifetab_5y_df$Hx_f <- NA
-lifetab_5y_df$Hx_m <- NA
-for (code in unique(lifetab_5y_df$code)){
-  print(code)
-  years <- unique(lifetab_5y_df$year[which(lifetab_5y_df$code == code)])
-  for (year in years){
-    data_obs <- which(lifetab_5y_df$code == code & lifetab_5y_df$year == year)
-    ages <- lifetab_5y_df$age[data_obs]
-    LEs <- lifetab_5y_df$ex[data_obs]
-    Ss <- lifetab_5y_df$lx[data_obs]
-    LE_fs <- lifetab_5y_df$ex_f[data_obs]
-    S_fs <- lifetab_5y_df$lx_f[data_obs]
-    LE_ms <- lifetab_5y_df$ex_m[data_obs]
-    S_ms <- lifetab_5y_df$lx_m[data_obs]
-    
-    Hs <- rep(NA, length(ages))
-    H_fs <- rep(NA, length(ages))
-    H_ms <- rep(NA, length(ages))
-    for (ii in 1:length(ages)){
-      # Extract LEs
-      LE <- LEs[ii]
-      LE_f <- LE_fs[ii]
-      LE_m <- LE_ms[ii]
-      # Extract Ss
-      Sa_s <- Ss[ii:length(ages)]/Ss[ii]
-      Sa_s <- Sa_s[Sa_s>0]
-      Sa_fs <- S_fs[ii:length(ages)]/S_fs[ii]
-      Sa_fs <- Sa_fs[Sa_fs>0]
-      Sa_ms <- S_ms[ii:length(ages)]/S_ms[ii]
-      Sa_ms <- Sa_ms[Sa_ms>0]
-      # Compute Hs
-      if (length(Sa_s) > 0){
-        Hs[ii] <- -sum(Sa_s*log(Sa_s))/LE
-      } else{
-        Hs[ii] <- 0
+compute_ineq <- function(lifetab_5y_df){
+  lifetab_5y_df$Hx <- NA
+  lifetab_5y_df$Hx_f <- NA
+  lifetab_5y_df$Hx_m <- NA
+  for (code in unique(lifetab_5y_df$code)){
+    print(code)
+    years <- unique(lifetab_5y_df$year[which(lifetab_5y_df$code == code)])
+    for (year in years){
+      data_obs <- which(lifetab_5y_df$code == code & lifetab_5y_df$year == year)
+      ages <- lifetab_5y_df$age[data_obs]
+      LEs <- lifetab_5y_df$ex[data_obs]
+      Ss <- lifetab_5y_df$lx[data_obs]
+      LE_fs <- lifetab_5y_df$ex_f[data_obs]
+      S_fs <- lifetab_5y_df$lx_f[data_obs]
+      LE_ms <- lifetab_5y_df$ex_m[data_obs]
+      S_ms <- lifetab_5y_df$lx_m[data_obs]
+      
+      Hs <- rep(NA, length(ages))
+      H_fs <- rep(NA, length(ages))
+      H_ms <- rep(NA, length(ages))
+      for (ii in 1:length(ages)){
+        # Extract LEs
+        LE <- LEs[ii]
+        LE_f <- LE_fs[ii]
+        LE_m <- LE_ms[ii]
+        # Extract Ss
+        Sa_s <- Ss[ii:length(ages)]/Ss[ii]
+        Sa_s <- Sa_s[Sa_s>0]
+        Sa_fs <- S_fs[ii:length(ages)]/S_fs[ii]
+        Sa_fs <- Sa_fs[Sa_fs>0]
+        Sa_ms <- S_ms[ii:length(ages)]/S_ms[ii]
+        Sa_ms <- Sa_ms[Sa_ms>0]
+        # Compute Hs
+        if (length(Sa_s) > 0){
+          Hs[ii] <- -sum(Sa_s*log(Sa_s))/LE
+        } else{
+          Hs[ii] <- 0
+        }
+        if (length(Sa_fs) > 0){
+          H_fs[ii] <- -sum(Sa_fs*log(Sa_fs))/LE_f
+        } else{
+          H_fs[ii] <- 0
+        }
+        if (length(Sa_ms) > 0){
+          H_ms[ii] <- -sum(Sa_ms*log(Sa_ms))/LE_m
+        } else{
+          H_ms[ii] <- 0
+        }
       }
-      if (length(Sa_fs) > 0){
-        H_fs[ii] <- -sum(Sa_fs*log(Sa_fs))/LE_f
-      } else{
-        H_fs[ii] <- 0
-      }
-      if (length(Sa_ms) > 0){
-        H_ms[ii] <- -sum(Sa_ms*log(Sa_ms))/LE_m
-      } else{
-        H_ms[ii] <- 0
-      }
+      lifetab_5y_df$Hx[data_obs] <- Hs
+      lifetab_5y_df$Hx_f[data_obs] <- H_fs
+      lifetab_5y_df$Hx_m[data_obs] <- H_ms
     }
-    lifetab_5y_df$Hx[data_obs] <- Hs
-    lifetab_5y_df$Hx_f[data_obs] <- H_fs
-    lifetab_5y_df$Hx_m[data_obs] <- H_ms
   }
+  return(lifetab_5y_df)
 }
-
+lifetab_5y_df <- compute_ineq(lifetab_5y_df)
+lifetab_df <- compute_ineq(lifetab_df)
 
 
 "
@@ -421,7 +425,7 @@ bp_h_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$age == 0 & lifetab_
                                  lifetab_5y_export$best_practice == 1),]) + theme_bw() +
   geom_smooth(aes(x = year, y = -log(Hx_f)), method = "loess") +
   geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
-  scale_color_discrete(name = "Country") + ggtitle("Lifespan ") +
+  scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
   xlab("Year") + ylab("Lifespan Equality at birth")
 bp_s_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$best_practice == 1 & 
                                              lifetab_5y_export$year > 1900),]) + theme_bw() +
@@ -437,135 +441,146 @@ ggarrange(bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_5y_data.pdf", width = 15, height = 4)
 
 # One year intervals
-bp_le_plt <- ggplot(lifetab_df[which(lifetab_df$age == 0 & lifetab_df$year > 1900 &
-                                       lifetab_df$best_practice == 1),]) + theme_bw() +
+bp_le_plt <- ggplot(lifetab_export[which(lifetab_export$age == 0 & lifetab_export$year > 1900 &
+                                       lifetab_export$best_practice == 1),]) + theme_bw() +
   geom_smooth(aes(x = year, y = ex_f), method = "lm") +
-  geom_point(aes(x = year, y = ex_f, color = code)) +
+  geom_point(aes(x = year, y = ex_f, color = name)) +
   scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
   xlab("Year") + ylab("Life Expectancy at birth")
-bp_s_plt <- ggplot(lifetab_df[which(lifetab_df$best_practice == 1 & 
-                                      lifetab_df$year > 1900),]) + theme_bw() +
+bp_h_plt <- ggplot(lifetab_export[which(lifetab_export$age == 0 & lifetab_export$year > 1900 &
+                                      lifetab_export$best_practice == 1),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = -log(Hx_f)), method = "loess") +
+  geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
+  scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
+  xlab("Year") + ylab("Lifespan Equality at birth")
+bp_s_plt <- ggplot(lifetab_export[which(lifetab_export$best_practice == 1 & 
+                                      lifetab_export$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
-  ggtitle("Survival Rate")
-bp_m_plt <- ggplot(lifetab_df[which(lifetab_df$best_practice == 1 & 
-                                         lifetab_df$year > 1900),]) + theme_bw() +
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Survival Rate") + ggtitle("Survival Rate")
+bp_m_plt <- ggplot(lifetab_export[which(lifetab_df$lifetab_export == 1 & 
+                                      lifetab_export$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = mx_f, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
-  ggtitle("Mortality Rate")
-ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Mortality  Rate") + ggtitle("Mortality Rate")
+ggarrange(bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_data.pdf", width = 15, height = 4)
 
 rm(bp_le_plt, bp_s_plt, bp_m_plt)
 
 
-# Plot BP life expectancy over time, survival and mortality curves
-m2S <- function(mx){
-  S <- rep(1, length(mx))
-  for (aa in 2:length(mx)){
-    S[aa] <- S[aa-1]*(1-mx[aa-1])
+
+if (FALSE){
+  
+  # Plot BP life expectancy over time, survival and mortality curves
+  m2S <- function(mx){
+    S <- rep(1, length(mx))
+    for (aa in 2:length(mx)){
+      S[aa] <- S[aa-1]*(1-mx[aa-1])
+    }
+    return(S)
   }
-  return(S)
-}
-S2LE <- function(S){
-  LE <- rep(NA, length(S))
-  for (aa in 1:length(S)){
-    S_aa <- S[aa:length(S)]/S[aa]
-    LE[aa] <- sum(S_aa)
+  S2LE <- function(S){
+    LE <- rep(NA, length(S))
+    for (aa in 1:length(S)){
+      S_aa <- S[aa:length(S)]/S[aa]
+      LE[aa] <- sum(S_aa)
+    }
+    return(LE) 
   }
-  return(LE) 
-}
-
-create_bp_df <- function(lifetab_df){
-  bp_df_alt <- lifetab_df[which(lifetab_df$best_practice_alt ==1 & 
-                                     lifetab_df$year > 1900),]
-  bp_df_alt <- bp_df_alt[with(bp_df_alt, order(year, age)),]
-  bp_df_alt[,c("lx_alt", "ex_alt")] <- NA
-  for (yy in unique(bp_df_alt$year)){
-    mx_alt <- bp_df_alt$mx_f[which(bp_df_alt$year == yy)]
-    lx_alt <- m2S(mx_alt)
-    ex_alt <- S2LE(lx_alt)
-    bp_df_alt$lx_alt[which(bp_df_alt$year == yy)] <- lx_alt
-    bp_df_alt$ex_alt[which(bp_df_alt$year == yy)] <- ex_alt
+  
+  create_bp_df <- function(lifetab_df){
+    bp_df_alt <- lifetab_df[which(lifetab_df$best_practice_alt ==1 & 
+                                       lifetab_df$year > 1900),]
+    bp_df_alt <- bp_df_alt[with(bp_df_alt, order(year, age)),]
+    bp_df_alt[,c("lx_alt", "ex_alt")] <- NA
+    for (yy in unique(bp_df_alt$year)){
+      mx_alt <- bp_df_alt$mx_f[which(bp_df_alt$year == yy)]
+      lx_alt <- m2S(mx_alt)
+      ex_alt <- S2LE(lx_alt)
+      bp_df_alt$lx_alt[which(bp_df_alt$year == yy)] <- lx_alt
+      bp_df_alt$ex_alt[which(bp_df_alt$year == yy)] <- ex_alt
+    }
+    return(bp_df_alt)
   }
-  return(bp_df_alt)
-}
-bp_alt_df <- create_bp_df(lifetab_df)
-bp_alt_5y_df <- create_bp_df(lifetab_5y_df)
-
-
-# 5 year intervals
-bp_le_plt <- ggplot(bp_alt_5y_df[which(bp_alt_5y_df$age == 0),]) + theme_bw() +
-  geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
-  geom_point(aes(x = year, y = ex_alt)) +
-  scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
-  xlab("Year") + ylab("Life Expectancy at birth")
-bp_s_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
-  geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
-  ggtitle("Survival Rate")
-bp_m_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
-  geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
-  ggtitle("Mortality Rate")
-ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
-ggsave("figures/data/best_practice_5y_data_alt.pdf", width = 15, height = 4)
-rm(bp_le_plt, bp_s_plt, bp_m_plt)
-# One year intervals
-bp_le_plt <- ggplot(bp_alt_df[which(bp_alt_df$age == 0),]) + theme_bw() +
-  geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
-  geom_point(aes(x = year, y = ex_alt)) +
-  scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
-  xlab("Year") + ylab("Life Expectancy at birth")
-bp_s_plt <- ggplot(bp_alt_df) + theme_bw() +
-  geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
-  ggtitle("Survival Rate")
-bp_m_plt <- ggplot(bp_alt_df) + theme_bw() +
-  geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
-  scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
-  ggtitle("Mortality Rate")
-ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
-ggsave("figures/data/best_practice_data_alt.pdf", width = 15, height = 4)
-rm(bp_le_plt, bp_s_plt, bp_m_plt)
-
-## Zoom in on a couple years
-# 2018 
-bp_2018_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 2018),]) + theme_bw() +
-  geom_point(aes(x = age, y = mx, color = code)) +
-  xlab("Age") + ylab("Mortality Rate") +
-  ggtitle("BP Mortality Rate 2018")
-# 1983
-bp_1983_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1983),]) + theme_bw() +
-  geom_point(aes(x = age, y = mx, color = code)) +
-  xlab("Age") + ylab("Mortality Rate") +
-  ggtitle("BP Mortality Rate 1983")
-# 1943
-bp_1943_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1943),]) + theme_bw() +
-  geom_point(aes(x = age, y = mx, color = code)) +
-  xlab("Age") + ylab("Mortality Rate") +
-  ggtitle("BP Mortality Rate 1943")
-# 1903
-bp_1903_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1903),]) + theme_bw() +
-  geom_point(aes(x = age, y = mx, color = code)) +
-  xlab("Age") + ylab("Mortality Rate") +
-  ggtitle("BP Mortality Rate 1903")
-ggarrange(bp_2018_plt,bp_1983_plt,bp_1943_plt,bp_1903_plt, nrow = 2, ncol=2, common.legend = FALSE)
-ggsave("figures/data/best_practice_examples_alt.pdf", width = 15, height = 8)
-rm(bp_df_alt, bp_2018_plt, bp_1983_plt, bp_1943_plt, bp_1903_plt)
-
-
-
+  bp_alt_df <- create_bp_df(lifetab_df)
+  bp_alt_5y_df <- create_bp_df(lifetab_5y_df)
+  
+  
+  # 5 year intervals
+  bp_le_plt <- ggplot(bp_alt_5y_df[which(bp_alt_5y_df$age == 0),]) + theme_bw() +
+    geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
+    geom_point(aes(x = year, y = ex_alt)) +
+    scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
+    xlab("Year") + ylab("Life Expectancy at birth")
+  bp_s_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
+    geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
+    scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
+    ggtitle("Survival Rate")
+  bp_m_plt <- ggplot(bp_alt_5y_df) + theme_bw() +
+    geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
+    scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
+    ggtitle("Mortality Rate")
+  ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+  ggsave("figures/data/best_practice_5y_data_alt.pdf", width = 15, height = 4)
+  rm(bp_le_plt, bp_s_plt, bp_m_plt)
+  # One year intervals
+  bp_le_plt <- ggplot(bp_alt_df[which(bp_alt_df$age == 0),]) + theme_bw() +
+    geom_smooth(aes(x = year, y = ex_alt), method = "lm") +
+    geom_point(aes(x = year, y = ex_alt)) +
+    scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
+    xlab("Year") + ylab("Life Expectancy at birth")
+  bp_s_plt <- ggplot(bp_alt_df) + theme_bw() +
+    geom_line(aes(x = age, y = lx_alt, group = year, color = year)) + ylim(c(0,1)) +
+    scale_color_continuous(name = "Year") + xlab("Age") + ylab("Survival Rate") +
+    ggtitle("Survival Rate")
+  bp_m_plt <- ggplot(bp_alt_df) + theme_bw() +
+    geom_line(aes(x = age, y = mx, group = year, color = year)) + ylim(c(0,1)) +
+    scale_color_continuous(name = "Year") + xlab("Age") + ylab("Mortality  Rate") +
+    ggtitle("Mortality Rate")
+  ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+  ggsave("figures/data/best_practice_data_alt.pdf", width = 15, height = 4)
+  rm(bp_le_plt, bp_s_plt, bp_m_plt)
+  
+  ## Zoom in on a couple years
+  # 2018 
+  bp_2018_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 2018),]) + theme_bw() +
+    geom_point(aes(x = age, y = mx, color = code)) +
+    xlab("Age") + ylab("Mortality Rate") +
+    ggtitle("BP Mortality Rate 2018")
+  # 1983
+  bp_1983_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1983),]) + theme_bw() +
+    geom_point(aes(x = age, y = mx, color = code)) +
+    xlab("Age") + ylab("Mortality Rate") +
+    ggtitle("BP Mortality Rate 1983")
+  # 1943
+  bp_1943_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1943),]) + theme_bw() +
+    geom_point(aes(x = age, y = mx, color = code)) +
+    xlab("Age") + ylab("Mortality Rate") +
+    ggtitle("BP Mortality Rate 1943")
+  # 1903
+  bp_1903_plt <- ggplot(bp_alt_df[which(bp_alt_df$year == 1903),]) + theme_bw() +
+    geom_point(aes(x = age, y = mx, color = code)) +
+    xlab("Age") + ylab("Mortality Rate") +
+    ggtitle("BP Mortality Rate 1903")
+  ggarrange(bp_2018_plt,bp_1983_plt,bp_1943_plt,bp_1903_plt, nrow = 2, ncol=2, common.legend = FALSE)
+  ggsave("figures/data/best_practice_examples_alt.pdf", width = 15, height = 8)
+  rm(bp_df_alt, bp_2018_plt, bp_1983_plt, bp_1943_plt, bp_1903_plt)
+  
+}  
+  
 
 
 
 lifetab_export <- lifetab_export[,c("code", "name", "year", "age",
                                     "mx", "mx_f", "mx_m", "lx", "lx_f", "lx_m", 
-                                    "ex", "ex_f", "ex_m", "Total", "Male", "Female",
+                                    "ex", "ex_f", "ex_m", "Hx", "Hx_f", "Hx_m",
+                                    "Total", "Male", "Female", 
                                     "best_practice", "best_practice_alt")]
 lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age",
                                           "mx", "mx_f", "mx_m", "lx", "lx_f", "lx_m", 
-                                          "ex", "ex_f", "ex_m", "Total", "Male", "Female",
+                                          "ex", "ex_f", "ex_m", "Hx", "Hx_f", "Hx_m",
+                                          "Total", "Male", "Female",
                                           "best_practice", "best_practice_alt")]
 
 write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)

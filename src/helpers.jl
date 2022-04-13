@@ -259,7 +259,7 @@ end
 """
 Function to create a decomposed df from parameter estimates
 """
-function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
+function create_decomp(parests_df; spec = :Bergeron, eval_age = 0, forecasts = false)
 
     # Convert from long to wide
     decomp_df = parests_df[.!occursin.("_",string.(parests_df.parameter)),
@@ -316,6 +316,15 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
         end
 
     end
+
+    insertcols!(decomp_df, 2, :forecast => repeat([0], nrow(decomp_df)) )
+
+    if forecasts
+        frc_years = unique(parests_df.year[parests_df.forecast.==1])
+        decomp_df.forecast[in.(decomp_df.year, [frc_years])] .= 1
+    end
+
+
     return decomp_df
 
 end
@@ -363,13 +372,14 @@ end
 
 
 """
- Compute the model implied LE and H for the in-sample periods
+ Compute the model implied LE, H and h for the in-sample periods
 """
 function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = :indep)
     # Add extra columns for model impled LE and H
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
-    impl_vars = vcat(LEs, Hs)
+    hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
+    impl_vars = vcat(LEs, Hs, hs)
     df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
     # Loop through each period
     prog = Progress(length(years), desc = "Calculating model implied LE and H: ")
@@ -377,6 +387,7 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
         params = particles2params(df_post, ii, log_pars = true, model_vers = model_vers)
         df_post[:, LEs[ii]] = LE.(params, [0.0], spec = spec)
         df_post[:, Hs[ii]] = H.(params, [0.0], spec = spec)
+        df_post[:, hs[ii]] = h.(params, [0.0], spec = spec)
         next!(prog)
     end
 
@@ -439,6 +450,7 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
     # The model-implied variables
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
+    hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
 
     # Extend dataframe to account for forward simulations
     df_pred = repeat(df_post, inner = ndraws)
@@ -523,6 +535,7 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
             params = particles2params(df_particle, Tptt, log_pars = true, model_vers = model_vers)
             df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
             df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
+            df_particle[:,hs[Tptt]] = h.(params, [0.0], spec = spec)
 
             next!(prog)
         end
@@ -654,11 +667,13 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     # Extrac the model implied forecasts of LE and H
     LEs = Symbol.("LE[".*string.(1:length(all_years)).*"]")
     Hs = Symbol.("H[".*string.(1:length(all_years)).*"]")
+    hs = Symbol.("h[".*string.(1:length(all_years)).*"]")
 
     LE_ests = summarise_forecasts(df_in[:,LEs], all_years, parname = :LE)
     H_ests = summarise_forecasts(df_in[:,Hs], all_years, parname = :H)
+    h_ests = summarise_forecasts(df_in[:,hs], all_years, parname = :h)
 
-    par_ests = vcat(par_ests, LE_ests, H_ests)
+    par_ests = vcat(par_ests, LE_ests, H_ests, h_ests)
 
 
     insertcols!(par_ests, 2, :forecast => repeat([0], nrow(par_ests)) )

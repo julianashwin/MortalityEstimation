@@ -48,7 +48,7 @@ Set up a single country/case to run through examples
 """
 ## Data prep for single coujntry
 code = "Best Practice"
-code = "KOR"
+#code = "KOR"
 folder = "benchmark"
 #country_df = mort_df[(mort_df.code .== code), :]
 country_df = bp_df
@@ -233,23 +233,25 @@ decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
 LE_p = plot_decomp(decomp_df_ber, :LE)
 LE_p = plot!(legend = false, title = "Life Expectancy")
 H_p = plot_decomp(decomp_df_ber, :H)
-H_p = plot!(title = "Lifespan Inequality")
+H_p = plot!(legend = false, title = "Lifespan Inequality")
 h_p = plot_decomp(decomp_df_ber, :h)
 h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-plot(p_title, LE_p, H_p, h_p, layout = @layout([A{0.01h}; B C D]), size = (800,400))
+plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
 display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
 # Colchero specification
 decomp_df_col = create_decomp(parests_i2_col; spec = :Colchero, eval_age = 0)
-le_p = plot_decomp(decomp_df_col, :LE)
-le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_df_col, :H)
-h_p = plot!(title = "Lifespan Inequality")
+LE_p = plot_decomp(decomp_df_col, :LE)
+LE_p = plot!(legend = false, title = "Life Expectancy")
+H_p = plot_decomp(decomp_df_col, :H)
+H_p = plot!(legend = false,title = "Lifespan Inequality")
+h_p = plot_decomp(decomp_df_col, :h)
+h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400))
+plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
 display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_col.pdf")
 
@@ -283,14 +285,16 @@ plot_LE_H(parests_pred, forecasts = true, bands = true)
 savefig("figures/"*folder*"/siler_"*model*"_leh_pred.pdf")
 # Forecast decomposition of future LE and H
 decomp_pred = create_decomp(parests_pred[parests_pred.year .> 1985,:],
-    spec = :Bergeron, eval_age = 0)
-le_p = plot_decomp(decomp_pred, :LE)
-le_p = plot!(legend = false, title = "Life Expectancy")
-h_p = plot_decomp(decomp_pred, :H)
-h_p = plot!(title = "Lifespan Inequality")
+    spec = :Bergeron, eval_age = 0, forecasts = true)
+LE_p = plot_decomp(decomp_pred, :LE, forecasts = true)
+LE_p = plot!(legend = false, title = "Life Expectancy")
+h_p = plot_decomp(decomp_pred, :h, forecasts = true)
+h_p = plot!(title = "Lifespan Equality")
+H_p = plot_decomp(decomp_pred, :H, forecasts = true)
+H_p = plot!(legend = false, title = "Lifespan Inequality")
 p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, le_p, h_p, layout = @layout([A{0.01h}; B C]), size = (800,400)))
+display(plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400)))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_pred.pdf")
 
 
@@ -299,7 +303,7 @@ savefig("figures/"*folder*"/siler_"*model*"_decomp_pred.pdf")
 LE gradients over time
 """
 # prediction decomposition
-decomp_pred = create_decomp(parests_pred, spec = :Bergeron, eval_age = 0)
+decomp_pred = create_decomp(parests_pred, spec = :Bergeron, eval_age = 0, forecasts = true)
 pre_2020 = decomp_pred.year .<= 2018
 post_2020 = decomp_pred.year .>= 2018
 # Bergeron
@@ -337,6 +341,28 @@ plot!(size = (600,300))
 savefig("figures/"*folder*"siler_"*model*"_LEgrad_cC.pdf")
 
 
+# Plot the gradient of remaining LE at each age over time
+all_years = decomp_pred.year
+ages = 0:110
+LEgrad_df = DataFrame(age = repeat(ages, length(all_years)), year = repeat(all_years, inner = length(ages)))
+grad_vars = [:LE_Bs, :LE_bs, :LE_Cs, :LE_cs, :LE_ds]
+LEgrad_df = hcat(LEgrad_df,DataFrame(NaN.*zeros(nrow(LEgrad_df), length(grad_vars)), grad_vars))
+for yy in all_years
+    # Get parameters for this year
+    obs = Int.(1:nrow(decomp_pred))[decomp_pred.year .== yy][1]
+    row = NamedTuple(decomp_pred[obs,:])
+    params = SilerParam(b = row.b, B = row.B, c = row.c, C = row.C, d = row.d)
+
+    # Fill grad dataframe
+    out_obs = Int.(1:nrow(LEgrad_df))[LEgrad_df.year .== yy]
+    LEgrad_df.LE_Bs[out_obs] = LEgrad.([params], ages, [:B], spec = :Bergeron)
+    LEgrad_df.LE_bs[out_obs] = LEgrad.([params], ages, [:b], spec = :Bergeron)
+    LEgrad_df.LE_Cs[out_obs] = LEgrad.([params], ages, [:C], spec = :Bergeron)
+    LEgrad_df.LE_cs[out_obs] = LEgrad.([params], ages, [:c], spec = :Bergeron)
+    LEgrad_df.LE_ds[out_obs] = LEgrad.([params], ages, [:d], spec = :Bergeron)
+end
+
+plot(LEgrad_df.age, LEgrad_df.LE_Cs, group=LEgrad_df.year)
 
 """
 End of script
