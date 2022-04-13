@@ -156,17 +156,17 @@ rm(all1901_plt, all2010_plt)
 "
 Who's looking good in the 21st century?
 "
-current_ex_df <- lifetab_df[which(lifetab_df$year >= 2010 & lifetab_df$age == 0 & 
-                                  lifetab_df$ex_f >= 84),]
-ggplot(current_ex_df, aes(x = year, y = ex_f)) + 
+ex_df <- lifetab_df[which(lifetab_df$year >= 1900 & lifetab_df$age == 0 & 
+                                  lifetab_df$ex_f >= 60),]
+ggplot(ex_df, aes(x = year, y = ex_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Year") + ylab("LE(0)") + theme_bw() +
   ggtitle("2010")
+
 current_ex_df <- lifetab_df[which(lifetab_df$year == 2018 & lifetab_df$age == 0 & 
                                     lifetab_df$ex_f >= 84),]
 
-
-rm(current_ex_df)
+rm(ex_df,current_ex_df)
 
 "
 Get five year average
@@ -222,6 +222,69 @@ nzl_plt_f <- ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "NZL_NM" & lifetab
 ggarrange(enw_plt_f,jpn_plt_f,usa_plt_f, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/mortality_rates_time.pdf", width = 12, height = 3)
 rm(enw_plt_m, enw_plt_f, jpn_plt_m, jpn_plt_f, usa_plt_m, usa_plt_f, nzl_plt_m, nzl_plt_f)
+
+
+
+
+
+"
+Compute empirical lifespan inequality from the mortality data
+" 
+lifetab_5y_df$Hx <- NA
+lifetab_5y_df$Hx_f <- NA
+lifetab_5y_df$Hx_m <- NA
+for (code in unique(lifetab_5y_df$code)){
+  print(code)
+  years <- unique(lifetab_5y_df$year[which(lifetab_5y_df$code == code)])
+  for (year in years){
+    data_obs <- which(lifetab_5y_df$code == code & lifetab_5y_df$year == year)
+    ages <- lifetab_5y_df$age[data_obs]
+    LEs <- lifetab_5y_df$ex[data_obs]
+    Ss <- lifetab_5y_df$lx[data_obs]
+    LE_fs <- lifetab_5y_df$ex_f[data_obs]
+    S_fs <- lifetab_5y_df$lx_f[data_obs]
+    LE_ms <- lifetab_5y_df$ex_m[data_obs]
+    S_ms <- lifetab_5y_df$lx_m[data_obs]
+    
+    Hs <- rep(NA, length(ages))
+    H_fs <- rep(NA, length(ages))
+    H_ms <- rep(NA, length(ages))
+    for (ii in 1:length(ages)){
+      # Extract LEs
+      LE <- LEs[ii]
+      LE_f <- LE_fs[ii]
+      LE_m <- LE_ms[ii]
+      # Extract Ss
+      Sa_s <- Ss[ii:length(ages)]/Ss[ii]
+      Sa_s <- Sa_s[Sa_s>0]
+      Sa_fs <- S_fs[ii:length(ages)]/S_fs[ii]
+      Sa_fs <- Sa_fs[Sa_fs>0]
+      Sa_ms <- S_ms[ii:length(ages)]/S_ms[ii]
+      Sa_ms <- Sa_ms[Sa_ms>0]
+      # Compute Hs
+      if (length(Sa_s) > 0){
+        Hs[ii] <- -sum(Sa_s*log(Sa_s))/LE
+      } else{
+        Hs[ii] <- 0
+      }
+      if (length(Sa_fs) > 0){
+        H_fs[ii] <- -sum(Sa_fs*log(Sa_fs))/LE_f
+      } else{
+        H_fs[ii] <- 0
+      }
+      if (length(Sa_ms) > 0){
+        H_ms[ii] <- -sum(Sa_ms*log(Sa_ms))/LE_m
+      } else{
+        H_ms[ii] <- 0
+      }
+    }
+    lifetab_5y_df$Hx[data_obs] <- Hs
+    lifetab_5y_df$Hx_f[data_obs] <- H_fs
+    lifetab_5y_df$Hx_m[data_obs] <- H_ms
+  }
+}
+
+
 
 "
 Calculate best practice
@@ -354,6 +417,12 @@ bp_le_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$age == 0 & lifetab
   geom_point(aes(x = year, y = ex_f, color = name)) +
   scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
   xlab("Year") + ylab("Life Expectancy at birth")
+bp_h_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$age == 0 & lifetab_5y_export$year > 1900 &
+                                 lifetab_5y_export$best_practice == 1),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = -log(Hx_f)), method = "loess") +
+  geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
+  scale_color_discrete(name = "Country") + ggtitle("Lifespan ") +
+  xlab("Year") + ylab("Lifespan Equality at birth")
 bp_s_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$best_practice == 1 & 
                                              lifetab_5y_export$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
@@ -364,7 +433,7 @@ bp_m_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$best_practice == 1 
   geom_line(aes(x = age, y = mx_f, group = year, color = year)) + ylim(c(0,1)) +
   scale_color_gradientn(colours = rainbow(5), name = "Year") + 
   xlab("Age") + ylab("Mortality  Rate") + ggtitle("Mortality Rate")
-ggarrange(bp_m_plt,bp_s_plt,bp_le_plt, nrow = 1, ncol=3, common.legend = FALSE)
+ggarrange(bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_5y_data.pdf", width = 15, height = 4)
 
 # One year intervals

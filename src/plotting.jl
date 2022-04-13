@@ -296,17 +296,17 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         scatter!(string.(β_ests.parameter), β_ests.pc15, color = 1,markershape = :vline, subplot = 2)
         hline!([0], linestyle=:dot, color = :black, subplot = 2)
 
-    elseif model_vers == :i2drift
+    elseif (model_vers == :i2drift) | (model_vers == :cov)
         # Siler parameter rw variance
         σ_ests = par_ests[(occursin.("σ_", string.(par_ests.parameter)) .&
             .!occursin.("σ_α", string.(par_ests.parameter))),:]
-        p_σ = scatter(string.(σ_ests.parameter), σ_ests.median, title = "σ", legend = false, color = 1)
+        p_σ = scatter(string.(σ_ests.parameter), σ_ests.median, title = "σ_ϵ", legend = false, color = 1)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc975, color = 1,markershape = :cross)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc025, color = 1,markershape = :cross)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc85, color = 1,markershape = :vline)
         p_σ = scatter!(string.(σ_ests.parameter), σ_ests.pc15, color = 1,markershape = :vline)
         p_σ =hline!([0], linestyle=:dashdot, color = :black, label = false)
-        # Drift parameter
+        # Drift parameter variance
         ασ_ests = par_ests[(occursin.("σ_α", string.(par_ests.parameter))),:]
         p_ασ = scatter(string.(ασ_ests.parameter), ασ_ests.median, title = "σ_α", legend = false, color = 1)
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc975, color = 1,markershape = :cross)
@@ -314,7 +314,16 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc85, color = 1,markershape = :vline)
         p_ασ = scatter!(string.(ασ_ests.parameter), ασ_ests.pc15, color = 1,markershape = :vline)
         p_ασ = hline!([0], linestyle=:dashdot, color = :black, label = false)
-
+        # Parameter shocks covariances
+        if model_vers == :cov
+            ρ_ests = par_ests[(occursin.("ρ_", string.(par_ests.parameter))),:]
+            p_ρ = scatter(string.(ρ_ests.parameter), ρ_ests.median, title = "ρ_ϵ", legend = false, color = 1)
+            p_ρ = scatter!(string.(ρ_ests.parameter), ρ_ests.pc975, color = 1,markershape = :cross)
+            p_ρ = scatter!(string.(ρ_ests.parameter), ρ_ests.pc025, color = 1,markershape = :cross)
+            p_ρ = scatter!(string.(ρ_ests.parameter), ρ_ests.pc85, color = 1,markershape = :vline)
+            p_ρ = scatter!(string.(ρ_ests.parameter), ρ_ests.pc15, color = 1,markershape = :vline)
+            p_ρ = hline!([0], linestyle=:dashdot, color = :black, label = false)
+        end
 
         if forecasts
             b_ests = par_ests[par_ests.parameter .== :α_b,:]
@@ -422,11 +431,17 @@ function plot_ts_params(par_ests::DataFrame; model_vers = :i2drift, forecasts = 
             plot!(frc_ests.year, frc_ests.pc15, linestyle = :dash, label = false, color = 2)
         end
 
-        α_plts = plot(b_plt, B_plt, c_plt, C_plt, d_plt, σ_plt, layout  = grid(6,1))
-        σ_plts = plot(p_σ, p_ασ, layout  = grid(2,1))
-        l = @layout [a{0.5w} b{0.5w}]
-
-        plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
+        if model_vers == :i2drift
+            α_plts = plot(b_plt, B_plt, c_plt, C_plt, d_plt, σ_plt, layout  = grid(6,1))
+            σ_plts = plot(p_σ, p_ασ, layout  = grid(2,1))
+            l = @layout [a{0.5w} b{0.5w}]
+            plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
+        elseif model_vers == :cov
+            α_plts = plot(b_plt, B_plt, c_plt, C_plt, d_plt, σ_plt, layout  = grid(6,1))
+            σ_plts = plot(p_σ, p_ρ, p_ασ, layout  = grid(3,1))
+            l = @layout [a{0.5w} b{0.5w}]
+            plt = plot(α_plts, σ_plts, layout = l, size = (800,800))
+        end
     end
 
 
@@ -440,28 +455,35 @@ end
 Plot a decomposition of the evolution of LE or H in terms of each parameter
 """
 function plot_decomp(decomp_df, variable)
-  # Define variables to plot
-  if variable == :LE
-    b = decomp_df.Δb.*decomp_df.LE_b
-    B = decomp_df.ΔB.*decomp_df.LE_B
-    c = decomp_df.Δc.*decomp_df.LE_c
-    C = decomp_df.ΔC.*decomp_df.LE_C
-    d = decomp_df.Δd.*decomp_df.LE_d
-    var = decomp_df.ΔLE_mod
-  elseif variable == :H
-    b = decomp_df.Δb.*decomp_df.H_b
-    B = decomp_df.ΔB.*decomp_df.H_B
-    c = decomp_df.Δc.*decomp_df.H_c
-    C = decomp_df.ΔC.*decomp_df.H_C
-    d = decomp_df.Δd.*decomp_df.H_d
-    var = decomp_df.ΔH_mod
-  end
-  # Plot decomposition
-  p1 = groupedbar(decomp_df.year, [b B c C d], label=["b" "B" "c" "C" "d"],
+    # Define variables to plot
+    if variable == :LE
+        b = decomp_df.Δb.*decomp_df.LE_b
+        B = decomp_df.ΔB.*decomp_df.LE_B
+        c = decomp_df.Δc.*decomp_df.LE_c
+        C = decomp_df.ΔC.*decomp_df.LE_C
+        d = decomp_df.Δd.*decomp_df.LE_d
+        var = decomp_df.ΔLE_mod
+    elseif variable == :H
+        b = decomp_df.Δb.*decomp_df.H_b
+        B = decomp_df.ΔB.*decomp_df.H_B
+        c = decomp_df.Δc.*decomp_df.H_c
+        C = decomp_df.ΔC.*decomp_df.H_C
+        d = decomp_df.Δd.*decomp_df.H_d
+        var = decomp_df.ΔH_mod
+    elseif variable == :h
+        b = decomp_df.Δb.*decomp_df.h_b
+        B = decomp_df.ΔB.*decomp_df.h_B
+        c = decomp_df.Δc.*decomp_df.h_c
+        C = decomp_df.ΔC.*decomp_df.h_C
+        d = decomp_df.Δd.*decomp_df.h_d
+        var = decomp_df.Δh_mod
+    end
+    # Plot decomposition
+    p1 = groupedbar(decomp_df.year, [b B c C d], label=["b" "B" "c" "C" "d"],
     bar_position = :stack, linecolor=nothing,
     xlabel = "Year", ylabel = "Δ"*string(variable))
-  p1 = plot!(decomp_df.year, var, color = :black, label = false)
-  p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
+    p1 = plot!(decomp_df.year, var, color = :black, label = false)
+    p1 = hline!([0,0], color = :black, linestyle = :dash, label = false)
 
   return p1
 end

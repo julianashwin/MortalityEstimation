@@ -96,12 +96,21 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
 
     # Siler parameter names
     if log_pars
-        Bs = Symbol.("lB[".*string.(1:length(years)).*"]")
-        bs = Symbol.("lb[".*string.(1:length(years)).*"]")
-        Cs = Symbol.("lC[".*string.(1:length(years)).*"]")
-        cs = Symbol.("lc[".*string.(1:length(years)).*"]")
-        ds = Symbol.("ld[".*string.(1:length(years)).*"]")
-        σs = Symbol.("lσ[".*string.(1:length(years)).*"]")
+        if model_vers == :cov
+            Bs = Symbol.("lpars[".*string.(1:length(years)).*"][1]")
+            bs = Symbol.("lpars[".*string.(1:length(years)).*"][2]")
+            Cs = Symbol.("lpars[".*string.(1:length(years)).*"][3]")
+            cs = Symbol.("lpars[".*string.(1:length(years)).*"][4]")
+            ds = Symbol.("lpars[".*string.(1:length(years)).*"][5]")
+            σs = Symbol.("lpars[".*string.(1:length(years)).*"][6]")
+        else
+            Bs = Symbol.("lB[".*string.(1:length(years)).*"]")
+            bs = Symbol.("lb[".*string.(1:length(years)).*"]")
+            Cs = Symbol.("lC[".*string.(1:length(years)).*"]")
+            cs = Symbol.("lc[".*string.(1:length(years)).*"]")
+            ds = Symbol.("ld[".*string.(1:length(years)).*"]")
+            σs = Symbol.("lσ[".*string.(1:length(years)).*"]")
+        end
     else
         Bs = Symbol.("B[".*string.(1:length(years)).*"]")
         bs = Symbol.("b[".*string.(1:length(years)).*"]")
@@ -187,7 +196,8 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
         # Add to dataframe
         par_ests = vcat(par_ests, β_pars_ests)
 
-    elseif model_vers == :i2drift
+    elseif (model_vers == :i2drift) | (model_vers == :cov)
+
         σ_par_names = Symbol.("σ_pars[".*string.(1:6).*"]")
         σ_pars_ests = summarise_stats(df_post[:,σ_par_names], stats[in.(stats.parameters, [σ_par_names]),:],
             Int.(1:6), parname = :σ_par)
@@ -226,6 +236,16 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
 
         par_ests = vcat(par_ests, α_B_ests, α_b_ests, α_C_ests, α_c_ests, α_d_ests, α_σ_ests)
 
+        if model_vers == :cov
+            ρ_s = [:ρ_bB, :ρ_cC]
+            ρ_ests = summarise_stats(df_post[:,ρ_s], stats[in.(stats.parameters, [ρ_s]),:],
+                [1, 2], parname = :ρ)
+            ρ_ests.parameter = [:ρ_bB, :ρ_cC]
+            ρ_ests.year .= 0
+
+            par_ests = vcat(par_ests, ρ_ests)
+        end
+
     end
 
     return par_ests
@@ -249,8 +269,9 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
     # Make suer we're ordered chronologically
     decomp_df = sort!(decomp_df, :year)
 
-    decomp_vars = ["LE_mod", "H_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
-        "H_b", "H_B", "H_c", "H_C", "H_d", "Δb", "ΔB", "Δc", "ΔC", "Δd", "ΔLE_mod", "ΔH_mod"]
+    decomp_vars = ["LE_mod", "H_mod", "h_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
+        "H_b", "H_B", "H_c", "H_C", "H_d", "h_b", "h_B", "h_c", "h_C", "h_d",
+        "Δb", "ΔB", "Δc", "ΔC", "Δd", "ΔLE_mod", "ΔH_mod", "Δh_mod"]
     decomp_df = hcat(decomp_df,DataFrame(NaN.*zeros(nrow(decomp_df), length(decomp_vars)), decomp_vars))
 
     # Get LE, H, changes and derivatives
@@ -263,6 +284,7 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
         S_mod = siler_S.([params], [eval_age], eval_age:200, spec = spec)
         decomp_df.LE_mod[ii] = LE(params, eval_age, spec = spec)
         decomp_df.H_mod[ii] = H(params, eval_age, spec = spec)
+        decomp_df.h_mod[ii] = h(params, eval_age, spec = spec)
         # Compute LE gradient for each parameter
         decomp_df.LE_B[ii] = LEgrad(params, eval_age, :B, spec = spec)
         decomp_df.LE_b[ii] = LEgrad(params, eval_age, :b, spec = spec)
@@ -275,6 +297,12 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
         decomp_df.H_C[ii] = Hgrad(params, eval_age, :C, spec = spec)
         decomp_df.H_c[ii] = Hgrad(params, eval_age, :c, spec = spec)
         decomp_df.H_d[ii] = Hgrad(params, eval_age, :d, spec = spec)
+        # Compute h gradient for each parameter
+        decomp_df.h_B[ii] = hgrad(params, eval_age, :B, spec = spec)
+        decomp_df.h_b[ii] = hgrad(params, eval_age, :b, spec = spec)
+        decomp_df.h_C[ii] = hgrad(params, eval_age, :C, spec = spec)
+        decomp_df.h_c[ii] = hgrad(params, eval_age, :c, spec = spec)
+        decomp_df.h_d[ii] = hgrad(params, eval_age, :d, spec = spec)
 
         if ii > 1
             decomp_df.ΔB[ii] = decomp_df.B[ii] - decomp_df.B[ii-1]
@@ -284,6 +312,7 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0)
             decomp_df.Δd[ii] = decomp_df.d[ii] - decomp_df.d[ii-1]
             decomp_df.ΔLE_mod[ii] = decomp_df.LE_mod[ii] - decomp_df.LE_mod[ii-1]
             decomp_df.ΔH_mod[ii] = decomp_df.H_mod[ii] - decomp_df.H_mod[ii-1]
+            decomp_df.Δh_mod[ii] = decomp_df.h_mod[ii] - decomp_df.h_mod[ii-1]
         end
 
     end
@@ -298,12 +327,22 @@ end
 A function that extracts a vector of SilerParam structures from rows of a DataFrame
     of samples from a posterior distribution
 """
-function particles2params(df_particle, Tptt; log_pars = true)
-     B = Symbol("lB["*string(Tptt)*"]")
-     b = Symbol("lb["*string(Tptt)*"]")
-     C = Symbol("lC["*string(Tptt)*"]")
-     c = Symbol("lc["*string(Tptt)*"]")
-     d = Symbol("ld["*string(Tptt)*"]")
+function particles2params(df_particle, Tptt; log_pars = true, model_vers = :indep)
+
+    if  model_vers == :cov
+        B = Symbol.("lpars[".*string.(Tptt).*"][1]")
+        b = Symbol.("lpars[".*string.(Tptt).*"][2]")
+        C = Symbol.("lpars[".*string.(Tptt).*"][3]")
+        c = Symbol.("lpars[".*string.(Tptt).*"][4]")
+        d = Symbol.("lpars[".*string.(Tptt).*"][5]")
+    else
+        B = Symbol("lB["*string(Tptt)*"]")
+        b = Symbol("lb["*string(Tptt)*"]")
+        C = Symbol("lC["*string(Tptt)*"]")
+        c = Symbol("lc["*string(Tptt)*"]")
+        d = Symbol("ld["*string(Tptt)*"]")
+    end
+
 
     params = repeat([SilerParam()], nrow(df_particle))
     if log_pars
@@ -326,7 +365,7 @@ end
 """
  Compute the model implied LE and H for the in-sample periods
 """
-function compute_LE_post(df_post, years, nahead; spec = :Bergeron)
+function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = :indep)
     # Add extra columns for model impled LE and H
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
@@ -335,7 +374,7 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron)
     # Loop through each period
     prog = Progress(length(years), desc = "Calculating model implied LE and H: ")
     for ii in 1:length(years)
-        params = particles2params(df_post, ii, log_pars = true)
+        params = particles2params(df_post, ii, log_pars = true, model_vers = model_vers)
         df_post[:, LEs[ii]] = LE.(params, [0.0], spec = spec)
         df_post[:, Hs[ii]] = H.(params, [0.0], spec = spec)
         next!(prog)
@@ -351,15 +390,38 @@ end
 Function to compute predictive distribution nahead periods ahead with ndraws draws for
     the path of future shocks
 """
-function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
+function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, model_vers = :indep)
 
     # Siler parameters
-    Bs = Symbol.("lB[".*string.(1:length(years)+nahead).*"]")
-    bs = Symbol.("lb[".*string.(1:length(years)+nahead).*"]")
-    Cs = Symbol.("lC[".*string.(1:length(years)+nahead).*"]")
-    cs = Symbol.("lc[".*string.(1:length(years)+nahead).*"]")
-    ds = Symbol.("ld[".*string.(1:length(years)+nahead).*"]")
-    σs = Symbol.("lσ[".*string.(1:length(years)+nahead).*"]")
+    if model_vers == :cov
+        Bs = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][1]")
+        bs = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][2]")
+        Cs = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][3]")
+        cs = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][4]")
+        ds = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][5]")
+        σs = Symbol.("lpars[".*string.(1:length(years)+nahead).*"][6]")
+        # Future parameters
+        B_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][1]")
+        b_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][2]")
+        C_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][3]")
+        c_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][4]")
+        d_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][5]")
+        σ_f = Symbol.("lpars[".*string.(length(years)+1:length(years)+nahead).*"][6]")
+    else
+        Bs = Symbol.("lB[".*string.(1:length(years)+nahead).*"]")
+        bs = Symbol.("lb[".*string.(1:length(years)+nahead).*"]")
+        Cs = Symbol.("lC[".*string.(1:length(years)+nahead).*"]")
+        cs = Symbol.("lc[".*string.(1:length(years)+nahead).*"]")
+        ds = Symbol.("ld[".*string.(1:length(years)+nahead).*"]")
+        σs = Symbol.("lσ[".*string.(1:length(years)+nahead).*"]")
+        # Future parameters
+        B_f = Symbol.("lB[".*string.(length(years)+1:length(years)+nahead).*"]")
+        b_f = Symbol.("lb[".*string.(length(years)+1:length(years)+nahead).*"]")
+        C_f = Symbol.("lC[".*string.(length(years)+1:length(years)+nahead).*"]")
+        c_f = Symbol.("lc[".*string.(length(years)+1:length(years)+nahead).*"]")
+        d_f = Symbol.("ld[".*string.(length(years)+1:length(years)+nahead).*"]")
+        σ_f = Symbol.("lσ[".*string.(length(years)+1:length(years)+nahead).*"]")
+    end
     # Drift terms (remeber lB[tt] = α_B[tt-1] + lB[tt-1] = shock)
     α_Bs = Symbol.("α_B[".*string.(1:length(years)-1+nahead).*"]")
     α_bs = Symbol.("α_b[".*string.(1:length(years)-1+nahead).*"]")
@@ -367,13 +429,6 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
     α_cs = Symbol.("α_c[".*string.(1:length(years)-1+nahead).*"]")
     α_ds = Symbol.("α_d[".*string.(1:length(years)-1+nahead).*"]")
     α_σs = Symbol.("α_σ[".*string.(1:length(years)-1+nahead).*"]")
-    # Future parameters
-    B_f = Symbol.("lB[".*string.(length(years)+1:length(years)+nahead).*"]")
-    b_f = Symbol.("lb[".*string.(length(years)+1:length(years)+nahead).*"]")
-    C_f = Symbol.("lC[".*string.(length(years)+1:length(years)+nahead).*"]")
-    c_f = Symbol.("lc[".*string.(length(years)+1:length(years)+nahead).*"]")
-    d_f = Symbol.("ld[".*string.(length(years)+1:length(years)+nahead).*"]")
-    σ_f = Symbol.("lσ[".*string.(length(years)+1:length(years)+nahead).*"]")
     # Future drift terms
     α_B_f = Symbol.("α_B[".*string.(length(years):length(years)-1+nahead).*"]")
     α_b_f = Symbol.("α_b[".*string.(length(years):length(years)-1+nahead).*"]")
@@ -418,6 +473,10 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
             σ_ξc = df_particle[1,Symbol("σ_αc")]
             σ_ξd = df_particle[1,Symbol("σ_αd")]
             σ_ξσ = df_particle[1,Symbol("σ_ασ")]
+            if model_vers == :cov
+                ρ_bB = df_particle[1,Symbol("ρ_bB")]
+                ρ_cC = df_particle[1,Symbol("ρ_cC")]
+            end
 
             # Forecast drift terms (remeber that we need to go one further back for these)
             df_particle[:,α_Bs[Tptt-1]] = df_particle[:,α_Bs[Tptt-2]] + rand(Normal(0.0, σ_ξB),ndraws)
@@ -428,21 +487,40 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Colchero)
             df_particle[:,α_σs[Tptt-1]] = df_particle[:,α_σs[Tptt-2]] + rand(Normal(0.0, σ_ξσ),ndraws)
 
             # Forecast the parameters
-            df_particle[:,Bs[Tptt]] = df_particle[:,α_Bs[Tptt-1]] + df_particle[:,Bs[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵB),ndraws)
-            df_particle[:,bs[Tptt]] = df_particle[:,α_bs[Tptt-1]] + df_particle[:,bs[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵb),ndraws)
-            df_particle[:,Cs[Tptt]] = df_particle[:,α_Cs[Tptt-1]] + df_particle[:,Cs[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵC),ndraws)
-            df_particle[:,cs[Tptt]] = df_particle[:,α_cs[Tptt-1]] + df_particle[:,cs[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵc),ndraws)
-            df_particle[:,ds[Tptt]] = df_particle[:,α_ds[Tptt-1]] + df_particle[:,ds[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵd),ndraws)
-            df_particle[:,σs[Tptt]] = df_particle[:,α_σs[Tptt-1]] + df_particle[:,σs[Tptt-1]] +
-                rand(Normal(0.0, σ_ϵd),ndraws)
+            if model_vers == :cov
+                # Extract the covariance matrix
+                σ_pars = [σ_ϵB, σ_ϵb, σ_ϵC, σ_ϵc, σ_ϵd, σ_ϵσ]
+                Σ_ϵ = Matrix(Diagonal(σ_pars))
+                Σ_ϵ[1,2] = ρ_bB*sqrt(σ_ϵB)*sqrt(σ_ϵb)
+                Σ_ϵ[2,1] = ρ_bB*sqrt(σ_ϵB)*sqrt(σ_ϵb)
+                Σ_ϵ[3,4] = ρ_cC*sqrt(σ_ϵC)*sqrt(σ_ϵc)
+                Σ_ϵ[4,3] = ρ_cC*sqrt(σ_ϵC)*sqrt(σ_ϵc)
+                # Draw future shocks
+                ϵ_draws = rand(MvNormal(zeros(6), Σ_ϵ),ndraws)
+                # Update the parameters
+                df_particle[:,Bs[Tptt]] = df_particle[:,α_Bs[Tptt-1]] + df_particle[:,Bs[Tptt-1]] + ϵ_draws[1,:]
+                df_particle[:,bs[Tptt]] = df_particle[:,α_bs[Tptt-1]] + df_particle[:,bs[Tptt-1]] + ϵ_draws[2,:]
+                df_particle[:,Cs[Tptt]] = df_particle[:,α_Cs[Tptt-1]] + df_particle[:,Cs[Tptt-1]] + ϵ_draws[3,:]
+                df_particle[:,cs[Tptt]] = df_particle[:,α_cs[Tptt-1]] + df_particle[:,cs[Tptt-1]] + ϵ_draws[4,:]
+                df_particle[:,ds[Tptt]] = df_particle[:,α_ds[Tptt-1]] + df_particle[:,ds[Tptt-1]] + ϵ_draws[5,:]
+                df_particle[:,σs[Tptt]] = df_particle[:,α_σs[Tptt-1]] + df_particle[:,σs[Tptt-1]] + ϵ_draws[6,:]
+            else
+                df_particle[:,Bs[Tptt]] = df_particle[:,α_Bs[Tptt-1]] + df_particle[:,Bs[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵB),ndraws)
+                df_particle[:,bs[Tptt]] = df_particle[:,α_bs[Tptt-1]] + df_particle[:,bs[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵb),ndraws)
+                df_particle[:,Cs[Tptt]] = df_particle[:,α_Cs[Tptt-1]] + df_particle[:,Cs[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵC),ndraws)
+                df_particle[:,cs[Tptt]] = df_particle[:,α_cs[Tptt-1]] + df_particle[:,cs[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵc),ndraws)
+                df_particle[:,ds[Tptt]] = df_particle[:,α_ds[Tptt-1]] + df_particle[:,ds[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵd),ndraws)
+                df_particle[:,σs[Tptt]] = df_particle[:,α_σs[Tptt-1]] + df_particle[:,σs[Tptt-1]] +
+                    rand(Normal(0.0, σ_ϵd),ndraws)
+            end
 
             # Compute the model implied LE and H overtime
-            params = particles2params(df_particle, Tptt, log_pars = true)
+            params = particles2params(df_particle, Tptt, log_pars = true, model_vers = model_vers)
             df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
             df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
 
@@ -467,18 +545,27 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
 
     # Work on deep copy version as we might transform to account for logs
     df_in = deepcopy(df_pred)
-    if model_vers != :i2drift
-        throw("Only supported for i2drift")
+    if (model_vers != :i2drift) & (model_vers != :cov)
+        throw("Only supported for i2drift and cov")
     end
     all_years = vcat(past_years, fut_years)
     # Siler parameter names
     if log_pars
-        Bs = Symbol.("lB[".*string.(1:length(all_years)).*"]")
-        bs = Symbol.("lb[".*string.(1:length(all_years)).*"]")
-        Cs = Symbol.("lC[".*string.(1:length(all_years)).*"]")
-        cs = Symbol.("lc[".*string.(1:length(all_years)).*"]")
-        ds = Symbol.("ld[".*string.(1:length(all_years)).*"]")
-        σs = Symbol.("lσ[".*string.(1:length(all_years)).*"]")
+        if model_vers == :cov
+            Bs = Symbol.("lpars[".*string.(1:length(all_years)).*"][1]")
+            bs = Symbol.("lpars[".*string.(1:length(all_years)).*"][2]")
+            Cs = Symbol.("lpars[".*string.(1:length(all_years)).*"][3]")
+            cs = Symbol.("lpars[".*string.(1:length(all_years)).*"][4]")
+            ds = Symbol.("lpars[".*string.(1:length(all_years)).*"][5]")
+            σs = Symbol.("lpars[".*string.(1:length(all_years)).*"][6]")
+        else
+            Bs = Symbol.("lB[".*string.(1:length(all_years)).*"]")
+            bs = Symbol.("lb[".*string.(1:length(all_years)).*"]")
+            Cs = Symbol.("lC[".*string.(1:length(all_years)).*"]")
+            cs = Symbol.("lc[".*string.(1:length(all_years)).*"]")
+            ds = Symbol.("ld[".*string.(1:length(all_years)).*"]")
+            σs = Symbol.("lσ[".*string.(1:length(all_years)).*"]")
+        end
         # If parameters are logged, then convert now
         df_in[:, Bs] = exp.(df_in[:, Bs])
         df_in[:, bs] = exp.(df_in[:, bs])
@@ -524,7 +611,7 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
 
     elseif model_vers == :firstdiff
 
-    elseif model_vers == :i2drift
+    elseif (model_vers == :i2drift) | (model_vers == :cov)
 
         σ_par_names = Symbol.("σ_pars[".*string.(1:6).*"]")
         σ_pars_ests = summarise_forecasts(df_in[:,σ_par_names],Int.(1:6), parname = :σ_par)
@@ -537,6 +624,14 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
         σ_α_pars_ests.parameter = [:σ_αB, :σ_αb, :σ_αC, :σ_αc, :σ_αd, :σ_ασ]
         σ_α_pars_ests.year .= 0
         par_ests = vcat(par_ests, σ_α_pars_ests)
+
+        if model_vers == :cov
+            ρ_s = [:ρ_bB, :ρ_cC]
+            ρ_ests = summarise_forecasts(df_in[:,ρ_s], [1, 2], parname = :ρ)
+            ρ_ests.parameter = [:ρ_bB, :ρ_cC]
+            ρ_ests.year .= 0
+            par_ests = vcat(par_ests, ρ_ests)
+        end
 
         α_Bs = Symbol.("α_B[".*string.(1:length(all_years)-1).*"]")
         α_bs = Symbol.("α_b[".*string.(1:length(all_years)-1).*"]")

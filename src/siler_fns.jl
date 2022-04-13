@@ -82,7 +82,7 @@ function LEgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colcher
 end
 
 """
-Computes remaining lifespan equality from age aa given siler parameters
+Computes remaining lifespan inequality from age aa given siler parameters
 """
 function H(param::SilerParam, aa::Real; spec::Symbol = :Colchero)
 	LE_aa = LE(param, aa, spec = spec)
@@ -95,7 +95,7 @@ end
 
 
 """
-Computes gradient of remaining lifespan equality from age aa wrt θ
+Computes gradient of remaining lifespan inequality from age aa wrt θ
 """
 function Hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero)
 
@@ -104,6 +104,31 @@ function Hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero
 		temp_param=deepcopy(param);
 		setfield!(temp_param, θ, x);
 		H(temp_param, aa; spec = spec) end, getfield(param, θ))
+	return grad
+end
+
+
+"""
+Computes remaining lifespan equality from age aa given siler parameters
+"""
+function h(param::SilerParam, aa::Real; spec::Symbol = :Colchero)
+	H_aa = H(param, aa, spec = spec)
+	h_aa = -log(H_aa)
+
+	return h_aa
+end
+
+
+"""
+Computes gradient of remaining lifespan inequality from age aa wrt θ
+"""
+function hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Colchero)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, θ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, θ, x);
+		h(temp_param, aa; spec = spec) end, getfield(param, θ))
 	return grad
 end
 
@@ -118,5 +143,6 @@ function init_illus(param::SilerParam, spec::Symbol; ages = Int.(0:110))
     illus_df.S_base = siler_S.([param], [0.0], illus_df.age, spec = spec)
     illus_df.LE_base = LE.([param], illus_df.age, spec = spec)
     illus_df.H_base = H.([param], illus_df.age, spec = spec)
+	illus_df.h_base = h.([param], illus_df.age, spec = spec)
     return illus_df
 end
