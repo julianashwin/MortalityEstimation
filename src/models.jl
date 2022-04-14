@@ -220,13 +220,24 @@ Dynamic Siler model with time-varying drift
     #lσ = Vector(undef, T)
     # Priors on variance terms for parameter time series
     σ_pars ~ filldist(InverseGamma(2, 0.05),6)
-    ρ_bB ~ Uniform(-0.99,0.99)
-    ρ_cC ~ Uniform(-0.99,0.99)
+    ρ_bB ~ Uniform(-0.5,0.5)
+    ρ_cC ~ Uniform(-0.5,0.5)
+    ρ_Cd ~ Uniform(-0.5,0.5)
+    ρ_cd ~ Uniform(-0.5,0.5)
+    #ρ_Cd = 0.6
+    #ρ_cd = -0.6
+    #ρ_Cc = 0.6
     Σ_ϵ = Matrix(Diagonal(σ_pars))
     Σ_ϵ[1,2] = ρ_bB*sqrt(σ_pars[1])*sqrt(σ_pars[2])
     Σ_ϵ[2,1] = ρ_bB*sqrt(σ_pars[1])*sqrt(σ_pars[2])
     Σ_ϵ[3,4] = ρ_cC*sqrt(σ_pars[3])*sqrt(σ_pars[4])
     Σ_ϵ[4,3] = ρ_cC*sqrt(σ_pars[3])*sqrt(σ_pars[4])
+    Σ_ϵ[3,5] = ρ_Cd*sqrt(σ_pars[3])*sqrt(σ_pars[5])
+    Σ_ϵ[5,3] = ρ_Cd*sqrt(σ_pars[3])*sqrt(σ_pars[5])
+    Σ_ϵ[4,5] = ρ_cd*sqrt(σ_pars[4])*sqrt(σ_pars[5])
+    Σ_ϵ[5,4] = ρ_cd*sqrt(σ_pars[4])*sqrt(σ_pars[5])
+    #eigen(Σ_ϵ)
+    #PDMat(Σ_ϵ)
     # Time varying drift
     α_B = Vector(undef, T-1)
     α_b = Vector(undef, T-1)

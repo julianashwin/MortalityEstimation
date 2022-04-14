@@ -191,8 +191,20 @@ chain_i2 = sample(log_siler_dyn_i2drift_cov(country_lm_data[periods], country_ag
     niters, nchains, init_params = prior_i2_vals)
 display(chain_i2)
 @save "figures/"*folder*"/siler_"*model*"_chain.jld2" chain_i2
+chain_i2_cov = deepcopy(chain_i2)
+@load "figures/"*folder*"/siler_i2_chain.jld2" chain_i2
+chain_i2
+
+plot(chain_i2_cov[["σ_pars[3]","σ_pars[4]", "ρ_cC"]])
+df_post = DataFrame(chain_i2)
+df_post_cov = DataFrame(chain_i2_cov)
+cor(df_post[df_post.chain .== 3,"lB[5]"],df_post[df_post.chain.==3,"lb[5]"])
+cor(df_post[df_post.chain .== 4,"lc[5]"],df_post[df_post.chain.==4,"ld[5]"])
 
 
+cor(df_post_cov[df_post_cov.chain .== 4,"lpars[5][1]"],df_post_cov[df_post_cov.chain.==4,"lpars[5][2]"])
+cor(df_post_cov[df_post_cov.chain .== 1,"lpars[4][3]"],df_post_cov[df_post_cov.chain.==1,"lpars[4][4]"])
+mean(df_post_cov[df_post_cov.chain .>= 0,"ρ_cC"])
 
 """
 Plot Siler parameters
@@ -218,7 +230,7 @@ CSV.write("figures/"*folder*"/siler_"*model*"_params_col.csv", parests_i2_col)
 
 
 ## Plot time series parameters
-p2 = plot_ts_params(parests_i2_col, model_vers = :cov)
+p2 = plot_ts_params(parests_i2_ber, model_vers = :cov)
 p_title = plot(title = "I(2) Siler Bergeron ts params "*string(code), grid = false, showaxis = false,
     bottom_margin = -10Plots.px, yticks = false, xticks = false)
 display(plot(p_title, p2, layout = @layout([A{0.01h}; B])))
@@ -239,7 +251,7 @@ h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
-display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
+display(plot!(left_margin = 15Plots.px, bottom_margin = 15Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
 # Colchero specification
 decomp_df_col = create_decomp(parests_i2_col; spec = :Colchero, eval_age = 0)
@@ -252,7 +264,7 @@ h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Colchero parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
 plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
-display(plot!(left_margin = 10Plots.px, bottom_margin = 10Plots.px))
+display(plot!(left_margin = 15Plots.px, bottom_margin = 15Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_col.pdf")
 
 
@@ -363,6 +375,10 @@ for yy in all_years
 end
 
 plot(LEgrad_df.age, LEgrad_df.LE_Cs, group=LEgrad_df.year)
+plot(LEgrad_df.age, LEgrad_df.LE_cs, group=LEgrad_df.year)
+
+CSV.write("figures/"*folder*"/siler_"*model*"_LEgrads.csv", LEgrad_df)
+
 
 """
 End of script
