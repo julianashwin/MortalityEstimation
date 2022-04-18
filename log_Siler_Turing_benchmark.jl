@@ -191,20 +191,21 @@ chain_i2 = sample(log_siler_dyn_i2drift_cov(country_lm_data[periods], country_ag
     niters, nchains, init_params = prior_i2_vals)
 display(chain_i2)
 @save "figures/"*folder*"/siler_"*model*"_chain.jld2" chain_i2
-chain_i2_cov = deepcopy(chain_i2)
-@load "figures/"*folder*"/siler_i2_chain.jld2" chain_i2
-chain_i2
+#chain_i2_cov = deepcopy(chain_i2)
+#@load "figures/"*folder*"/siler_i2_chain.jld2" chain_i2
+#chain_i2
 
-plot(chain_i2_cov[["σ_pars[3]","σ_pars[4]", "ρ_cC"]])
-df_post = DataFrame(chain_i2)
-df_post_cov = DataFrame(chain_i2_cov)
-cor(df_post[df_post.chain .== 3,"lB[5]"],df_post[df_post.chain.==3,"lb[5]"])
-cor(df_post[df_post.chain .== 4,"lc[5]"],df_post[df_post.chain.==4,"ld[5]"])
+plot(chain_i2[["σ_pars[3]","σ_pars[4]", "ρ_cC", "ρ_cd", "ρ_Cd"]])
+df_post_cov = DataFrame(chain_i2)
+#df_post_cov = DataFrame(chain_i2_cov)
+#cor(df_post[df_post.chain .== 3,"lB[5]"],df_post[df_post.chain.==3,"lb[5]"])
+#cor(df_post[df_post.chain .== 4,"lc[5]"],df_post[df_post.chain.==4,"ld[5]"])
 
 
 cor(df_post_cov[df_post_cov.chain .== 4,"lpars[5][1]"],df_post_cov[df_post_cov.chain.==4,"lpars[5][2]"])
 cor(df_post_cov[df_post_cov.chain .== 1,"lpars[4][3]"],df_post_cov[df_post_cov.chain.==1,"lpars[4][4]"])
 mean(df_post_cov[df_post_cov.chain .>= 0,"ρ_cC"])
+cor(df_post_cov[df_post_cov.chain .== 1,"α_C[4]"],df_post_cov[df_post_cov.chain.==1,"α_c[4]"])
 
 """
 Plot Siler parameters
@@ -306,7 +307,8 @@ H_p = plot_decomp(decomp_pred, :H, forecasts = true)
 H_p = plot!(legend = false, title = "Lifespan Inequality")
 p_title = plot(title = "Future decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400)))
+plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
+display(plot!(left_margin = 20Plots.px, bottom_margin = 15Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_pred.pdf")
 
 
@@ -343,12 +345,12 @@ hline!([0,0], color = :black, linestyle = :solid, subplot = 1, ylims = (0,75))
 plot!(decomp_pred.year[pre_2020], decomp_pred.LE_C[pre_2020], title = L"LE_C", subplot = 2)
 plot!(decomp_pred.year[post_2020], decomp_pred.LE_C[post_2020], linestyle = :dash,subplot = 2)
 hline!([0,0], color = :black, linestyle = :solid, subplot = 2, ylims = (0,1))
-plot!(decomp_pred.year[pre_2020], decomp_pred.H_c[pre_2020], title = L"H_c", subplot = 3)
-plot!(decomp_pred.year[post_2020], decomp_pred.H_c[post_2020], linestyle = :dash,subplot = 3)
-hline!([0,0], color = :black, linestyle = :solid, subplot = 3, ylims = (-2.4,0), xmirror = true)
-plot!(decomp_pred.year[pre_2020], decomp_pred.H_C[pre_2020], title = L"H_C", subplot = 4)
-plot!(decomp_pred.year[post_2020], decomp_pred.H_C[post_2020], linestyle = :dash,subplot = 4)
-hline!([0,0], color = :black, linestyle = :solid, subplot = 4, ylims = (-0.002,0), xmirror = true)
+plot!(decomp_pred.year[pre_2020], decomp_pred.h_c[pre_2020], title = L"h_c", subplot = 3)
+plot!(decomp_pred.year[post_2020], decomp_pred.h_c[post_2020], linestyle = :dash,subplot = 3)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 3, xmirror = true)#, ylims = (-2.4,0))
+plot!(decomp_pred.year[pre_2020], decomp_pred.h_C[pre_2020], title = L"h_C", subplot = 4)
+plot!(decomp_pred.year[post_2020], decomp_pred.h_C[post_2020], linestyle = :dash,subplot = 4)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 4, xmirror = true)#, ylims = (-0.002,0),
 plot!(size = (600,300))
 savefig("figures/"*folder*"siler_"*model*"_LEgrad_cC.pdf")
 

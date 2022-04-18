@@ -237,10 +237,10 @@ function extract_variables(chain_in, years::Vector{Int64}; log_pars = false,
         par_ests = vcat(par_ests, α_B_ests, α_b_ests, α_C_ests, α_c_ests, α_d_ests, α_σ_ests)
 
         if model_vers == :cov
-            ρ_s = [:ρ_bB, :ρ_cC]
+            ρ_s = [:ρ_bB, :ρ_cC, :ρ_cd, :ρ_Cd]
             ρ_ests = summarise_stats(df_post[:,ρ_s], stats[in.(stats.parameters, [ρ_s]),:],
-                [1, 2], parname = :ρ)
-            ρ_ests.parameter = [:ρ_bB, :ρ_cC]
+                Int.(1:length(ρ_s)), parname = :ρ)
+            ρ_ests.parameter = [:ρ_bB, :ρ_cC, :ρ_cd, :ρ_Cd]
             ρ_ests.year .= 0
 
             par_ests = vcat(par_ests, ρ_ests)
@@ -488,6 +488,8 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
             if model_vers == :cov
                 ρ_bB = df_particle[1,Symbol("ρ_bB")]
                 ρ_cC = df_particle[1,Symbol("ρ_cC")]
+                ρ_cd = df_particle[1,Symbol("ρ_cd")]
+                ρ_Cd = df_particle[1,Symbol("ρ_Cd")]
             end
 
             # Forecast drift terms (remeber that we need to go one further back for these)
@@ -507,6 +509,10 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
                 Σ_ϵ[2,1] = ρ_bB*sqrt(σ_ϵB)*sqrt(σ_ϵb)
                 Σ_ϵ[3,4] = ρ_cC*sqrt(σ_ϵC)*sqrt(σ_ϵc)
                 Σ_ϵ[4,3] = ρ_cC*sqrt(σ_ϵC)*sqrt(σ_ϵc)
+                Σ_ϵ[3,5] = ρ_Cd*sqrt(σ_ϵC)*sqrt(σ_ϵd)
+                Σ_ϵ[5,3] = ρ_Cd*sqrt(σ_ϵC)*sqrt(σ_ϵd)
+                Σ_ϵ[4,5] = ρ_cd*sqrt(σ_ϵc)*sqrt(σ_ϵd)
+                Σ_ϵ[5,4] = ρ_cd*sqrt(σ_ϵc)*sqrt(σ_ϵd)
                 # Draw future shocks
                 ϵ_draws = rand(MvNormal(zeros(6), Σ_ϵ),ndraws)
                 # Update the parameters
@@ -639,9 +645,9 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
         par_ests = vcat(par_ests, σ_α_pars_ests)
 
         if model_vers == :cov
-            ρ_s = [:ρ_bB, :ρ_cC]
-            ρ_ests = summarise_forecasts(df_in[:,ρ_s], [1, 2], parname = :ρ)
-            ρ_ests.parameter = [:ρ_bB, :ρ_cC]
+            ρ_s = [:ρ_bB, :ρ_cC, :ρ_cd, :ρ_Cd]
+            ρ_ests = summarise_forecasts(df_in[:,ρ_s], Int.(1:length(ρ_s)), parname = :ρ)
+            ρ_ests.parameter = [:ρ_bB, :ρ_cC, :ρ_cd, :ρ_Cd]
             ρ_ests.year .= 0
             par_ests = vcat(par_ests, ρ_ests)
         end

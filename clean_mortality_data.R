@@ -427,6 +427,12 @@ bp_h_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$age == 0 & lifetab_
   geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
   scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
   xlab("Year") + ylab("Lifespan Equality at birth")
+bp_H_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$age == 0 & lifetab_5y_export$year > 1900 &
+                                             lifetab_5y_export$best_practice == 1),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = Hx_f), method = "loess") +
+  geom_point(aes(x = year, y = Hx_f, color = name)) +
+  scale_color_discrete(name = "Country") + ggtitle("Lifespan Inequality") +
+  xlab("Year") + ylab("Lifespan Inequality at birth")
 bp_s_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$best_practice == 1 & 
                                              lifetab_5y_export$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + ylim(c(0,1)) +
@@ -439,6 +445,10 @@ bp_m_plt <- ggplot(lifetab_5y_export[which(lifetab_5y_export$best_practice == 1 
   xlab("Age") + ylab("Mortality  Rate") + ggtitle("Mortality Rate")
 ggarrange(bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=3, common.legend = FALSE)
 ggsave("figures/data/best_practice_5y_data.pdf", width = 15, height = 4)
+
+ggarrange(bp_H_plt, bp_h_plt, nrow = 1, ncol=2, common.legend = TRUE, legend = "right")
+ggsave("figures/data/best_practice_5y_Hvh.pdf", width = 10, height = 4)
+
 
 # One year intervals
 bp_le_plt <- ggplot(lifetab_export[which(lifetab_export$age == 0 & lifetab_export$year > 1900 &
@@ -586,6 +596,7 @@ lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age"
 write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
 write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
 
+lifetab_5y_export <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
 
 bp_df <-  lifetab_export[which(lifetab_export$best_practice == 1),]
 write.csv(bp_df, "data/clean/bp.csv", row.names = FALSE)
