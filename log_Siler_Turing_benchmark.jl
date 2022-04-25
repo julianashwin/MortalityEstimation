@@ -166,34 +166,39 @@ savefig("figures/"*folder*"/siler_"*model*"_decomp_sco.pdf")
 Dynamic Siler model with parameters i(2) random walk with drift
 """
 # Define model to save results
-model = "i2_cov"
-# Adjust if you don't want every period
-periods = Int.(1:T)
-years_selected = Int.(round.(country_years[periods]))
+model = "i2drift"
+folder = "benchmark/held-out"
+for held_out = 2:2:10
+    # Adjust if you don't want every period
+    periods = Int.(1:T-held_out)
+    years_selected = Int.(round.(country_years[periods]))
 
-## Find some starting points
-# MAP estimate for multiple independent models on log mortality
-#map_i2 = optimize(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), MAP(), LBFGS(),
-#    Optim.Options(iterations=60_000, allow_f_increases=true))
-#map_i2_vals =  map_i2.values.array
-# Alternatively, we can simulate from the prior and start there
-prior_i2 = sample(log_siler_dyn_i2drift_cov(country_lm_data[periods], country_ages), Prior(), 5000)
-df_prior = DataFrame(prior_i2)
-insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
-showtable(df_prior)
-prior_i2_vals = df_prior[1,3:(end-1)]
+    ## Find some starting points
+    # MAP estimate for multiple independent models on log mortality
+    #map_i2 = optimize(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), MAP(), LBFGS(),
+    #    Optim.Options(iterations=60_000, allow_f_increases=true))
+    #map_i2_vals =  map_i2.values.array
+    # Alternatively, we can simulate from the prior and start there
+    prior_i2 = sample(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), Prior(), 5000)
+    df_prior = DataFrame(prior_i2)
+    insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+    showtable(df_prior)
+    prior_i2_vals = df_prior[1,3:(end-1)]
 
-## Estimate the model
-niters = 1250
-nchains = 4
-# MCMC sampling
-chain_i2 = sample(log_siler_dyn_i2drift_cov(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
-    niters, nchains, init_params = prior_i2_vals)
-display(chain_i2)
-@save "figures/"*folder*"/siler_"*model*"_chain.jld2" chain_i2
+    ## Estimate the model
+    niters = 1250
+    nchains = 4
+    # MCMC sampling
+    chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
+        niters, nchains, init_params = prior_i2_vals)
+    display(chain_i2)
+    @save "figures/"*folder*"/siler_"*model*"_chain_"*string(years_selected[T-held_out])*".jld2" chain_i2
+
+end
 #chain_i2_cov = deepcopy(chain_i2)
 #@load "figures/"*folder*"/siler_i2_chain.jld2" chain_i2
 #chain_i2
+folder = "benchmark"
 
 plot(chain_i2[["σ_pars[3]","σ_pars[4]", "ρ_cC", "ρ_cd", "ρ_Cd"]])
 df_post_cov = DataFrame(chain_i2)
