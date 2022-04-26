@@ -244,3 +244,119 @@ param_dzero = SilerParam(b= decomp_today.b[1], B = decomp_today.B[1], c = decomp
 
 LE(param_today, 0.0, spec = :Bergeron)
 LE(param_dzero, 0.0, spec = :Bergeron)
+
+
+
+
+"""
+Pseudo-out-of-sample forecasts
+"""
+## Options
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
+
+## Import the out of sample forecasts
+model = "i2drift"
+folder = "figures/benchmark/held-out/"
+@load folder*"siler_"*model*"_chain_1968.jld2" chain_i2
+chain_1968 = deepcopy(chain_i2)
+@load folder*"siler_"*model*"_chain_1978.jld2" chain_i2
+chain_1978 = deepcopy(chain_i2)
+@load folder*"siler_"*model*"_chain_1988.jld2" chain_i2
+chain_1988 = deepcopy(chain_i2)
+@load folder*"siler_"*model*"_chain_1998.jld2" chain_i2
+chain_1998 = deepcopy(chain_i2)
+@load folder*"siler_"*model*"_chain_2008.jld2" chain_i2
+chain_2008 = deepcopy(chain_i2)
+
+## Set up df and years
+df_1968 = DataFrame(chain_1968); years_1968 = Int.(1903:5:1968)
+df_1978 = DataFrame(chain_1978); years_1978 = Int.(1903:5:1978)
+df_1988 = DataFrame(chain_1988); years_1988 = Int.(1903:5:1988)
+df_1998 = DataFrame(chain_1998); years_1998 = Int.(1903:5:1998)
+df_2008 = DataFrame(chain_2008); years_2008 = Int.(1903:5:2008)
+
+## Compute the model implied LE and H for the in-sample periods
+df_1968 = compute_LE_post(df_1968, years_1968, nahead, spec = :Bergeron, model_vers = :i2drift)
+df_1978 = compute_LE_post(df_1978, years_1978, nahead, spec = :Bergeron, model_vers = :i2drift)
+df_1988 = compute_LE_post(df_1988, years_1988, nahead, spec = :Bergeron, model_vers = :i2drift)
+df_1998 = compute_LE_post(df_1998, years_1998, nahead, spec = :Bergeron, model_vers = :i2drift)
+df_2008 = compute_LE_post(df_2008, years_2008, nahead, spec = :Bergeron, model_vers = :i2drift)
+
+## Compute df_pred which extends df_post with predictions
+df_1968_pred = compute_forecasts(df_1968, nahead, ndraws, years_1968, spec = :Bergeron, model_vers = :i2drift)
+df_1978_pred = compute_forecasts(df_1978, nahead, ndraws, years_1978, spec = :Bergeron, model_vers = :i2drift)
+df_1988_pred = compute_forecasts(df_1988, nahead, ndraws, years_1988, spec = :Bergeron, model_vers = :i2drift)
+df_1998_pred = compute_forecasts(df_1998, nahead, ndraws, years_1998, spec = :Bergeron, model_vers = :i2drift)
+df_2008_pred = compute_forecasts(df_2008, nahead, ndraws, years_2008, spec = :Bergeron, model_vers = :i2drift)
+
+## Summarize past and forecast variables
+fut_1968 = Int.(maximum(years_1968) .+ 5.0.*(1:nahead))
+parests_1968 = extract_forecast_variables(df_1968_pred, years_1968, fut_1968,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+fut_1978 = Int.(maximum(years_1978) .+ 5.0.*(1:nahead))
+parests_1978 = extract_forecast_variables(df_1978_pred, years_1978, fut_1978,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+fut_1988 = Int.(maximum(years_1988) .+ 5.0.*(1:nahead))
+parests_1988 = extract_forecast_variables(df_1988_pred, years_1988, fut_1988,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+fut_1998 = Int.(maximum(years_1998) .+ 5.0.*(1:nahead))
+parests_1998 = extract_forecast_variables(df_1998_pred, years_1998, fut_1998,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+fut_2008 = Int.(maximum(years_2008) .+ 5.0.*(1:nahead))
+parests_2008 = extract_forecast_variables(df_2008_pred, years_2008, fut_2008,
+    log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+
+## Plot Siler parameter forecasts
+plot_siler_params(parests_1968, forecasts = true)
+savefig(folder*"/siler_"*model*"_param_pred_1968.pdf")
+plot_siler_params(parests_1978, forecasts = true)
+savefig(folder*"/siler_"*model*"_param_pred_1978.pdf")
+plot_siler_params(parests_1988, forecasts = true)
+savefig(folder*"/siler_"*model*"_param_pred_1988.pdf")
+plot_siler_params(parests_1998, forecasts = true)
+savefig(folder*"/siler_"*model*"_param_pred_1998.pdf")
+plot_siler_params(parests_2008, forecasts = true)
+savefig(folder*"/siler_"*model*"_param_pred_2008.pdf")
+
+## Plot time series parameter forecasts
+plot_ts_params(parests_1968, model_vers = :i2drift, forecasts = true)
+savefig(folder*"/siler_"*model*"_ts_pred_1968.pdf")
+plot_ts_params(parests_1978, model_vers = :i2drift, forecasts = true)
+savefig(folder*"/siler_"*model*"_ts_pred_1978.pdf")
+plot_ts_params(parests_1988, model_vers = :i2drift, forecasts = true)
+savefig(folder*"/siler_"*model*"_ts_pred_1988.pdf")
+plot_ts_params(parests_1998, model_vers = :i2drift, forecasts = true)
+savefig(folder*"/siler_"*model*"_ts_pred_1998.pdf")
+plot_ts_params(parests_2008, model_vers = :i2drift, forecasts = true)
+savefig(folder*"/siler_"*model*"_ts_pred_2008.pdf")
+
+## Plot forecasts for model implied LE and H
+plot_LE_H(parests_1968, forecasts = true, bands = true)
+savefig(folder*"/siler_"*model*"_leh_pred_1968.pdf")
+plot_LE_H(parests_1978, forecasts = true, bands = true)
+savefig(folder*"/siler_"*model*"_leh_pred_1978.pdf")
+plot_LE_H(parests_1988, forecasts = true, bands = true)
+savefig(folder*"/siler_"*model*"_leh_pred_1988.pdf")
+plot_LE_H(parests_1998, forecasts = true, bands = true)
+savefig(folder*"/siler_"*model*"_leh_pred_1998.pdf")
+plot_LE_H(parests_2008, forecasts = true, bands = true)
+savefig(folder*"/siler_"*model*"_leh_pred_2008.pdf")
+
+## Combine into a single dataframe
+parests_1968[:,:est_year] .= 1968
+parests_1978[:,:est_year] .= 1978
+parests_1988[:,:est_year] .= 1988
+parests_1998[:,:est_year] .= 1998
+parests_2008[:,:est_year] .= 2008
+parests_pred[:,:est_year] .= 2018
+
+parests_oos = vcat(parests_1968, parests_1978, parests_1988, parests_1998, parests_2008, parests_pred)
+showtable(parests_oos)
+CSV.write(folder*"siler_"*model*"_preds_all.csv", parests_oos)
+
+## Identify the actual data
+bp_le_df = bp_df[(bp_df.age .== 0) .& (bp_df.year .>= 1900),:]
+bp_le_df = bp_le_df[:,[:year, :code, :ex_f, :Hx_f]]
+bp_le_df.Hx_f = parse.(Float64,bp_le_df.Hx_f)
+bp_le_df[:,:hx_f] = .-log.(bp_le_df.Hx_f)
