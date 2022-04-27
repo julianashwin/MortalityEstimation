@@ -6,182 +6,153 @@ require(ggpubr)
 require(stringr)
 require(plm)
 require(lfe)
+require(tidyr)
+
+
+"
+Set colour scheme
+"
+col_scheme <- c("Australia" = "darkolivegreen4", "Belgium" = "gold3", 
+                "Canada" = "pink", "Switzerland" = "darkorchid3", 
+                "Spain" = "darkorange", "Finland" = "darkslategray1", 
+                "France" = "blue3", "United Kingdom" = "gray", 
+                "Greece" = "lemonchiffon2", "Hong Kong" = "lightgoldenrod", 
+                "Iceland" = "cornsilk3", "Italy" = "forestgreen", 
+                "Japan" = "red", "South Korea" = "blue",
+                "Norway" = "deeppink", "New Zealand" = "black", 
+                "Portugal" = "green", "Sweden" = "yellow", 
+                "United States of America" = "cornflowerblue",
+                "Best Practice" = "darkmagenta")
 
 "
 Import data and results
 "
 # Import parameter estimates
-import_files <- dir("figures/countries")
-import_files[which(str_detect(import_files, "_preds.csv"))]
+import_files <- dir("figures/countries/")
+import_files <- import_files[which(str_detect(import_files, "_preds.csv"))]
 
+countries_df <- data.frame(matrix(NA,nrow=0,ncol = 17))
+names(countries_df) <- c("parameter", "code", "forecast", "year", "mean", "min", "median", "max", "nmissing", "eltype",
+                   "std", "pc975", "pc025", "pc85", "pc15", "pc75", "pc25")
 
+for (ii in 1:length(import_files)){
+  filename <- import_files[ii]
+  country_df <- read.csv(paste0("figures/countries/", filename), stringsAsFactors = F)
+  country_df$code <- str_remove(filename, "_i2_preds.csv")
+  country_df <- country_df[,names(countries_df)]
+  countries_df <- rbind(countries_df, country_df)
+}
 
+# Merge in the actual data to get country names
+mort_df <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
+mort_df <- mort_df[which(mort_df$age == 0),]
+all_df <- merge(countries_df, unique(mort_df[,c("code", "name")]), by = "code")
+all_df <- all_df[which(all_df$year > 0),]
 
-parests_df <- read.csv("results_firstdiff/select_country_siler_est_results.csv", stringsAsFactors = FALSE)
-#other_parests_df <- read.csv("results_justrw/other_country_siler_est_results.csv", stringsAsFactors = FALSE)
-# Shorten USA to United States
-parests_df$name[which(parests_df$code == "USA")] <- "United States"
-# year = 0 means year should be NA
-parests_df$year[which(parests_df$year == 0)] <- NA
-#other_parests_df$year[which(other_parests_df$year == 0)] <- NA
-# Combine
-all_parests_df <- rbind(parests_df)#, other_parests_df)
+# Merge in the best practice results
+bp_df <- read.csv("figures/benchmark/siler_i2_preds.csv", stringsAsFactors = F)
+bp_df$code <- "BP"
+bp_df$name <- "Best Practice"
+bp_df$best_practice <- 2
+bp_df <- bp_df[,names(all_df)]
+all_df <- rbind(all_df, bp_df)
 
-# Include only countries that have a full sample (plus UK, US and Japan)
-full_codes <- names(table(all_parests_df$code)[which(table(all_parests_df$code) == 162)])
-full_codes <- c(full_codes, "GBR", "USA", "JPN")
-full_parests_df <- all_parests_df[which(all_parests_df$code %in% full_codes),]
-
-
+"
+Plot estimates and forecasts
+"
+## Forecast label for pretty legends
+all_df$Forecast <- "Estimate"
+all_df$Forecast[which(all_df$forecast == 1)] <- "Forecast"
+## Life expectancy
+plot_df <- all_df[which(all_df$parameter == "LE"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Life expectancy at birth")
+ggsave("figures/countries/summary/LE_international.pdf", width = 8, height = 4)
+## Equality
+plot_df <- all_df[which(all_df$parameter == "H"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = -log(median), color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Lifespan equality at birth")
+ggsave("figures/countries/summary/h_international.pdf", width = 8, height = 4)
+## c
+plot_df <- all_df[which(all_df$parameter == "c"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Senescent rectangularity (c)")
+ggsave("figures/countries/summary/c_rect_international.pdf", width = 8, height = 4)
+## C
+plot_df <- all_df[which(all_df$parameter == "C"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Senescent elongation (C)")
+ggsave("figures/countries/summary/C_elg_international.pdf", width = 8, height = 4)
+## b
+plot_df <- all_df[which(all_df$parameter == "b"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Infant rectangularity (b)")
+ggsave("figures/countries/summary/b_rect_international.pdf", width = 8, height = 4)
+## C
+plot_df <- all_df[which(all_df$parameter == "B"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Infant elongation (B)")
+ggsave("figures/countries/summary/B_elg_international.pdf", width = 8, height = 4)
+## d
+plot_df <- all_df[which(all_df$parameter == "d"),]
+extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  xlab("Year") + ylab("Age-independent mortality (d)")
+ggsave("figures/countries/summary/d_international.pdf", width = 8, height = 4)
 
 
 "
-Define some useful color schemes
+Cointegration tests
 "
-# Color scheme
-col_scheme <- c("Canada" = "pink", "France" = "blue3", "Italy" =  "forestgreen", 
-                "United States" = "cornflowerblue", "West Germany" = "darkgoldenrod2", 
-                "United Kingdom" = "gray", "Japan"= "red","Best Practice"= "black",
-                "Belgium" = "gold3", "Denmark" = "firebrick4", "Finland" = "darkslategray1",
-                "Netherlands" = "darkorange1", "Norway" = "deeppink", "Sweden" = "yellow",
-                "Switzerland" = "darkorchid3", "Iceland" = "cornsilk3")
-line_colors <- scale_color_manual("Country", values = col_scheme)
-fill_colors <- scale_fill_manual("Country", values = col_scheme)
+library(urca)
+
+par_df <- all_df[which(all_df$parameter == "c" & all_df$year < 2022 
+                       & all_df$year > 1900),]
+par_df <- par_df[,c("name", "year", "median")]
+rownames(par_df) <- NULL
+par_wide_df <- spread(par_df, key = name, value = median)
+
+# Unit root test on country - BP
+coint_table <- data.frame(country = unique(all_df$name), c = NA, C = NA)
+for (country in coint_table$country[1:10]){
+  urtest_c = par_wide_df[,country]
+}
 
 
-"
-Plot the Rhat convergence statistics for the whole dataset
-"
-# Selected countries that cover the full sample period
-ggplot(full_parests_df) + theme_bw() +
-  geom_density(aes(x = rhat, color = name)) + 
-  line_colors + fill_colors + guides(fill=FALSE) +
-  ylab("Density") + xlab(expression(hat(R)))
-ggsave("figures/full_sample/rhat_convergence.pdf", width = 8, height = 4)
-
-
-
-
-
-"
-Plot parameter estimates for best practice country
-"
-B_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                          parests_df$parameter == "B"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab("B") + ggtitle("B parameter from dynamic Siler model")
-b_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$parameter == "b"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab("b") + ggtitle("b parameter from dynamic Siler model")
-C_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$parameter == "C"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab("C") + ggtitle("C parameter from dynamic Siler model")
-c_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$parameter == "c"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab("c") + ggtitle("c parameter from dynamic Siler model")
-d_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$parameter == "d"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab("d") + ggtitle("d parameter from dynamic Siler model")
-sigma_plt <- ggplot(parests_df[which(parests_df$code == "BestPractice" &
-                                   parests_df$parameter == "σ"),]) + 
-  theme_bw() + theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median), color = "black") + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975), color = NA, alpha = 0.1) +
-  geom_ribbon(aes(x = year,ymin=pc15, ymax=pc85), color = NA, alpha = 0.2) +
-  xlab("Year") + ylab(expression(sigma)) + 
-  ggtitle(expression(sigma~"parameter from dynamic Siler model"))
-
-# Export plots
-ggarrange(b_plt, B_plt, nrow = 1, ncol = 2, common.legend = TRUE)
-ggsave("figures/best_practice/BP_infant_compare.pdf", width = 9, height = 3)
-ggarrange(c_plt, C_plt, nrow = 1, ncol = 2, common.legend = TRUE)
-ggsave("figures/best_practice/BP_elderly_compare.pdf", width = 9, height = 3)
-ggarrange(d_plt, sigma_plt, nrow = 1, ncol = 2, common.legend = TRUE)
-ggsave("figures/best_practice/BP_base_compare.pdf", width = 9, height = 3)
-
-
-"
-Plot the parameter estimates across selected economies
-"
-B_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "B"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab("B") + ggtitle("B parameter from dynamic Siler model")
-B_plt
-b_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "b"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab("b") + ggtitle("b parameter from dynamic Siler model")
-b_plt
-C_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "C"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab("C") + ggtitle("C parameter from dynamic Siler model")
-C_plt
-c_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "c"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab("c") + ggtitle("c parameter from dynamic Siler model")
-c_plt
-d_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "d"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab("d") + ggtitle("d parameter from dynamic Siler model")
-d_plt
-sigma_plt <- ggplot(full_parests_df[which(full_parests_df$parameter == "σ"),]) + theme_bw() + 
-  theme(axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  geom_line(aes(x = year, y = median, color = name)) + 
-  geom_ribbon(aes(x = year,ymin=pc025, ymax=pc975, fill = name), alpha = 0.1) +
-  line_colors + fill_colors + guides(fill=FALSE) +
-  xlab("Year") + ylab(expression(sigma)) + 
-  ggtitle(expression(sigma~"parameter from dynamic Siler model"))
-sigma_plt
-
-
-# Export plots
-ggarrange(b_plt, B_plt, nrow = 1, ncol = 2, common.legend = TRUE, legend = "right")
-ggsave("figures/full_sample/infant_compare.pdf", width = 12, height = 4)
-ggarrange(c_plt, C_plt, nrow = 1, ncol = 2, common.legend = TRUE, legend = "right")
-ggsave("figures/full_sample/elderly_compare.pdf", width = 12, height = 4)
-ggarrange(d_plt, sigma_plt, nrow = 1, ncol = 2, common.legend = TRUE, legend = "right")
-ggsave("figures/full_sample/base_compare.pdf", width = 12, height = 4)
-
-
-# Plot the log parameters together
-ggplot(full_parests_df[which(!str_detect(full_parests_df$parameter, "_")),]) + theme_bw() + 
-  facet_wrap(parameter~., nrow = 3, scales = "free") +
-  geom_line(aes(x = year, y = log(median), color = name)) + 
-  xlab("Year") + ylab("") + line_colors
-ggsave("figures/full_sample/siler_log_estimates.pdf", width = 8, height = 5)
 
 "
 Some panel regressions

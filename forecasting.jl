@@ -360,3 +360,41 @@ bp_le_df = bp_df[(bp_df.age .== 0) .& (bp_df.year .>= 1900),:]
 bp_le_df = bp_le_df[:,[:year, :code, :ex_f, :Hx_f]]
 bp_le_df.Hx_f = parse.(Float64,bp_le_df.Hx_f)
 bp_le_df[:,:hx_f] = .-log.(bp_le_df.Hx_f)
+
+## Plot real time forecasts
+# Data
+scatter(bp_le_df.year, bp_le_df.ex_f, label = "Observed", markershape = :cross, color = 1,
+    legend = :topleft, xlabel = "Year", ylabel = "Life expectancy at birth")
+# 1968
+obs = (parests_1968.parameter .== :LE) .& (parests_1968.year .<= 1968)
+plot!(parests_1968.year[obs], parests_1968.median[obs], label = "1968", color = 2, linestyle = :solid)
+obs = (parests_1968.parameter .== :LE) .& (parests_1968.year .>= 1968)
+plot!(parests_1968.year[obs], parests_1968.median[obs], label = false, color = 2, linestyle = :dash)
+# 1978
+obs = (parests_1978.parameter .== :LE) .& (parests_1978.year .<= 1978)
+plot!(parests_1978.year[obs], parests_1978.median[obs], label = "1978", color = 3, linestyle = :solid)
+obs = (parests_1978.parameter .== :LE) .& (parests_1978.year .>= 1978)
+plot!(parests_1978.year[obs], parests_1978.median[obs], label = false, color = 3, linestyle = :dash)
+# 1988
+obs = (parests_1988.parameter .== :LE) .& (parests_1988.year .<= 1988)
+plot!(parests_1988.year[obs], parests_1988.median[obs], label = "1988", color = 4, linestyle = :solid)
+obs = (parests_1988.parameter .== :LE) .& (parests_1988.year .>= 1988)
+plot!(parests_1988.year[obs], parests_1988.median[obs], label = false, color = 4, linestyle = :dash)
+# 1998
+obs = (parests_1998.parameter .== :LE) .& (parests_1998.year .<= 1998)
+plot!(parests_1998.year[obs], parests_1998.median[obs], label = "1998", color = 5, linestyle = :solid)
+obs = (parests_1998.parameter .== :LE) .& (parests_1998.year .>= 1998)
+plot!(parests_1998.year[obs], parests_1998.median[obs], label = false, color = 5, linestyle = :dash)
+# 2008
+obs = (parests_2008.parameter .== :LE) .& (parests_2008.year .<= 2008)
+plot!(parests_2008.year[obs], parests_2008.median[obs], label = "2008", color = 6, linestyle = :solid)
+obs = (parests_2008.parameter .== :LE) .& (parests_2008.year .>= 2008)
+plot!(parests_2008.year[obs], parests_2008.median[obs], label = false, color = 6, linestyle = :dash)
+# 2018
+obs = (parests_pred.parameter .== :LE) .& (parests_pred.year .<= 2018)
+plot!(parests_pred.year[obs], parests_pred.median[obs], label = "2018", color = 7, linestyle = :solid)
+obs = (parests_pred.parameter .== :LE) .& (parests_pred.year .>= 2018)
+plot!(parests_pred.year[obs], parests_pred.median[obs], label = false, color = 7, linestyle = :dash)
+# Save
+plot!(size = (800,400), margin=3Plots.mm)
+savefig(folder*"/siler_"*model*"_oos_forecasts.pdf")
