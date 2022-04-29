@@ -139,19 +139,43 @@ ggsave("figures/countries/summary/d_international.pdf", width = 8, height = 4)
 Cointegration tests
 "
 library(urca)
-
-par_df <- all_df[which(all_df$parameter == "c" & all_df$year < 2022 
+# Wide df for c
+c_df <- all_df[which(all_df$parameter == "c" & all_df$year < 2022 
                        & all_df$year > 1900),]
-par_df <- par_df[,c("name", "year", "median")]
-rownames(par_df) <- NULL
-par_wide_df <- spread(par_df, key = name, value = median)
+c_df <- c_df[,c("name", "year", "median")]
+rownames(c_df) <- NULL
+c_wide_df <- spread(c_df, key = name, value = median)
+# Wide df for C 
+C_df <- all_df[which(all_df$parameter == "C" & all_df$year < 2022 
+                     & all_df$year > 1900),]
+C_df <- C_df[,c("name", "year", "median")]
+rownames(C_df) <- NULL
+C_wide_df <- spread(C_df, key = name, value = median)
+
 
 # Unit root test on country - BP
-coint_table <- data.frame(country = unique(all_df$name), c = NA, C = NA)
-for (country in coint_table$country[1:10]){
-  urtest_c = par_wide_df[,country]
+coint_table <- data.frame(country = unique(all_df$name), c = NA, C = NA, N_obs = NA)
+for (country in coint_table$country){
+  if (country != "Best Practice"){
+    # Test for c
+    diff_c_bp = c_wide_df[,country] - c_wide_df[,"Best Practice"]
+    diff_c_bp <- diff_c_bp[which(!is.na(diff_c_bp))]
+    urtest_c = ur.df(diff_c_bp, type = "none", lags = 0)
+    coint_table[which(coint_table$country == country), "c"] <- round(urtest_c@teststat[1],3)
+    
+    # Test for C
+    diff_C_bp = C_wide_df[,country] - C_wide_df[,"Best Practice"]
+    diff_C_bp <- diff_C_bp[which(!is.na(diff_C_bp))]
+    urtest_C = ur.df(diff_C_bp, type = "none", lags = 0)
+    coint_table[which(coint_table$country == country), "C"] <- round(urtest_C@teststat[1],3)
+    
+    coint_table[which(coint_table$country == country), "N_obs"] <- length(diff_C_bp)
+  }
+  
 }
 
+stargazer(as.matrix(coint_table), title = "Pairwise cointegration tests", 
+          table.placement = "H", label = "tab:pair_coint")
 
 
 "
