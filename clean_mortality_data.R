@@ -651,3 +651,49 @@ ggarrange(bp_rle_plt, bp_alt_rle_plt, nrow = 1, ncol=2, common.legend = FALSE)
 ggsave("figures/data/best_practice_rle.pdf", width = 10, height = 5)
 rm(bp_rle_plt, bp_alt_rle_plt)
 
+
+
+# Mortality 
+bp_m_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = mx_f, group = year, color = year)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
+  xlab("Age") + ylab("Mortality Rate") + ggtitle("Mortality")
+# Survival
+bp_s_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = lx_f, group = year, color = year)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
+  xlab("Age") + ylab("Remaining lifespan inequality") + ggtitle("Survival")
+# Life expectancy
+bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = ex_f, group = year, color = year)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Remaining life expectancy") + ggtitle("Life expectancy")
+# Lifespan inequality
+bp_h_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_line(aes(x = age, y = -log(Hx_f), group = year, color = year)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  xlab("Age") + ylab("Remaining lifespan inequality") + ggtitle("Lifespan inequality")
+
+ggarrange(bp_m_plt, bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=4, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/data/best_practice_5y_data.pdf", width = 16, height = 4)
+
+
+
+bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = ex_f), method = "lm") +
+  geom_point(aes(x = year, y = ex_f, color = name)) +
+  scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
+  xlab("Year") + ylab("Life Expectancy at birth")
+bp_h_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
+  geom_smooth(aes(x = year, y = -log(Hx_f)), method = "loess") +
+  geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
+  scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
+  xlab("Year") + ylab("Lifespan Equality at birth")
+ggarrange(bp_le_plt, bp_h_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/data/best_practice_5y_LEh.pdf", width = 8, height = 4)
+
+
+
+

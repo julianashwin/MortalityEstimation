@@ -63,7 +63,12 @@ Computes remaining life expectancy from age aa given siler parameters
 """
 function LE(param::SilerParam, aa::Real; spec::Symbol = :Bergeron)
     # Compute LE variable
-	v, err = quadgk(tt -> siler_S(param, aa, tt, spec = spec),aa,200)
+	v = 0.
+	try
+		v, err = quadgk(tt -> siler_S(param, aa, tt, spec = spec),aa,505)
+	catch
+		v = sum(siler_S.([param], [aa], aa:505, spec = spec))
+	end
     life_exp = v
     return life_exp
 end
@@ -81,12 +86,28 @@ function LEgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergero
 	return grad
 end
 
+
+"""
+Computes cross-gradient remaining life expectancy from age aa, wrt θ and γ
+"""
+function LEcross(param::SilerParam, aa::Real, θ::Symbol, γ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, γ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, γ, x);
+		LEgrad(temp_param, aa, θ, spec = spec) end, getfield(param, γ))
+	return grad
+end
+#LEcross.([param], 0:110, [:c], [:C], spec = :Bergeron)
+
+
 """
 Computes remaining lifespan inequality from age aa given siler parameters
 """
 function H(param::SilerParam, aa::Real; spec::Symbol = :Bergeron)
 	LE_aa = LE(param, aa, spec = spec)
-	S_at = siler_S.([param], [aa], aa:200, spec = spec)
+	S_at = siler_S.([param], [aa], aa:500, spec = spec)
 	S_at = S_at[S_at.> 0]
 	H_aa = -sum(S_at.*log.(S_at))/LE_aa
 
@@ -100,7 +121,7 @@ Computes gradient of remaining lifespan inequality from age aa wrt θ
 function Hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron)
 
 	grad = central_fdm(5,1,
-		max_range = getfield(param, θ))(function(x)
+		max_range = getfield(param, θ)/0.5)(function(x)
 		temp_param=deepcopy(param);
 		setfield!(temp_param, θ, x);
 		H(temp_param, aa; spec = spec) end, getfield(param, θ))
@@ -129,6 +150,96 @@ function hgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron
 		temp_param=deepcopy(param);
 		setfield!(temp_param, θ, x);
 		h(temp_param, aa; spec = spec) end, getfield(param, θ))
+	return grad
+end
+
+
+"""
+Computes cross-gradient remaining life expectancy from age aa, wrt θ and γ
+"""
+function hcross(param::SilerParam, aa::Real, θ::Symbol, γ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, γ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, γ, x);
+		hgrad(temp_param, aa, θ, spec = spec) end, getfield(param, γ))
+	return grad
+end
+#hcross.([param], 0:110, [:c], [:C], spec = :Bergeron)
+
+
+
+"""
+Compute lifespan - age at a given survival probability (default 0.01)
+"""
+function lifespan(param; Sstar::Float64 = 0.001, spec::Symbol = :Bergeron)
+	# S_t = siler_S.([param], [0], 0:200, spec = spec)
+	Lst = 100.
+	try
+		Lst = find_zero(function(x) Sstar -  siler_S(param, 0, x, spec = spec) end,100.0)
+	catch
+		S_t = siler_S.([param], [0], 0:500, spec = spec)
+		Lst_init = minimum(Int.(0:500)[S_t .< Sstar])
+		try
+			Lst = find_zero(function(x) Sstar -  siler_S(param, 0, x, spec = spec) end,Lst_init)
+		catch
+			display(Lst_init)
+			Lst = find_zero(function(x) Sstar -  siler_S(param, 0, x, spec = spec) end,(0,  500))
+		end
+
+	end
+
+	return Lst
+end
+
+
+"""
+Computes gradient of remaining lifespan inequality from age aa wrt θ
+"""
+function lifespangrad(param::SilerParam, Sstar::Real, θ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, θ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, θ, x);
+		lifespan(temp_param, Sstar = Sstar, spec = spec) end, getfield(param, θ))
+	return grad
+end
+
+
+
+"""
+Compute median remaining lifespan - age at with survival probability of 0.5
+"""
+function Lmed(param, aa; spec::Symbol = :Bergeron)
+	# S_t = siler_S.([param], [aa], 0:200, spec = spec)
+	Lm = 100.
+	try
+		Lm = find_zero(function(x) 0.5 -  siler_S(param, aa, x, spec = spec) end,100.0)
+	catch
+		try
+			S_t = siler_S.([param], [aa], 0:500, spec = spec)
+			Lm_init = minimum(Int.(0:500)[S_t .< 0.5])
+			Lm = find_zero(function(x) 0.5 -  siler_S(param, aa, x, spec = spec) end,Lm_init)
+		catch
+			Lm = find_zero(function(x) 0.5 -  siler_S(param, aa, x, spec = spec) end,(0,500))
+		end
+	end
+	return Lm - aa
+end
+
+
+"""
+Computes gradient of lifespan inequality from age aa wrt θ
+"""
+function Lmedgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, θ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, θ, x);
+		Lmed(temp_param, aa, spec = spec) end, getfield(param, θ))
 	return grad
 end
 

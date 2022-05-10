@@ -63,6 +63,8 @@ function summarise_forecasts(df_sum, all_years; parname = :unknown)
     df_ests.year = parse.(Int64,string.(df_ests.year))
     insertcols!(df_ests, 1, :parameter => repeat([parname], nrow(df_ests)) )
 
+
+
     # Add some percentiles
     df_ests[:,:std] .= 0.0
     df_ests[:,:pc975] .= 0.0
@@ -72,13 +74,13 @@ function summarise_forecasts(df_sum, all_years; parname = :unknown)
     df_ests[:,:pc75] .= 0.0
     df_ests[:,:pc25] .= 0.0
     for yy in 1:ncol(df_sum)
-        df_ests.std[(yy)] = std(df_sum[:,yy])
-        df_ests.pc975[(yy)] = percentile(df_sum[:,yy], 97.5)
-        df_ests.pc025[(yy)] = percentile(df_sum[:,yy], 2.5)
-        df_ests.pc85[(yy)] = percentile(df_sum[:,yy], 85)
-        df_ests.pc15[(yy)] = percentile(df_sum[:,yy], 15)
-        df_ests.pc75[(yy)] = percentile(df_sum[:,yy], 75)
-        df_ests.pc25[(yy)] = percentile(df_sum[:,yy], 25)
+        df_ests.std[(yy)] = std(df_sum[.!isnan.(df_sum[:,yy]),yy])
+        df_ests.pc975[(yy)] = percentile(skipmissing(df_sum[.!isnan.(df_sum[:,yy]),yy]), 97.5)
+        df_ests.pc025[(yy)] = percentile(df_sum[.!isnan.(df_sum[:,yy]),yy], 2.5)
+        df_ests.pc85[(yy)] = percentile(df_sum[.!isnan.(df_sum[:,yy]),yy], 85)
+        df_ests.pc15[(yy)] = percentile(df_sum[.!isnan.(df_sum[:,yy]),yy], 15)
+        df_ests.pc75[(yy)] = percentile(df_sum[.!isnan.(df_sum[:,yy]),yy], 75)
+        df_ests.pc25[(yy)] = percentile(df_sum[.!isnan.(df_sum[:,yy]),yy], 25)
     end
 
     return(df_ests)
@@ -269,9 +271,14 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0, forecasts = f
     # Make suer we're ordered chronologically
     decomp_df = sort!(decomp_df, :year)
 
-    decomp_vars = ["LE_mod", "H_mod", "h_mod", "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
-        "H_b", "H_B", "H_c", "H_C", "H_d", "h_b", "h_B", "h_c", "h_C", "h_d",
-        "Δb", "ΔB", "Δc", "ΔC", "Δd", "ΔLE_mod", "ΔH_mod", "Δh_mod"]
+    decomp_vars = ["LE_mod", "H_mod", "h_mod", "Lstar_mod", "Lmed_mod",
+        "LE_b", "LE_B", "LE_c", "LE_C", "LE_d",
+        "H_b", "H_B", "H_c", "H_C", "H_d",
+        "h_b", "h_B", "h_c", "h_C", "h_d",
+        "Lstar_b", "Lstar_B", "Lstar_c", "Lstar_C", "Lstar_d",
+        "Lmed_b", "Lmed_B", "Lmed_c", "Lmed_C", "Lmed_d",
+        "Δb", "ΔB", "Δc", "ΔC", "Δd",
+        "ΔLE_mod", "ΔH_mod", "Δh_mod", "ΔLstar_mod", "ΔLmed_mod"]
     decomp_df = hcat(decomp_df,DataFrame(NaN.*zeros(nrow(decomp_df), length(decomp_vars)), decomp_vars))
 
     # Get LE, H, changes and derivatives
@@ -285,6 +292,8 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0, forecasts = f
         decomp_df.LE_mod[ii] = LE(params, eval_age, spec = spec)
         decomp_df.H_mod[ii] = H(params, eval_age, spec = spec)
         decomp_df.h_mod[ii] = h(params, eval_age, spec = spec)
+        decomp_df.Lstar_mod[ii] = lifespan(params, Sstar = 0.001, spec = spec)
+        decomp_df.Lmed_mod[ii] = Lmed(params, eval_age, spec = spec)
         # Compute LE gradient for each parameter
         decomp_df.LE_B[ii] = LEgrad(params, eval_age, :B, spec = spec)
         decomp_df.LE_b[ii] = LEgrad(params, eval_age, :b, spec = spec)
@@ -303,6 +312,18 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0, forecasts = f
         decomp_df.h_C[ii] = hgrad(params, eval_age, :C, spec = spec)
         decomp_df.h_c[ii] = hgrad(params, eval_age, :c, spec = spec)
         decomp_df.h_d[ii] = hgrad(params, eval_age, :d, spec = spec)
+        # Compute Lstar gradient for each parameter
+        decomp_df.Lstar_B[ii] = lifespangrad(params, 0.001, :B, spec = spec)
+        decomp_df.Lstar_b[ii] = lifespangrad(params, 0.001, :b, spec = spec)
+        decomp_df.Lstar_C[ii] = lifespangrad(params, 0.001, :C, spec = spec)
+        decomp_df.Lstar_c[ii] = lifespangrad(params, 0.001, :c, spec = spec)
+        decomp_df.Lstar_d[ii] = lifespangrad(params, 0.001, :d, spec = spec)
+        # Compute Lmed gradient for each parameter
+        decomp_df.Lmed_B[ii] = Lmedgrad(params, eval_age, :B, spec = spec)
+        decomp_df.Lmed_b[ii] = Lmedgrad(params, eval_age, :b, spec = spec)
+        decomp_df.Lmed_C[ii] = Lmedgrad(params, eval_age, :C, spec = spec)
+        decomp_df.Lmed_c[ii] = Lmedgrad(params, eval_age, :c, spec = spec)
+        decomp_df.Lmed_d[ii] = Lmedgrad(params, eval_age, :d, spec = spec)
 
         if ii > 1
             decomp_df.ΔB[ii] = decomp_df.B[ii] - decomp_df.B[ii-1]
@@ -313,6 +334,8 @@ function create_decomp(parests_df; spec = :Bergeron, eval_age = 0, forecasts = f
             decomp_df.ΔLE_mod[ii] = decomp_df.LE_mod[ii] - decomp_df.LE_mod[ii-1]
             decomp_df.ΔH_mod[ii] = decomp_df.H_mod[ii] - decomp_df.H_mod[ii-1]
             decomp_df.Δh_mod[ii] = decomp_df.h_mod[ii] - decomp_df.h_mod[ii-1]
+            decomp_df.ΔLstar_mod[ii] = decomp_df.Lstar_mod[ii] - decomp_df.Lstar_mod[ii-1]
+            decomp_df.ΔLmed_mod[ii] = decomp_df.Lmed_mod[ii] - decomp_df.Lmed_mod[ii-1]
         end
 
     end
@@ -379,7 +402,9 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
     hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
-    impl_vars = vcat(LEs, Hs, hs)
+    Lstars = Symbol.("Lstar[".*string.(1:length(years)+nahead).*"]")
+    Lmeds = Symbol.("Lmed[".*string.(1:length(years)+nahead).*"]")
+    impl_vars = vcat(LEs, Hs, hs, Lstars)
     df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
     # Loop through each period
     prog = Progress(length(years), desc = "Calculating model implied LE and H: ")
@@ -388,6 +413,8 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
         df_post[:, LEs[ii]] = LE.(params, [0.0], spec = spec)
         df_post[:, Hs[ii]] = H.(params, [0.0], spec = spec)
         df_post[:, hs[ii]] = h.(params, [0.0], spec = spec)
+        df_post[:, Lstars[ii]] = lifespan.(params, Sstar = 0.001, spec = spec)
+        df_post[:, Lmeds[ii]] = Lmed.(params, [0.0], spec = spec)
         next!(prog)
     end
 
@@ -451,6 +478,8 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
     hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
+    Lstars = Symbol.("Lstar[".*string.(1:length(years)+nahead).*"]")
+    Lmeds = Symbol.("Lmed[".*string.(1:length(years)+nahead).*"]")
 
     # Extend dataframe to account for forward simulations
     df_pred = repeat(df_post, inner = ndraws)
@@ -542,6 +571,8 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
             df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
             df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
             df_particle[:,hs[Tptt]] = h.(params, [0.0], spec = spec)
+            df_particle[:,Lstars[Tptt]] = lifespan.(params, Sstar = 0.001, spec = spec)
+            df_particle[:,Lmeds[Tptt]] = Lmed.(params, [0.0], spec = spec)
 
             next!(prog)
         end
@@ -674,12 +705,18 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     LEs = Symbol.("LE[".*string.(1:length(all_years)).*"]")
     Hs = Symbol.("H[".*string.(1:length(all_years)).*"]")
     hs = Symbol.("h[".*string.(1:length(all_years)).*"]")
+    Lstars = Symbol.("Lstar[".*string.(1:length(all_years)).*"]")
+    Lmeds = Symbol.("Lmed[".*string.(1:length(all_years)).*"]")
+
 
     LE_ests = summarise_forecasts(df_in[:,LEs], all_years, parname = :LE)
     H_ests = summarise_forecasts(df_in[:,Hs], all_years, parname = :H)
     h_ests = summarise_forecasts(df_in[:,hs], all_years, parname = :h)
+    Lstar_ests = summarise_forecasts(df_in[:,Lstars], all_years, parname = :Lstar)
+    Lmed_ests = summarise_forecasts(df_in[:,Lmeds], all_years, parname = :Lmed)
 
-    par_ests = vcat(par_ests, LE_ests, H_ests, h_ests)
+
+    par_ests = vcat(par_ests, LE_ests, H_ests, h_ests, Lstar_ests, Lmed_ests)
 
 
     insertcols!(par_ests, 2, :forecast => repeat([0], nrow(par_ests)) )
