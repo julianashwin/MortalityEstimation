@@ -372,6 +372,20 @@ plot!(size = (600,300))
 savefig("figures/"*folder*"siler_"*model*"_LEgrad_cC.pdf")
 
 
+Lstar_plt = plot(layout = (1,2), legend = false,  margin=6Plots.mm)
+plot!(decomp_pred.year[pre_2020], decomp_pred.Lstar_c[pre_2020], yguidefontrotation=-90,
+    xlabel = "Year", ylabel  = L"L^*_c", subplot = 1)
+plot!(decomp_pred.year[post_2020], decomp_pred.Lstar_c[post_2020], linestyle = :dash,subplot = 1)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 1, ylims = (minimum(decomp_pred.Lstar_c), 0))
+plot!(decomp_pred.year[pre_2020], decomp_pred.Lstar_C[pre_2020], yguidefontrotation=-90,
+    xlabel = "Year", ylabel = L"L^*_C", subplot = 2)
+plot!(decomp_pred.year[post_2020], decomp_pred.Lstar_C[post_2020], linestyle = :dash,subplot = 2)
+hline!([0,0], color = :black, linestyle = :solid, subplot = 2, ylims = (0, maximum(decomp_pred.Lstar_C)))
+plot!(size = (600,200))
+savefig("figures/"*folder*"siler_"*model*"_Lstargrad.pdf")
+
+
+
 # Plot the gradient of remaining LE at each age over time
 all_years = decomp_pred.year
 ages = 0:140

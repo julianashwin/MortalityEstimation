@@ -40,6 +40,10 @@ sort!(bp_df, [:year, :age])
 # Restrict to G7 post 1900 for now
 country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", "HKG", "ITA", "ISL",
     "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "USA"]
+country_codes = ["AUT", "BGR", "BLR", "CHL", "CZE", "DEU", "DEUTW", "DNK", "EST", "HRV",
+    "HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK", "SVN", "TWN", "UKR"]
+#unique(mort_df.code)[.!(in.(unique(mort_df.code),[country_codes]))]
+
 select_df = mort_df[in.(mort_df.code, [country_codes]),:]
 
 ## Set model and folder to save results
@@ -52,9 +56,9 @@ model = "i2"
 Check data looks sensible for a single country
 """
 ## Data prep for single coujntry
-code = "KOR"
+code = country_codes[18]
 #country_df = mort_df[(mort_df.code .== code), :]
-country_df = select_df[select_df.code .== "KOR",:]
+country_df = select_df[select_df.code .== code,:]
 # Need to remove any zeros
 country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[:,:mx_f] .> 0.0,:mx_f])
 # Check data looks sensible

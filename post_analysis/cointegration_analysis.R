@@ -7,7 +7,7 @@ require(stringr)
 require(plm)
 require(lfe)
 require(tidyr)
-
+require(stargazer)
 
 "
 Set colour scheme
@@ -21,6 +21,16 @@ col_scheme <- c("Australia" = "darkolivegreen4", "Belgium" = "gold3",
                 "Japan" = "red", "South Korea" = "blue",
                 "Norway" = "deeppink", "Netherlands" = "orange",
                 "New Zealand" = "black", "Portugal" = "green", 
+                "Sweden" = "yellow", "United States of America" = "cornflowerblue",
+                "Best Practice" = "darkmagenta")
+
+col_scheme <- c("Other" = "gray",
+                "Australia" = "darkolivegreen4", 
+                "Canada" = "pink",
+                "France" = "blue3", "United Kingdom" = "darkgoldenrod4", 
+                "Hong Kong" = "lightgoldenrod", 
+                "Italy" = "forestgreen", 
+                "Japan" = "red","New Zealand" = "black", "Russia" = "firebrick",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Best Practice" = "darkmagenta")
 
@@ -57,7 +67,7 @@ bp_df$code <- "BP"
 bp_df$name <- "Best Practice"
 bp_df$best_practice <- 2
 bp_df <- bp_df[,names(all_df)]
-all_df <- rbind(all_df, bp_df)
+#all_df <- rbind(all_df, bp_df)
 
 
 # Economic inequality data
@@ -68,7 +78,9 @@ ineq_df2 <- read.csv("data/economic-inequality/gini-coefficient-equivalized-inco
 names(ineq_df2)[4] <- "Gini.coeff.att"
 econ_df <- merge(ineq_df1, ineq_df2, by = c("Entity", "Code", "Year" ), all.x=T, all.y=T)
 rm(ineq_df1,ineq_df2)
+econ_df <- econ_df[which(econ_df$Code != ""),]
 
+unique(all_df$code)[which(!(unique(all_df$code) %in% unique(econ_df$Code)))]
 
 gdp_df <- read.csv("data/economic-inequality/real-gdp-per-capita-PennWT.csv", 
                    stringsAsFactors = FALSE)
@@ -76,8 +88,13 @@ names(gdp_df)[4] <- "real.gdp.pc"
 econ_df <- merge(econ_df, gdp_df, by = c("Entity", "Code", "Year" ), all.x=T, all.y=T)
 names(econ_df) <- tolower(names(econ_df))
 rm(gdp_df)
-
-
+# Fill in the blanks with previous values where possible
+econ_df <- econ_df[order(econ_df$code, econ_df$year),]
+for (ii in 2:nrow(econ_df)){
+  if (is.na(econ_df$gini.index[ii]) & (econ_df$code[ii] == econ_df$code[ii-1])){
+    econ_df$gini.index[ii] <- econ_df$gini.index[ii-1]
+  }
+}
 
 "
 Plot estimates and forecasts
@@ -87,82 +104,138 @@ all_df$Forecast <- "Estimate"
 all_df$Forecast[which(all_df$forecast == 1)] <- "Forecast"
 ## Life expectancy
 plot_df <- all_df[which(all_df$parameter == "LE"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Life expectancy at birth")
 ggsave("figures/countries/summary/LE_international.pdf", width = 8, height = 4)
 ## Equality
 plot_df <- all_df[which(all_df$parameter == "H"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = -log(median), color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = -log(median), color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = -log(median), color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Lifespan equality at birth")
 ggsave("figures/countries/summary/h_international.pdf", width = 8, height = 4)
 ## Lifespan
 plot_df <- all_df[which(all_df$parameter == "Lstar"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Lifespan")
 ggsave("figures/countries/summary/Lstar_international.pdf", width = 8, height = 4)
 ## c
 plot_df <- all_df[which(all_df$parameter == "c"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Senescent rectangularity (c)")
 ggsave("figures/countries/summary/c_rect_international.pdf", width = 8, height = 4)
 ## C
 plot_df <- all_df[which(all_df$parameter == "C"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Senescent elongation (C)")
 ggsave("figures/countries/summary/C_elg_international.pdf", width = 8, height = 4)
 ## b
 plot_df <- all_df[which(all_df$parameter == "b"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Infant rectangularity (b)")
 ggsave("figures/countries/summary/b_rect_international.pdf", width = 8, height = 4)
 ## B
 plot_df <- all_df[which(all_df$parameter == "B"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Infant elongation (B)")
 ggsave("figures/countries/summary/B_elg_international.pdf", width = 8, height = 4)
 ## d
 plot_df <- all_df[which(all_df$parameter == "d"),]
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = year, y = median, color = name, linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Age-independent mortality (d)")
 ggsave("figures/countries/summary/d_international.pdf", width = 8, height = 4)
 
@@ -179,32 +252,63 @@ plot_df <- data.frame(pivot_wider(plot_df, id_cols = c(name, code, year), names_
 plot_df <- merge(plot_df, econ_df, by = c("code", "year"), all.x = T)
 plot_df$real.gdp.pc <- plot_df$real.gdp.pc/10000
 plot_df$gini.index <- plot_df$gini.index/100
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 #plot_df <- plot_df[which(!is.na(plot_df$gini.index) | !is.na(plot_df$gini.coeff.att)),]
+
+
 
 
 C_plt <- ggplot(plot_df[!is.na(plot_df$real.gdp.pc),]) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(aes(x = real.gdp.pc, y = C, color = name), size = 1) +
-  geom_path(aes(x = real.gdp.pc, y = C, color = name), alpha = 0.3) + 
+  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+             aes(x = real.gdp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+            aes(x = real.gdp.pc, y = C, color = name)) +
+  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+             aes(x = real.gdp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = real.gdp.pc, y = C, color = name), alpha = 0.3) +
   geom_smooth(aes(x = real.gdp.pc, y = C), method = "lm", color = "black") +
   xlab("Real GDP p.c.") + ylab("C") + ggtitle("C")
 c_plt <- ggplot(plot_df[!is.na(plot_df$real.gdp.pc),]) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(aes(x = real.gdp.pc, y = c, color = name)) +
-  geom_path(aes(x = real.gdp.pc, y = c, color = name), alpha = 0.3) + 
+  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+             aes(x = real.gdp.pc, y = c, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+            aes(x = real.gdp.pc, y = c, color = name)) + 
+  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+             aes(x = real.gdp.pc, y = c, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = real.gdp.pc, y = c, color = name), alpha = 0.3) + 
   geom_smooth(aes(x = real.gdp.pc, y = c), method = "lm", color = "black") +
   xlab("Real GDP p.c.") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_gdp.pdf", width = 8, height = 4)
+
 
 C_plt <- ggplot(plot_df[!is.na(plot_df$gini.index),]) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(aes(x = gini.index, y = C, color = name)) +
-  geom_path(aes(x = gini.index, y = C, color = name), alpha = 0.3) + 
+  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+             aes(x = gini.index, y = C, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+            aes(x = gini.index, y = C, color = name)) + 
+  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+             aes(x = gini.index, y = C, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name != "Other"),], 
+            aes(x = gini.index, y = C, color = name)) + 
   geom_smooth(aes(x = gini.index, y = C), method = "lm", color = "black") +
   xlab("Income Gini Index") + ylab("C") + ggtitle("C")
 c_plt <- ggplot(plot_df[!is.na(plot_df$gini.index),]) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(aes(x = gini.index, y = c, color = name)) +
-  geom_path(aes(x = gini.index, y = c, color = name), alpha = 0.3) + 
+  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+             aes(x = gini.index, y = c, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+            aes(x = gini.index, y = c, color = name)) + 
+  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+             aes(x = gini.index, y = c, color = name)) +
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = gini.index, y = c, color = name)) + 
   geom_smooth(aes(x = gini.index, y = c), method = "lm", color = "black") +
   xlab("Income Gini Index") + ylab("c") + ggtitle("c")
 ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
@@ -256,13 +360,14 @@ stargazer(model1, model2, model3, model4, model5,
 C-c path over time
 "
 plot_df <- all_df[which(all_df$year > 1900),]
-plot_df <- data.frame(pivot_wider(plot_df, id_cols = c(name, year, Forecast), names_from = parameter, 
-                           values_from = median))
-extra_obs <- plot_df[which(plot_df$year == 2018),]
+plot_df <- data.frame(pivot_wider(plot_df, id_cols = c(name, code, year, Forecast), 
+                                  names_from = parameter, values_from = median))
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
 plot_df$h <- -log(plot_df$H)
-
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 # Include some years as labels
 plot_df$year_label <- NA
 plot_df$year_label[which(plot_df$year==1903)] <- 1903
@@ -275,8 +380,12 @@ plot_df$year_label[which(plot_df$year==2023)] <- 2023
 # Cc path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
-  geom_path(aes(x = C, y = c, color = name, linetype = Forecast)) + 
-  geom_text(aes(x = C, y = c, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = C, y = c, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = C, y = c, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = C, y = c, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Senescent elongation (C)") + ylab("Senescent rectangularity (c)") + 
   guides(color=guide_legend(ncol=2))
 ggsave("figures/countries/summary/Cc_paths.pdf", width = 10, height = 5)
@@ -284,8 +393,12 @@ ggsave("figures/countries/summary/Cc_paths.pdf", width = 10, height = 5)
 # Bb path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
-  geom_path(aes(x = B, y = b, color = name, linetype = Forecast)) + 
-  geom_text(aes(x = B, y = b, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = B, y = b, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = B, y = b, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = B, y = b, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Infant elongation (B)") + ylab("Infant rectangularity (b)") + 
   guides(color=guide_legend(ncol=2))
 ggsave("figures/countries/summary/Bb_paths.pdf", width = 10, height = 5)
@@ -293,8 +406,12 @@ ggsave("figures/countries/summary/Bb_paths.pdf", width = 10, height = 5)
 # LEh path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
-  geom_path(aes(x = LE, y = h, color = name, linetype = Forecast)) + 
-  geom_text(aes(x = LE, y = h, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = LE, y = h, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = h, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = h, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("Lifespan equality at birth") + 
   guides(color=guide_legend(ncol=2))
 ggsave("figures/countries/summary/Leh_paths.pdf", width = 10, height = 5)
@@ -302,45 +419,42 @@ ggsave("figures/countries/summary/Leh_paths.pdf", width = 10, height = 5)
 # LstarLE path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
-  geom_path(aes(x = LE, y = Lstar, color = name, linetype = Forecast)) + 
-  geom_text(aes(x = LE, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = LE, y = Lstar, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = Lstar, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("Lifespan") + 
   guides(color=guide_legend(ncol=2))
 ggsave("figures/countries/summary/LstarLE_paths.pdf", width = 10, height = 5)
 
 
-# Lstar vs LE
-ggplot(plot_df[which(plot_df$name == "Best Practice"),]) + theme_bw() + 
-  scale_color_manual("Legend", values = c("red","blue")) + 
-  geom_line(aes(x = year, y = Lstar, color = "Lifespan", linetype = Forecast)) + 
-  geom_line(aes(x = year, y = LE, color = "Life expectancy", linetype = Forecast)) +
-  geom_ribbon(aes(x = year, ymin = LE, ymax = Lstar), fill = "purple", alpha = 0.2) + 
-  xlab("Years from birth") + ylab("Year") + 
-  guides(color=guide_legend(ncol=1)) 
-ggsave("figures/benchmark/BP_Lstar-LE.pdf", width = 6, height = 4)
-
-ggplot(plot_df[which(plot_df$name == "United States of America"),]) + theme_bw() + 
-  scale_color_manual("Legend", values = c("red","blue")) + 
-  geom_line(aes(x = year, y = Lstar, color = "Lifespan", linetype = Forecast)) + 
-  geom_line(aes(x = year, y = LE, color = "Life expectancy", linetype = Forecast)) +
-  geom_ribbon(aes(x = year, ymin = LE, ymax = Lstar), fill = "purple", alpha = 0.2) + 
-  xlab("Years from birth") + ylab("Year") + 
-  guides(color=guide_legend(ncol=1)) 
-
-
-ggsave("figures/countries/summary/LstarLE_paths.pdf", width = 10, height = 5)
-
-
-
-
 # LstarC path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
-  geom_path(aes(x = C, y = Lstar, color = name, linetype = Forecast)) + 
-  geom_text(aes(x = C, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
-  xlab("Senescent elongation") + ylab("Lifespan") + 
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = C, y = Lstar, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = C, y = Lstar, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = C, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  xlab("C") + ylab("Lifespan") + 
   guides(color=guide_legend(ncol=2))
 ggsave("figures/countries/summary/LstarC_paths.pdf", width = 10, height = 5)
+
+# Lstar-C vs LE path
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = LE, y = Lstar-C, color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = Lstar-C, color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = LE, y = Lstar-C, color = name, label = year_label), show.legend=FALSE, size = 2) +
+  xlab("Life expectancy at birth") + ylab("Lifespan - C") + 
+  guides(color=guide_legend(ncol=2))
+ggsave("figures/countries/summary/LE_vs_Lstar-C_paths.pdf", width = 10, height = 5)
 
 
 
@@ -420,6 +534,18 @@ stargazer(as.matrix(export_table), table.placement = "H", column.sep.width = "2"
 
 
 
+
+
+
+# Lstar vs LE
+ggplot(plot_df[which(plot_df$code == "USA"),]) + theme_bw() + 
+  scale_color_manual("Legend", values = c("red","blue")) + 
+  geom_line(aes(x = year, y = Lstar, color = "Lifespan", linetype = Forecast)) + 
+  geom_line(aes(x = year, y = LE, color = "Life expectancy", linetype = Forecast)) +
+  geom_ribbon(aes(x = year, ymin = LE, ymax = Lstar), fill = "purple", alpha = 0.2) + 
+  xlab("Years from birth") + ylab("Year") + 
+  guides(color=guide_legend(ncol=1)) 
+#ggsave("figures/benchmark/USA_Lstar-LE.pdf", width = 6, height = 4)
 
 
 "
