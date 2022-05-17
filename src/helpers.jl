@@ -725,3 +725,79 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     return par_ests
 
 end
+
+
+
+
+
+
+
+
+
+"""
+Function to compute gradients across the age distribution from a decomp_df
+"""
+function compute_LEgrad_df(decomp_pred; ages = 0:140)
+    # Years
+    all_years = decomp_pred.year
+    # Initialise dataframe for results
+    LEgrad_df = DataFrame(age = repeat(ages, length(all_years)), year = repeat(all_years, inner = length(ages)))
+    grad_vars = [:LE, :LE_Bs, :LE_bs, :LE_Cs, :LE_cs, :LE_ds, :LE_cC,
+        :Lstar, :Lstar_Bs, :Lstar_bs, :Lstar_Cs, :Lstar_cs, :Lstar_ds, :Lstar_cC,
+        :Lmed, :Lmed_Bs, :Lmed_bs, :Lmed_Cs, :Lmed_cs, :Lmed_ds, :Lmed_cC,
+        :h, :h_Bs, :h_bs, :h_Cs, :h_cs, :h_ds, :h_cC,
+        :H, :H_Bs, :H_bs, :H_Cs, :H_cs, :H_ds, :H_cC]
+    LEgrad_df = hcat(LEgrad_df,DataFrame(NaN.*zeros(nrow(LEgrad_df), length(grad_vars)), grad_vars))
+    # Loop over each year
+    prog = Progress(length(all_years), desc = "Computing gradient df: ")
+    for yy in all_years
+        # Get parameters for this year
+        obs = Int.(1:nrow(decomp_pred))[decomp_pred.year .== yy][1]
+        row = NamedTuple(decomp_pred[obs,:])
+        params = SilerParam(b = row.b, B = row.B, c = row.c, C = row.C, d = row.d)
+
+        # Fill grad dataframe
+        out_obs = Int.(1:nrow(LEgrad_df))[LEgrad_df.year .== yy]
+        # LE
+        LEgrad_df.LE[out_obs] = LE.([params], ages, spec = :Bergeron)
+        LEgrad_df.LE_Bs[out_obs] = LEgrad.([params], ages, [:B], spec = :Bergeron)
+        LEgrad_df.LE_bs[out_obs] = LEgrad.([params], ages, [:b], spec = :Bergeron)
+        LEgrad_df.LE_Cs[out_obs] = LEgrad.([params], ages, [:C], spec = :Bergeron)
+        LEgrad_df.LE_cs[out_obs] = LEgrad.([params], ages, [:c], spec = :Bergeron)
+        LEgrad_df.LE_ds[out_obs] = LEgrad.([params], ages, [:d], spec = :Bergeron)
+        LEgrad_df.LE_cC[out_obs] = LEcross.([params], ages, [:c], [:C], spec = :Bergeron)
+        # Lstar
+        LEgrad_df.Lstar[out_obs] .= lifespan.([params], Sstar = 0.001, spec = :Bergeron)
+        LEgrad_df.Lstar_Bs[out_obs] .= lifespangrad.([params], [0.001], [:B], spec = :Bergeron)
+        LEgrad_df.Lstar_bs[out_obs] .= lifespangrad.([params], [0.001], [:b], spec = :Bergeron)
+        LEgrad_df.Lstar_Cs[out_obs] .= lifespangrad.([params], [0.001], [:C], spec = :Bergeron)
+        LEgrad_df.Lstar_cs[out_obs] .= lifespangrad.([params], [0.001], [:c], spec = :Bergeron)
+        LEgrad_df.Lstar_ds[out_obs] .= lifespangrad.([params], [0.001], [:d], spec = :Bergeron)
+        # Lmed
+        LEgrad_df.Lmed[out_obs] = Lmed.([params], ages, spec = :Bergeron)
+        LEgrad_df.Lmed_Bs[out_obs] = Lmedgrad.([params], ages, [:B], spec = :Bergeron)
+        LEgrad_df.Lmed_bs[out_obs] = Lmedgrad.([params], ages, [:b], spec = :Bergeron)
+        LEgrad_df.Lmed_Cs[out_obs] = Lmedgrad.([params], ages, [:C], spec = :Bergeron)
+        LEgrad_df.Lmed_cs[out_obs] = Lmedgrad.([params], ages, [:c], spec = :Bergeron)
+        LEgrad_df.Lmed_ds[out_obs] = Lmedgrad.([params], ages, [:d], spec = :Bergeron)
+        # H
+        LEgrad_df.H[out_obs] = H.([params], ages, spec = :Bergeron)
+        LEgrad_df.H_Bs[out_obs] = Hgrad.([params], ages, [:B], spec = :Bergeron)
+        LEgrad_df.H_bs[out_obs] = Hgrad.([params], ages, [:b], spec = :Bergeron)
+        LEgrad_df.H_Cs[out_obs] = Hgrad.([params], ages, [:C], spec = :Bergeron)
+        LEgrad_df.H_cs[out_obs] = Hgrad.([params], ages, [:c], spec = :Bergeron)
+        LEgrad_df.H_ds[out_obs] = Hgrad.([params], ages, [:d], spec = :Bergeron)
+        # H
+        LEgrad_df.h[out_obs] = h.([params], ages, spec = :Bergeron)
+        LEgrad_df.h_Bs[out_obs] = hgrad.([params], ages, [:B], spec = :Bergeron)
+        LEgrad_df.h_bs[out_obs] = hgrad.([params], ages, [:b], spec = :Bergeron)
+        LEgrad_df.h_Cs[out_obs] = hgrad.([params], ages, [:C], spec = :Bergeron)
+        LEgrad_df.h_cs[out_obs] = hgrad.([params], ages, [:c], spec = :Bergeron)
+        LEgrad_df.h_ds[out_obs] = hgrad.([params], ages, [:d], spec = :Bergeron)
+        LEgrad_df.h_cC[out_obs] = hcross.([params], ages, [:c], [:C], spec = :Bergeron)
+        next!(prog)
+    end
+
+    return LEgrad_df
+
+end

@@ -42,6 +42,13 @@ country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", 
     "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "USA"]
 country_codes = ["AUT", "BGR", "BLR", "CHL", "CZE", "DEU", "DEUTW", "DNK", "EST", "HRV",
     "HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK", "SVN", "TWN", "UKR"]
+
+country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", "HKG", "ITA", "ISL",
+    "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "USA", "AUT", "BGR", "BLR", "CHL", "CZE", "DEU",
+    "DEUTW", "DNK", "EST", "HRV","HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK",
+    "SVN", "TWN", "UKR"]
+
+
 #unique(mort_df.code)[.!(in.(unique(mort_df.code),[country_codes]))]
 
 select_df = mort_df[in.(mort_df.code, [country_codes]),:]
@@ -157,6 +164,8 @@ end
 Also save the decompositions
 """
 # Loop through each country to compute the predictions and decompose
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
 for code in country_codes
     print("Save decomposition for "*code*"\n")
     country_df = select_df[(select_df.code .== code), :]
@@ -174,6 +183,12 @@ for code in country_codes
     parests_pred = extract_forecast_variables(df_pred, country_years, Int.(maximum(country_years) .+ 5.0.*(1:nahead)),
         log_pars = true, spec = :Bergeron, model_vers = :i2drift)
     CSV.write("figures/"*folder*"/"*code*"_"*model*"_preds.csv", parests_pred)
+    # Extract decomp
     decomp_df = create_decomp(parests_pred; spec = :Bergeron, eval_age = 0)
     CSV.write("figures/"*folder*"/"*code*"_"*model*"_decomp_pred.csv", decomp_df)
+    # Extract gradients
+    LEgrad_df = compute_LEgrad_df(decomp_df; ages = 0:140)
+    CSV.write("figures/"*folder*"/"*code*"_"*model*"_LEgrads.csv", LEgrad_df)
+
+
 end

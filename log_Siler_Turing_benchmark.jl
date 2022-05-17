@@ -83,14 +83,16 @@ for yy in 1:nrow(lifespan_df)
     lifespan_df.Lstar[yy] = Lstar_emp
 end
 
+# Adjust if you don't want every period
+periods = Int.(1:T)
+years_selected = Int.(round.(country_years[periods]))
+
+
 """
 Multiple independent Siler models
 """
 # Define model to save results
 model = "indep"
-# Adjust if you don't want every period
-periods = Int.(1:T)
-years_selected = Int.(round.(country_years[periods]))
 
 ## Find some starting points
 # MAP estimate for multiple independent models on log mortality
@@ -296,7 +298,7 @@ scatter!(lifespan_df.year, lifespan_df.Lstar, label = false, markershape = :cros
     subplot = 2, color = :green)
 
 # Forecast decomposition of future LE and H
-decomp_pred = create_decomp(parests_pred[parests_pred.year .> 1985,:],
+decomp_pred = create_decomp(parests_pred,
     spec = :Bergeron, eval_age = 0, forecasts = true)
 LE_p = plot_decomp(decomp_pred, :LE, forecasts = true)
 LE_p = plot!(legend = false, title = "Life Expectancy")
@@ -387,63 +389,17 @@ savefig("figures/"*folder*"siler_"*model*"_Lstargrad.pdf")
 
 
 # Plot the gradient of remaining LE at each age over time
-all_years = decomp_pred.year
 ages = 0:140
-LEgrad_df = DataFrame(age = repeat(ages, length(all_years)), year = repeat(all_years, inner = length(ages)))
-grad_vars = [:LE_Bs, :LE_bs, :LE_Cs, :LE_cs, :LE_ds,
-    :Lstar_Bs, :Lstar_bs, :Lstar_Cs, :Lstar_cs, :Lstar_ds,
-    :Lmed_Bs, :Lmed_bs, :Lmed_Cs, :Lmed_cs, :Lmed_ds,
-    :h_Bs, :h_bs, :h_Cs, :h_cs, :h_ds,
-    :H_Bs, :H_bs, :H_Cs, :H_cs, :H_ds]
-LEgrad_df = hcat(LEgrad_df,DataFrame(NaN.*zeros(nrow(LEgrad_df), length(grad_vars)), grad_vars))
-prog = Progress(length(all_years), desc = "Computing gradient df: ")
-for yy in all_years
-    # Get parameters for this year
-    obs = Int.(1:nrow(decomp_pred))[decomp_pred.year .== yy][1]
-    row = NamedTuple(decomp_pred[obs,:])
-    params = SilerParam(b = row.b, B = row.B, c = row.c, C = row.C, d = row.d)
-
-    # Fill grad dataframe
-    out_obs = Int.(1:nrow(LEgrad_df))[LEgrad_df.year .== yy]
-    # LE
-    LEgrad_df.LE_Bs[out_obs] = LEgrad.([params], ages, [:B], spec = :Bergeron)
-    LEgrad_df.LE_bs[out_obs] = LEgrad.([params], ages, [:b], spec = :Bergeron)
-    LEgrad_df.LE_Cs[out_obs] = LEgrad.([params], ages, [:C], spec = :Bergeron)
-    LEgrad_df.LE_cs[out_obs] = LEgrad.([params], ages, [:c], spec = :Bergeron)
-    LEgrad_df.LE_ds[out_obs] = LEgrad.([params], ages, [:d], spec = :Bergeron)
-    # LE
-    LEgrad_df.Lstar_Bs[out_obs] .= lifespangrad.([params], [0.001], [:B], spec = :Bergeron)
-    LEgrad_df.Lstar_bs[out_obs] .= lifespangrad.([params], [0.001], [:b], spec = :Bergeron)
-    LEgrad_df.Lstar_Cs[out_obs] .= lifespangrad.([params], [0.001], [:C], spec = :Bergeron)
-    LEgrad_df.Lstar_cs[out_obs] .= lifespangrad.([params], [0.001], [:c], spec = :Bergeron)
-    LEgrad_df.Lstar_ds[out_obs] .= lifespangrad.([params], [0.001], [:d], spec = :Bergeron)
-    # Lmed
-    LEgrad_df.Lmed_Bs[out_obs] = Lmedgrad.([params], ages, [:B], spec = :Bergeron)
-    LEgrad_df.Lmed_bs[out_obs] = Lmedgrad.([params], ages, [:b], spec = :Bergeron)
-    LEgrad_df.Lmed_Cs[out_obs] = Lmedgrad.([params], ages, [:C], spec = :Bergeron)
-    LEgrad_df.Lmed_cs[out_obs] = Lmedgrad.([params], ages, [:c], spec = :Bergeron)
-    LEgrad_df.Lmed_ds[out_obs] = Lmedgrad.([params], ages, [:d], spec = :Bergeron)
-    # H
-    LEgrad_df.H_Bs[out_obs] = Hgrad.([params], ages, [:B], spec = :Bergeron)
-    LEgrad_df.H_bs[out_obs] = Hgrad.([params], ages, [:b], spec = :Bergeron)
-    LEgrad_df.H_Cs[out_obs] = Hgrad.([params], ages, [:C], spec = :Bergeron)
-    LEgrad_df.H_cs[out_obs] = Hgrad.([params], ages, [:c], spec = :Bergeron)
-    LEgrad_df.H_ds[out_obs] = Hgrad.([params], ages, [:d], spec = :Bergeron)
-    # H
-    LEgrad_df.h_Bs[out_obs] = hgrad.([params], ages, [:B], spec = :Bergeron)
-    LEgrad_df.h_bs[out_obs] = hgrad.([params], ages, [:b], spec = :Bergeron)
-    LEgrad_df.h_Cs[out_obs] = hgrad.([params], ages, [:C], spec = :Bergeron)
-    LEgrad_df.h_cs[out_obs] = hgrad.([params], ages, [:c], spec = :Bergeron)
-    LEgrad_df.h_ds[out_obs] = hgrad.([params], ages, [:d], spec = :Bergeron)
-    next!(prog)
-end
+LEgrad_df = compute_LEgrad_df(decomp_pred; ages = ages)
 
 # C
-plot(LEgrad_df.age, LEgrad_df.LE_Cs, group=LEgrad_df.year, legend = false,
+plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.LE_Cs[LEgrad_df.age .<111],
+    group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
     ylabel = L"LE_C(a)", xlabel = "Age")
 hline!([0,0], color = :black, linestyle = :dash, label = false)
 
-plot(LEgrad_df.age, LEgrad_df.LE_cs, group=LEgrad_df.year, legend = false,
+plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.LE_cs[LEgrad_df.age .<111],
+    group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
     ylabel = L"LE_c(a)", xlabel = "Age")
 hline!([0,0], color = :black, linestyle = :dash, label = false)
 
@@ -452,9 +408,16 @@ plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.h_Cs[LEgrad_df.age .<111],
     ylabel = L"h_C(a)", xlabel = "Age")
 hline!([0,0], color = :black, linestyle = :dash, label = false)
 
-plot(LEgrad_df.age, LEgrad_df.h_cs, group=LEgrad_df.year, legend = false,
+plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.h_cs[LEgrad_df.age .<111],
+    group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
     ylabel = L"h_c(a)", xlabel = "Age")
 hline!([0,0], color = :black, linestyle = :dash, label = false)
+
+plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.LE_cC[LEgrad_df.age .<111],
+    group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
+    ylabel = L"h_c(a)", xlabel = "Age")
+hline!([0,0], color = :black, linestyle = :dash, label = false)
+
 
 
 CSV.write("figures/"*folder*"/siler_"*model*"_LEgrads.csv", LEgrad_df)
@@ -473,7 +436,9 @@ param_base = SilerParam(b = decomp_pred.b[obs][1], B = decomp_pred.B[obs][1],
 
 param = deepcopy(param_base)
 plot(ages, LEcross.([param], ages, [:c], [:C], spec = :Bergeron), xlabel = "Age",
- ylabel = L"LE_{cC}(a)")
+    ylabel = L"LE_{cC}(a)")
+hline!([0,0], color = :black, linestyle = :dash, label = false)
+
 
 plot(ages, repeat([0.], length(ages)), xlabel = "Age", linestyle = :dash, color = :black,
     ylabel = L"LE_{C}(a)", label = false)
