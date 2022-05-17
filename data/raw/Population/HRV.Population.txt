@@ -1,4 +1,4 @@
-Croatia, Population size (abridged)	Last modified: 15 Dec 2021;  Methods Protocol: v6 (2017)
+Croatia, Population size (abridged)	Last modified: 24 Feb 2022;  Methods Protocol: v6 (2017)
 
   Year          Age             Female            Male           Total
   2001           0             20585.00        21849.00        42434.00
