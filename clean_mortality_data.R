@@ -92,12 +92,28 @@ lifetab_df <- merge(lifetab_df, pop_df, by = c("code", "year", "age"), all.x = T
 lifetab_df <- lifetab_df[with(lifetab_df, order(code, year, age)), ]
 rm(pop_df)
 
+# Fix some codes up 
+unique(lifetab_df$code)
+lifetab_df$code[which(lifetab_df$code == "DEUTNP")] <- "DEU"
+lifetab_df$code[which(lifetab_df$code == "FRATNP")] <- "FRA"
+lifetab_df$code[which(lifetab_df$code == "GBR_NIR")] <- "NIR"
+lifetab_df$code[which(lifetab_df$code == "GBR_NP")] <- "GBR"
+lifetab_df$code[which(lifetab_df$code == "GBR_SCO")] <- "SCO"
+lifetab_df$code[which(lifetab_df$code == "GBRTENW")] <- "ENW"
+lifetab_df$code[which(lifetab_df$code == "NZL_NP")] <- "NZL"
 
+extra_nzl_years <- unique(lifetab_df$year[which(lifetab_df$code == "NZL")])[
+  which(!unique(lifetab_df$year[which(lifetab_df$code == "NZL")]) %in%
+          unique(lifetab_df$year[which(lifetab_df$code == "NZL_NM")]))]
+extra_obs <- lifetab_df[which(lifetab_df$code == "NZL" & lifetab_df$year %in% extra_nzl_years),]
+extra_obs$code <- "NZL_NM"
 
+lifetab_df <- rbind(lifetab_df, extra_obs)
+rm(extra_obs, extra_nzl_years)
 
-
-
-
+unique(lifetab_df$code)
+lifetab_df <- lifetab_df[which(lifetab_df$code != "FRACNP"),]
+lifetab_df <- lifetab_df[which(lifetab_df$code != "GBRCENW"),]
 
 
 "
@@ -595,8 +611,7 @@ lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age"
 
 write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
 write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
-
-lifetab_5y_export <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
+#lifetab_5y_export <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
 
 bp_df <-  lifetab_export[which(lifetab_export$best_practice == 1),]
 write.csv(bp_df, "data/clean/bp.csv", row.names = FALSE)
@@ -606,6 +621,7 @@ write.csv(bp_alt_df, "data/clean/bp_alt.csv", row.names = FALSE)
 
 bp_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice == 1),]
 write.csv(bp_5y_df, "data/clean/bp_5y.csv", row.names = FALSE)
+#bp_5y_df <- read.csv("data/clean/bp_5y.csv", stringsAsFactors = FALSE)
 
 bp_alt_5y_df <-  lifetab_5y_export[which(lifetab_5y_export$best_practice_alt == 1),]
 write.csv(bp_alt_5y_df, "data/clean/bp_alt_5y.csv", row.names = FALSE)
@@ -654,15 +670,24 @@ rm(bp_rle_plt, bp_alt_rle_plt)
 
 
 # Mortality 
+temp_df <- bp_5y_df[which(bp_5y_df$year > 1900),]
+temp_df <- temp_df[order(temp_df$year, temp_df$age),which(!str_detect(names(temp_df), "_m"))]
+temp_df <- temp_df[,which(!str_detect(names(temp_df), "Ma|Fe|To|best"))]
+temp_df <- temp_df[,which(!(names(temp_df) %in% c("ex", "lx", "mx", "Hx")))]
+
+ggplot(temp_df) + theme_bw() +
+  geom_line(aes(x = age, y = -log(Hx_f), group = year, color = year)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year")
+
 bp_m_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = mx_f, group = year, color = year)) + 
   scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
-  xlab("Age") + ylab("Mortality Rate") + ggtitle("Mortality")
+  xlab("Age") + ylab("Mortality rate") + ggtitle("Mortality")
 # Survival
 bp_s_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + 
   scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
-  xlab("Age") + ylab("Remaining lifespan inequality") + ggtitle("Survival")
+  xlab("Age") + ylab("Survival rate") + ggtitle("Survival")
 # Life expectancy
 bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = ex_f, group = year, color = year)) + 
@@ -672,7 +697,7 @@ bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
 bp_h_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = -log(Hx_f), group = year, color = year)) + 
   scale_color_gradientn(colours = rainbow(5), name = "Year") + 
-  xlab("Age") + ylab("Remaining lifespan inequality") + ggtitle("Lifespan inequality")
+  xlab("Age") + ylab("Remaining lifespan equality") + ggtitle("Lifespan equality")
 
 ggarrange(bp_m_plt, bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=4, common.legend = TRUE,
           legend = "right")
