@@ -79,16 +79,34 @@ names(ineq_df2)[4] <- "Gini.coeff.att"
 econ_df <- merge(ineq_df1, ineq_df2, by = c("Entity", "Code", "Year" ), all.x=T, all.y=T)
 rm(ineq_df1,ineq_df2)
 econ_df <- econ_df[which(econ_df$Code != ""),]
-
 unique(all_df$code)[which(!(unique(all_df$code) %in% unique(econ_df$Code)))]
 
+# GDP data
 gdp_df <- read.csv("data/economic-inequality/real-gdp-per-capita-PennWT.csv", 
                    stringsAsFactors = FALSE)
 names(gdp_df)[4] <- "real.gdp.pc"
 econ_df <- merge(econ_df, gdp_df, by = c("Entity", "Code", "Year" ), all.x=T, all.y=T)
-names(econ_df) <- tolower(names(econ_df))
 rm(gdp_df)
+
+# Health expenditure data
+health_df <- read.csv("data/economic-inequality/health-expenditure-and-financing-per-capita.csv",
+                      stringsAsFactors = FALSE)
+names(health_df)[4] <- "health.exp.pc"
+health_df <- health_df[which(health_df$health.exp.pc != ".."),]
+health_df$health.exp.pc <- as.numeric(health_df$health.exp.pc)*1.044 # deflator to match gdp
+health_df <- health_df[which(health_df$Code != ""),]
+unique(all_df$code)[which(!(unique(all_df$code) %in% unique(health_df$Code)))]
+econ_df <- merge(econ_df, health_df, by = c("Entity", "Code", "Year" ), all.x=T, all.y=T)
+rm(health_df)
+econ_df <- econ_df[which(econ_df$Code != ""),]
+unique(all_df$code)[which(!(unique(all_df$code) %in% unique(econ_df$Code)))]
+
+
+
+
 # Fill in the blanks with previous values where possible
+names(econ_df) <- tolower(names(econ_df))
+econ_df <- econ_df[which(econ_df$code %in% unique(all_df$code)),]
 econ_df <- econ_df[order(econ_df$code, econ_df$year),]
 for (ii in 2:nrow(econ_df)){
   if (is.na(econ_df$gini.index[ii]) & (econ_df$code[ii] == econ_df$code[ii-1])){
@@ -251,34 +269,41 @@ plot_df <- data.frame(pivot_wider(plot_df, id_cols = c(name, code, year), names_
                                   values_from = median))
 plot_df <- merge(plot_df, econ_df, by = c("code", "year"), all.x = T)
 plot_df$real.gdp.pc <- plot_df$real.gdp.pc/10000
+plot_df$health.exp.pc <- plot_df$health.exp.pc/10000
 plot_df$gini.index <- plot_df$gini.index/100
 plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
+plot_df$Period <- "pred"
+plot_df$Period[which(plot_df$year <= 1943)] <- "1918-1943"
+plot_df$Period[which(plot_df$year > 1943 & plot_df$year <= 1968)] <- "1943-1968"
+plot_df$Period[which(plot_df$year > 1968 & plot_df$year <= 1993)] <- "1968-1993"
+plot_df$Period[which(plot_df$year > 1993 & plot_df$year <= 2018)] <- "1993-2018"
+table(plot_df$Period)
 #plot_df <- plot_df[which(!is.na(plot_df$gini.index) | !is.na(plot_df$gini.coeff.att)),]
 
 
-
-
-C_plt <- ggplot(plot_df[!is.na(plot_df$real.gdp.pc),]) + theme_bw() + 
+## C and c vs GDP per capita
+plot_df1 <- plot_df[!is.na(plot_df$real.gdp.pc),]
+C_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
              aes(x = real.gdp.pc, y = C, color = name), size = 1) +
-  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
             aes(x = real.gdp.pc, y = C, color = name)) +
-  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
              aes(x = real.gdp.pc, y = C, color = name), size = 1) +
-  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
             aes(x = real.gdp.pc, y = C, color = name), alpha = 0.3) +
   geom_smooth(aes(x = real.gdp.pc, y = C), method = "lm", color = "black") +
   xlab("Real GDP p.c.") + ylab("C") + ggtitle("C")
-c_plt <- ggplot(plot_df[!is.na(plot_df$real.gdp.pc),]) + theme_bw() + 
+c_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
              aes(x = real.gdp.pc, y = c, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
             aes(x = real.gdp.pc, y = c, color = name)) + 
-  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
              aes(x = real.gdp.pc, y = c, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
             aes(x = real.gdp.pc, y = c, color = name), alpha = 0.3) + 
   geom_smooth(aes(x = real.gdp.pc, y = c), method = "lm", color = "black") +
   xlab("Real GDP p.c.") + ylab("c") + ggtitle("c")
@@ -287,27 +312,144 @@ ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
 ggsave("figures/countries/summary/Cc_gdp.pdf", width = 8, height = 4)
 
 
-C_plt <- ggplot(plot_df[!is.na(plot_df$gini.index),]) + theme_bw() + 
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = real.gdp.pc, y = C, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = real.gdp.pc, y = C, color = Period), method = "lm", se = FALSE) +
+  xlab("Real GDP p.c.") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = real.gdp.pc, y = c, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = real.gdp.pc, y = c, color = Period), method = "lm", se = FALSE) +
+  xlab("Real GDP p.c.") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_gdp_byperiod.pdf", width = 8, height = 4)
+
+
+
+
+## C and c vs Health expenditure
+plot_df1 <- plot_df[!is.na(plot_df$health.exp.pc),]
+C_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+             aes(x = health.exp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
+            aes(x = health.exp.pc, y = C, color = name)) +
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
+             aes(x = health.exp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = health.exp.pc, y = C, color = name), alpha = 0.3) +
+  geom_smooth(aes(x = health.exp.pc, y = C), method = "lm", color = "black") +
+  xlab("Health expenditure p.c.") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+             aes(x = health.exp.pc, y = c, color = name)) +
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
+            aes(x = health.exp.pc, y = c, color = name)) + 
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
+             aes(x = health.exp.pc, y = c, color = name)) +
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = health.exp.pc, y = c, color = name), alpha = 0.3) + 
+  geom_smooth(aes(x = health.exp.pc, y = c), method = "lm", color = "black") +
+  xlab("Health expenditure p.c.") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_hexp.pdf", width = 8, height = 4)
+
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc, y = C, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc, y = C, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure p.c.") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc, y = c, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc, y = c, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure p.c.") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_hexp_byperiod.pdf", width = 8, height = 4)
+
+
+## C and c vs Health expenditure/GDP
+plot_df1 <- plot_df[!is.na(plot_df$health.exp.pc/plot_df$real.gdp.pc),]
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+             aes(x = health.exp.pc/real.gdp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
+            aes(x = health.exp.pc/real.gdp.pc, y = C, color = name)) +
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
+             aes(x = health.exp.pc/real.gdp.pc, y = C, color = name), size = 1) +
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = health.exp.pc/real.gdp.pc, y = C, color = name), alpha = 0.3) +
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = C), method = "lm", color = "black") +
+  xlab("Health expenditure share of GDP") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+             aes(x = health.exp.pc/real.gdp.pc, y = c, color = name)) +
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
+            aes(x = health.exp.pc/real.gdp.pc, y = c, color = name)) + 
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
+             aes(x = health.exp.pc/real.gdp.pc, y = c, color = name)) +
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = health.exp.pc/real.gdp.pc, y = c, color = name), alpha = 0.3) + 
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = c), method = "lm", color = "black") +
+  xlab("Health expenditure share of GDP") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_hexp_share.pdf", width = 8, height = 4)
+
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc/real.gdp.pc, y = C, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = C, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure share of GDP") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc/real.gdp.pc, y = c, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = c, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure share of GDP") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_hexp_share_byperiod.pdf", width = 8, height = 4)
+
+
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc/real.gdp.pc, y = LE, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = LE, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure share of GDP") + ylab("LE") + ggtitle("LE")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = health.exp.pc/real.gdp.pc, y = h, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = health.exp.pc/real.gdp.pc, y = h, color = Period), method = "lm", se = FALSE) +
+  xlab("Health expenditure share of GDP") + ylab("h") + ggtitle("h")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/LEh_hexp_share_byperiod.pdf", width = 8, height = 4)
+
+
+
+## C and c vs inequality
+plot_df1 <- plot_df[!is.na(plot_df$gini.index),]
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
              aes(x = gini.index, y = C, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
             aes(x = gini.index, y = C, color = name)) + 
-  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
              aes(x = gini.index, y = C, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name != "Other"),], 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),], 
             aes(x = gini.index, y = C, color = name)) + 
   geom_smooth(aes(x = gini.index, y = C), method = "lm", color = "black") +
   xlab("Income Gini Index") + ylab("C") + ggtitle("C")
-c_plt <- ggplot(plot_df[!is.na(plot_df$gini.index),]) + theme_bw() + 
+c_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_point(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+  geom_point(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
              aes(x = gini.index, y = c, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.2,
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.2,
             aes(x = gini.index, y = c, color = name)) + 
-  geom_point(data = plot_df[which(plot_df$name != "Other"),],
+  geom_point(data = plot_df1[which(plot_df1$name != "Other"),],
              aes(x = gini.index, y = c, color = name)) +
-  geom_path(data = plot_df[which(plot_df$name != "Other"),],
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
             aes(x = gini.index, y = c, color = name)) + 
   geom_smooth(aes(x = gini.index, y = c), method = "lm", color = "black") +
   xlab("Income Gini Index") + ylab("c") + ggtitle("c")
@@ -316,20 +458,35 @@ ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
 ggsave("figures/countries/summary/Cc_gini.pdf", width = 8, height = 4)
 
 
+C_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = gini.index, y = C, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = gini.index, y = C, color = Period), method = "lm", se = FALSE) +
+  xlab("Income Gini Index") + ylab("C") + ggtitle("C")
+c_plt <- ggplot(plot_df1) + theme_bw() + 
+  geom_point(aes(x = gini.index, y = c, color = Period), size = 1, alpha = 0.5) +
+  geom_smooth(aes(x = gini.index, y = c, color = Period), method = "lm", se = FALSE) +
+  xlab("Income Gini Index") + ylab("c") + ggtitle("c")
+ggarrange(c_plt, C_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "right")
+ggsave("figures/countries/summary/Cc_gini_byperiod.pdf", width = 8, height = 4)
 
- 
-model1 <- felm(c ~ gini.index + real.gdp.pc, data = plot_df)
+
+
+## Regressions
+plot_df$health.share <- plot_df$health.exp.pc/plot_df$real.gdp.pc
+  
+model1 <- felm(c ~ gini.index + real.gdp.pc + health.share, data = plot_df)
 summary(model1)
-model2 <- felm(c ~ gini.index + real.gdp.pc| year, data = plot_df)
+model2 <- felm(c ~ gini.index + real.gdp.pc + health.share| year, data = plot_df)
 summary(model2)
-model3 <- felm(c ~ real.gdp.pc | year, data = plot_df)
+model3 <- felm(c ~ real.gdp.pc + health.share| year, data = plot_df)
 summary(model3)
 
-model4 <- felm(C ~ gini.index + real.gdp.pc, data = plot_df)
+model4 <- felm(C ~ gini.index + real.gdp.pc + health.share, data = plot_df)
 summary(model4)
-model5 <- felm(C ~ gini.index + real.gdp.pc| year, data = plot_df)
+model5 <- felm(C ~ gini.index + real.gdp.pc + health.share| year, data = plot_df)
 summary(model5)
-model6 <- felm(C ~ real.gdp.pc | year, data = plot_df)
+model6 <- felm(C ~ real.gdp.pc + health.share | year, data = plot_df)
 summary(model6)
 
 stargazer(model1, model2, model3, model4, model5, model6,
@@ -338,15 +495,15 @@ stargazer(model1, model2, model3, model4, model5, model6,
 
 
 
-model1 <- felm(LE ~ gini.index + real.gdp.pc| year, data = plot_df)
+model1 <- felm(LE ~ gini.index + real.gdp.pc + health.share | year, data = plot_df)
 summary(model1)
-model2 <- felm(Lmed ~ gini.index + real.gdp.pc| year, data = plot_df)
+model2 <- felm(Lmed ~ gini.index + real.gdp.pc + health.share | year, data = plot_df)
 summary(model2)
-model3 <- felm(Lstar ~ gini.index + real.gdp.pc| year, data = plot_df)
+model3 <- felm(Lstar ~ gini.index + real.gdp.pc + health.share | year, data = plot_df)
 summary(model3)
-model4 <- felm(H ~ gini.index + real.gdp.pc| year, data = plot_df)
+model4 <- felm(H ~ gini.index + real.gdp.pc + health.share | year, data = plot_df)
 summary(model4)
-model5 <- felm(h ~ gini.index + real.gdp.pc| year, data = plot_df)
+model5 <- felm(h ~ gini.index + real.gdp.pc + health.share | year, data = plot_df)
 summary(model5)
 
 stargazer(model1, model2, model3, model4, model5,
