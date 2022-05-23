@@ -89,6 +89,9 @@ for yy in 1:nrow(lifespan_df)
     lifespan_df.Lstar_90[yy] = minimum(Lstar_emp)
 end
 
+CSV.write("data/clean/BP_lifespan_5y.csv", lifespan_df)
+
+
 # Adjust if you don't want every period
 periods = Int.(1:T)
 years_selected = Int.(round.(country_years[periods]))
