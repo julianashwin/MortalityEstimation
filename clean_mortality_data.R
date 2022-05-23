@@ -188,7 +188,7 @@ rm(ex_df,current_ex_df)
 Get five year average
 "
 # Collapse down to averages over 5 year intervals
-lifetab_5y_df <- lifetab_df
+lifetab_5y_df <- lifetab_df[which(lifetab_df$year <= 2020),]
 lifetab_5y_df$years <- as.character(cut(lifetab_5y_df$year, seq(1750, 2020, 5)) )
 lifetab_5y_df <- ddply(lifetab_5y_df, .(code, years, age), numcolwise(mean))
 
@@ -703,6 +703,9 @@ ggarrange(bp_m_plt, bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=4, common.legen
           legend = "right")
 ggsave("figures/data/best_practice_5y_data.pdf", width = 16, height = 4)
 
+plt1 <- ggarrange(bp_m_plt, bp_s_plt, nrow = 1, ncol=2, common.legend = TRUE,
+          legend = "left")
+
 
 
 bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
@@ -715,9 +718,11 @@ bp_h_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) +
   geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
   scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
   xlab("Year") + ylab("Lifespan Equality at birth")
-ggarrange(bp_le_plt, bp_h_plt, nrow = 1, ncol=2, common.legend = TRUE,
+plt2 <- ggarrange(bp_le_plt, bp_h_plt, nrow = 1, ncol=2, common.legend = TRUE,
           legend = "right")
-ggsave("figures/data/best_practice_5y_LEh.pdf", width = 8, height = 4)
+
+ggarrange(plt1, plt2, nrow = 1, ncol=2, common.legend = FALSE)
+ggsave("figures/data/best_practice_5y_summary.pdf", width = 16, height = 4)
 
 
 

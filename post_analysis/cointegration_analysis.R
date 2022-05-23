@@ -70,6 +70,17 @@ bp_df <- bp_df[,names(all_df)]
 #all_df <- rbind(all_df, bp_df)
 
 
+cC_df <- all_df[which(all_df$parameter %in% c("C","c")),c("code", "name", "year","parameter", "median")]
+cC_df <- data.frame(pivot_wider(cC_df, id_cols = c(code, year), names_from = parameter, 
+                                values_from = c(median)))
+cC_df <- data.frame(pivot_wider(cC_df, id_cols = c(year), names_from = code, 
+                                       names_glue = "{.value}_{code}", values_from = c(c, C)))
+cC_df <- cC_df <- cC_df[order(cC_df$year),]
+write.csv(cC_df, "data/results/cC_panel.csv", row.names = FALSE)
+rm(cC_df)
+
+
+
 # Economic inequality data
 ineq_df1 <- read.csv("data/economic-inequality/economic-inequality-gini-index.csv", 
                     stringsAsFactors = FALSE)
@@ -474,23 +485,134 @@ ggsave("figures/countries/summary/Cc_gini_byperiod.pdf", width = 8, height = 4)
 
 ## Regressions
 plot_df$health.share <- plot_df$health.exp.pc/plot_df$real.gdp.pc
-  
-model1 <- felm(c ~ gini.index + real.gdp.pc + health.share, data = plot_df)
+
+plot_df <- plot_df[order(plot_df$code, plot_df$year),]
+plot_df$year_num <- as.numeric(as.factor(plot_df$year))
+
+write.csv(plot_df, "data/results/econ_panel.csv", row.names = FALSE)
+
+
+panel_df <- pdata.frame(data.frame(plot_df), index = c("code", "year_num"))
+panel_df <- panel_df[which(panel_df$year < 2020),]
+
+# Lags
+panel_df$gini.index_1lag <- plm::lag(panel_df$gini.index, 1)
+panel_df$real.gdp.pc_1lag <- plm::lag(panel_df$real.gdp.pc, 1)
+panel_df$health.share_1lag <- plm::lag(panel_df$health.share, 1)
+panel_df$c_1lag <- plm::lag(panel_df$c, 1)
+panel_df$C_1lag <- plm::lag(panel_df$C, 1)
+# First diffs
+panel_df$gini.index_diff <- panel_df$gini.index - panel_df$gini.index_1lag
+panel_df$real.gdp.pc_diff <- panel_df$real.gdp.pc - panel_df$real.gdp.pc_1lag
+panel_df$health.share_diff <- panel_df$health.share - panel_df$health.share_1lag
+panel_df$c_diff <- panel_df$c - panel_df$c_1lag
+panel_df$C_diff <- panel_df$C - panel_df$C_1lag
+
+names(panel_df) <- str_replace(names(panel_df), "α", "alpha")
+names(panel_df) <- str_replace(names(panel_df), "σ", "sigma")
+
+write.csv(panel_df, "data/results/econ_panel.csv", row.names = FALSE)
+
+
+
+require(plm)
+
+# c on econ
+model1 <- felm(c ~ gini.index + real.gdp.pc + health.share, data = panel_df)
 summary(model1)
-model2 <- felm(c ~ gini.index + real.gdp.pc + health.share| year, data = plot_df)
+model1a <- felm(c ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model1a)
+model1b <- felm(c ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model1b)
+# c with period f.e.
+model2 <- felm(c ~ gini.index + real.gdp.pc + health.share| year, data = panel_df)
 summary(model2)
-model3 <- felm(c ~ real.gdp.pc + health.share| year, data = plot_df)
+model2a <- felm(c ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag| year, data = panel_df)
+summary(model2a)
+model2b <- felm(c ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag| year, data = panel_df)
+summary(model2b)
+# c with period and country f.e.
+model3 <- felm(c ~ gini.index + real.gdp.pc + health.share| code + year, data = panel_df)
 summary(model3)
+model3a <- felm(c ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag| code + year, data = panel_df)
+summary(model3a)
+model3b <- felm(c ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag| code + year, data = panel_df)
+summary(model3b)
 
-model4 <- felm(C ~ gini.index + real.gdp.pc + health.share, data = plot_df)
-summary(model4)
-model5 <- felm(C ~ gini.index + real.gdp.pc + health.share| year, data = plot_df)
-summary(model5)
-model6 <- felm(C ~ real.gdp.pc + health.share | year, data = plot_df)
-summary(model6)
+stargazer(model1, model1a, model1b, model2, model2a, model2b, model3, model3a, model3b,
+          table.placement = "H", df = FALSE, title = "c (rectangularisation) on econ variables")
 
-stargazer(model1, model2, model3, model4, model5, model6,
-          table.placement = "H", df = FALSE)
+# C on econ
+model1 <- felm(C ~ gini.index + real.gdp.pc + health.share, data = panel_df)
+summary(model1)
+model1a <- felm(C ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model1a)
+model1b <- felm(C ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model1b)
+# C with period f.e.
+model2 <- felm(C ~ gini.index + real.gdp.pc + health.share| year, data = panel_df)
+summary(model2)
+model2a <- felm(C ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag| year, data = panel_df)
+summary(model2a)
+model2b <- felm(C ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag| year, data = panel_df)
+summary(model2b)
+# C with period and country f.e.
+model3 <- felm(C ~ gini.index + real.gdp.pc + health.share| code + year, data = panel_df)
+summary(model3)
+model3a <- felm(C ~ gini.index_1lag + real.gdp.pc_1lag + health.share_1lag| code + year, data = panel_df)
+summary(model3a)
+model3b <- felm(C ~ gini.index + real.gdp.pc + health.share + gini.index_1lag + 
+                  real.gdp.pc_1lag + health.share_1lag| code + year, data = panel_df)
+summary(model3b)
+
+stargazer(model1, model1a, model1b, model2, model2a, model2b, model3, model3a, model3b,
+          table.placement = "H", df = FALSE, title = "C (elongation) on econ variables")
+
+
+xs_df2013 <- plot_df[which(plot_df$year == 2013),]
+model1 <- lm(c ~ gini.index + real.gdp.pc + health.share, data = xs_df2013)
+summary(model1)
+model2 <- lm(C ~ gini.index + real.gdp.pc + health.share, data = xs_df2013)
+summary(model2)
+stargazer(model1, model2, table.placement = "H", df = FALSE, 
+          title = "2013 Cross-section")
+
+
+### ECM ###
+model1 <- felm(c_diff ~ c_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                 gini.index_1lag + real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model1)
+model1a <- felm(c_diff ~ c_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                 gini.index_1lag + real.gdp.pc_1lag + health.share_1lag | year, data = panel_df)
+summary(model1a)
+model1b <- felm(c_diff ~ c_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                  gini.index_1lag + real.gdp.pc_1lag + health.share_1lag | code + year, data = panel_df)
+summary(model1b)
+
+
+model2 <- felm(C_diff ~ C_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                 gini.index_1lag + real.gdp.pc_1lag + health.share_1lag, data = panel_df)
+summary(model2)
+model2a <- felm(C_diff ~ C_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                  gini.index_1lag + real.gdp.pc_1lag + health.share_1lag | year, data = panel_df)
+summary(model2a)
+model2b <- felm(C_diff ~ C_1lag + gini.index_diff + real.gdp.pc_diff + health.share_diff + 
+                  gini.index_1lag + real.gdp.pc_1lag + health.share_1lag | code + year, data = panel_df)
+summary(model2b)
+
+stargazer(model1, model1a, model1b, model2, model2a, model2b,
+          table.placement = "H", df = FALSE, title = "ECM type regressions for c and C econ variables")
+
+
+
+
+
+
 
 
 

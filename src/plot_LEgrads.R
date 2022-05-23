@@ -33,6 +33,10 @@ for (ii in 1:length(import_files)){
 }
 rm(country_df)
 
+
+econ_panel_df <- read.csv("data/results/econ_panel.csv", stringsAsFactors = FALSE)
+
+
 # Merge in full names
 mort_df <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
 mort_df <- mort_df[which(mort_df$age == 0),]
@@ -75,6 +79,21 @@ plot_df$LE0 <- plot_df$LE
 plot_df$LE0[which(plot_df$age != 0)] <- NA
 plot_df <- plot_df[order(plot_df$code, plot_df$year, plot_df$age),]
 plot_df$LE0 <- na.locf(plot_df$LE0, fromLast = FALSE)
+
+
+temp_df <- plot_df[plot_df$age %in% c(0, 80),]
+temp_df <- merge(temp_df, econ_panel_df[,c("code", "year", "c", "C")], by = c("code", "year"),
+                 all.x = T)
+temp_df <- temp_df[,c("code", "year", "age", "LE", "Lstar", "c", "C")]
+temp_df <- temp_df[!duplicated(temp_df),]
+temp_df <- data.frame(pivot_wider(temp_df, id_cols = c(code, year,Lstar, c, C) , 
+                                  names_from = age, names_glue = "{.value}_{age}",
+                                  values_from = c(LE)))
+temp_df <- data.frame(pivot_wider(temp_df, id_cols = c( year) , 
+                                  names_from = code, names_glue = "{code}_{.value}",
+                                  values_from = c( Lstar, c, C, LE_0, LE_80)))
+write.csv(temp_df, "data/results/Lstar_C_LEa.csv", row.names = FALSE)
+rm(temp_df)
 
 # LE(0) vs h(a) for different ages 
 plot_df1 <- plot_df[plot_df$age %in% c(0, 50,70,80),]
@@ -194,8 +213,122 @@ ggsave(paste0(folder,"LEgrads_bB.pdf"), width = 10, height = 4)
 
 
 
-plot_df <- LEgrad_df[which(LEgrad_df$age == 0),]
+plot_df <- bp_df[which(bp_df$age == 0 & bp_df$Forecast == "Estimate"),]
 
-ggplot(plot_df) + theme_bw() +
-  geom_line(aes(x = year, y = Lstar_Cs))
+LEgrad_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
+  scale_color_manual("Gradient w.r.t.", values = c("c" = "blue", "C" = "forestgreen")) + 
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  geom_line(aes(x = year, y = LE_Cs, color = "C")) +
+  geom_line(aes(x = year, y = LE_cs/max(LE_cs), color = "c")) +
+  scale_y_continuous(expression(LE[C]~at~birth), sec.axis = sec_axis(
+    ~ . *max(plot_df$LE_cs), name = expression(LE[c]~at~birth)))
+
+# Actual max of h_cs is around 10
+hgrad_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
+  scale_color_manual("Gradient w.r.t.", values = c("c" = "blue", "C" = "forestgreen")) + 
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  geom_line(aes(x = year, y = h_Cs, color = "C")) +
+  geom_line(aes(x = year, y = h_cs*(max(h_Cs)/max(h_cs)), color = "c")) +
+  scale_y_continuous(expression(h[C]~at~birth), sec.axis = sec_axis(
+    ~ . *(max(plot_df$h_Cs)/max(plot_df$h_cs)), name = expression(h[c]~at~birth)))
+
+ggarrange(LEgrad_plt, hgrad_plt, nrow = 1, ncol=2, common.legend = TRUE, 
+          legend = "right")
+ggsave("figures/benchmark/LEgrad_hgrad_birth.pdf", width = 8, height = 4)
+
+
+
+
+
+"
+LE(0) and LE(80) versus L*-C
+"
+plot_df <- LEgrad_df[which(LEgrad_df$year > 1900),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
+extra_obs$Forecast <- "Forecast"
+plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
+# Include some years as labels
+plot_df$year_label <- NA
+plot_df$year_label[which(plot_df$year==1903)] <- 1903
+plot_df$year_label[which(plot_df$year==1933)] <- 1933
+plot_df$year_label[which(plot_df$year==1963)] <- 1963
+plot_df$year_label[which(plot_df$year==1993)] <- 1993
+plot_df$year_label[which(plot_df$year==2023)] <- 2023
+plot_df <- plot_df[order(plot_df$code, plot_df$year),]
+
+plot_df1 <- plot_df[plot_df$age %in% c(0, 80),]
+plot_df1 <- merge(plot_df1, econ_panel_df[,c("code", "year", "c", "C")], by = c("code", "year"),
+                 all.x = T)
+plot_df1 <- plot_df1[,c("code", "name", "year", "year_label", "age", "Forecast", "LE", "Lstar", "c", "C")]
+plot_df1 <- data.frame(pivot_wider(plot_df1, id_cols = c(code, name, year, year_label, Forecast, Lstar, c, C) , 
+                                  names_from = age, names_glue = "{.value}_{age}",
+                                  values_from = c(LE)))
+
+LE0_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_0, y = Lstar-C, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = Lstar-C, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = Lstar-C, color = name, label = year_label), show.legend=FALSE, size = 1) +
+  xlab("LE(0)") + ylab("L*-C") + guides(color=guide_legend(ncol=2))
+
+LE80_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_80, y = Lstar-C, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-C, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-C, color = name, label = year_label), show.legend=FALSE, size = 1) +
+  xlab("LE(80)") + ylab("L*-C") + guides(color=guide_legend(ncol=2))
+
+ggarrange(LE0_plt, LE80_plt, nrow = 1, ncol=2, common.legend = TRUE, 
+          legend = "right")
+ggsave("figures/benchmark/LE0LE80_Lstar_C.pdf", width = 10, height = 5)
+
+
+
+
+
+"
+Model lifespan vs data lifespan
+"
+
+parests_pred <- read.csv("figures/benchmark/siler_i2drift_preds.csv", stringsAsFactors = F)
+Lstar_df <- parests_pred[which(str_detect(parests_pred$parameter, "Lstar")),
+                         c("year", "forecast", "parameter", "median")]
+Lstar_df$parameter <- paste0(Lstar_df$parameter, "_mod")
+Lstar_df <- pivot_wider(Lstar_df, id_cols = c(year, forecast), 
+                        names_from = parameter, values_from = median)
+
+lifespan_df <- read.csv("data/clean/BP_lifespan_5y.csv", stringsAsFactors = F)
+Lstar_df <- merge(Lstar_df, lifespan_df, by = "year", all.x = TRUE)
+
+ggplot(Lstar_df) + theme_bw() + 
+  geom_line(aes(x = year, y = Lstar_99p9_mod, color = "1) 99.9%")) + 
+  geom_point(aes(x = year, y = Lstar_99p9, color = "1) 99.9%")) + 
+  geom_line(aes(x = year, y = Lstar_99_mod, color = "2) 99%")) + 
+  geom_point(aes(x = year, y = Lstar_99, color = "2) 99%")) + 
+  geom_line(aes(x = year, y = Lstar_95_mod, color = "3) 95%")) + 
+  geom_point(aes(x = year, y = Lstar_95, color = "3) 95%")) + 
+  geom_line(aes(x = year, y = Lstar_90_mod, color = "4) 90%")) + 
+  geom_point(aes(x = year, y = Lstar_90, color = "4) 90%")) + 
+  ylab("LIfespan") + xlab("Year")
+ggsave("figures/benchmark/Lstar_defs_modelfit.pdf", width = 6, height = 4)
+
+  
+
+
+
+"
+End of script
+"
 

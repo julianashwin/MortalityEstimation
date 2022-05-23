@@ -32,11 +32,6 @@ all_df = CSV.read("data/clean/all_lifetab_5y.csv", DataFrame, ntasks = 1)
 # Extract the best practice series
 bp_df = all_df[(all_df.best_practice .== 1) .& (all_df.year .>= 1900), :]
 sort!(bp_df, [:year, :age])
-bp_alt_df = all_df[(all_df.best_practice_alt .== 1) .& (all_df.year .>= 1900), :]
-sort!(bp_alt_df, [:year, :age])
-# Also a special case for whole sample period in SWE
-swe_df = all_df[(all_df.code .== "SWE"),:]
-sort!(swe_df, [:year, :age])
 # And a general post 1900 df
 mort_df = all_df[(all_df.year .>= 1900), :]
 sort!(mort_df, [:code, :year, :age])
@@ -69,18 +64,29 @@ T = length(country_lm_data)
 @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
 
-lifespan_df = DataFrame(year = unique(country_df.year), Lstar = 0.)
+lifespan_df = DataFrame(year = unique(country_df.year), Lstar_99p9 = 0.,
+    Lstar_99 = 0., Lstar_95 = 0., Lstar_90 = 0.)
 for yy in 1:nrow(lifespan_df)
     year = lifespan_df.year[yy]
     year_df = country_df[country_df.year .== year,:]
     plot(year_df.age, year_df.lx_f)
+    # 99.9%
     Lstar_emp = year_df.age[year_df.lx_f .<= 0.001]
     if length(Lstar_emp) > 0
         Lstar_emp = minimum(Lstar_emp)
     else
         Lstar_emp = 110
     end
-    lifespan_df.Lstar[yy] = Lstar_emp
+    lifespan_df.Lstar_99p9[yy] = Lstar_emp
+    # 99%
+    Lstar_emp = year_df.age[year_df.lx_f .<= 0.01]
+    lifespan_df.Lstar_99[yy] = minimum(Lstar_emp)
+    # 95%
+    Lstar_emp = year_df.age[year_df.lx_f .<= 0.05]
+    lifespan_df.Lstar_95[yy] = minimum(Lstar_emp)
+    # 90%
+    Lstar_emp = year_df.age[year_df.lx_f .<= 0.1]
+    lifespan_df.Lstar_90[yy] = minimum(Lstar_emp)
 end
 
 # Adjust if you don't want every period

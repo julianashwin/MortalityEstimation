@@ -402,7 +402,10 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
     hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
-    Lstars = Symbol.("Lstar[".*string.(1:length(years)+nahead).*"]")
+    Lstars_99p9 = Symbol.("Lstar_99p9[".*string.(1:length(years)+nahead).*"]")
+    Lstars_99 = Symbol.("Lstar_99[".*string.(1:length(years)+nahead).*"]")
+    Lstars_95 = Symbol.("Lstar_95[".*string.(1:length(years)+nahead).*"]")
+    Lstars_90 = Symbol.("Lstar_90[".*string.(1:length(years)+nahead).*"]")
     Lmeds = Symbol.("Lmed[".*string.(1:length(years)+nahead).*"]")
     impl_vars = vcat(LEs, Hs, hs, Lstars)
     df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
@@ -413,7 +416,10 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
         df_post[:, LEs[ii]] = LE.(params, [0.0], spec = spec)
         df_post[:, Hs[ii]] = H.(params, [0.0], spec = spec)
         df_post[:, hs[ii]] = h.(params, [0.0], spec = spec)
-        df_post[:, Lstars[ii]] = lifespan.(params, Sstar = 0.001, spec = spec)
+        df_post[:, Lstars_99p9[ii]] = lifespan.(params, Sstar = 0.001, spec = spec)
+        df_post[:, Lstars_99[ii]] = lifespan.(params, Sstar = 0.01, spec = spec)
+        df_post[:, Lstars_95[ii]] = lifespan.(params, Sstar = 0.05, spec = spec)
+        df_post[:, Lstars_90[ii]] = lifespan.(params, Sstar = 0.1, spec = spec)
         df_post[:, Lmeds[ii]] = Lmed.(params, [0.0], spec = spec)
         next!(prog)
     end
@@ -478,7 +484,10 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
     LEs = Symbol.("LE[".*string.(1:length(years)+nahead).*"]")
     Hs = Symbol.("H[".*string.(1:length(years)+nahead).*"]")
     hs = Symbol.("h[".*string.(1:length(years)+nahead).*"]")
-    Lstars = Symbol.("Lstar[".*string.(1:length(years)+nahead).*"]")
+    Lstars_99p9 = Symbol.("Lstar_99p9[".*string.(1:length(years)+nahead).*"]")
+    Lstars_99 = Symbol.("Lstar_99[".*string.(1:length(years)+nahead).*"]")
+    Lstars_95 = Symbol.("Lstar_95[".*string.(1:length(years)+nahead).*"]")
+    Lstars_90 = Symbol.("Lstar_90[".*string.(1:length(years)+nahead).*"]")
     Lmeds = Symbol.("Lmed[".*string.(1:length(years)+nahead).*"]")
 
     # Extend dataframe to account for forward simulations
@@ -571,7 +580,11 @@ function compute_forecasts(df_post, nahead, ndraws, years; spec = :Bergeron, mod
             df_particle[:,LEs[Tptt]] = LE.(params, [0.0], spec = spec)
             df_particle[:,Hs[Tptt]] = H.(params, [0.0], spec = spec)
             df_particle[:,hs[Tptt]] = h.(params, [0.0], spec = spec)
-            df_particle[:,Lstars[Tptt]] = lifespan.(params, Sstar = 0.001, spec = spec)
+            df_particle[:, Lstars_99p9[Tptt]] = lifespan.(params, Sstar = 0.001, spec = spec)
+            df_particle[:, Lstars_99[Tptt]] = lifespan.(params, Sstar = 0.01, spec = spec)
+            df_particle[:, Lstars_95[Tptt]] = lifespan.(params, Sstar = 0.05, spec = spec)
+            df_particle[:, Lstars_90[Tptt]] = lifespan.(params, Sstar = 0.1, spec = spec)
+            #df_particle[:,Lstars[Tptt]] = lifespan.(params, Sstar = 0.001, spec = spec)
             df_particle[:,Lmeds[Tptt]] = Lmed.(params, [0.0], spec = spec)
 
             next!(prog)
@@ -705,18 +718,27 @@ function extract_forecast_variables(df_pred, past_years::Vector{Int64}, fut_year
     LEs = Symbol.("LE[".*string.(1:length(all_years)).*"]")
     Hs = Symbol.("H[".*string.(1:length(all_years)).*"]")
     hs = Symbol.("h[".*string.(1:length(all_years)).*"]")
-    Lstars = Symbol.("Lstar[".*string.(1:length(all_years)).*"]")
+    Lstars_99p9 = Symbol.("Lstar_99p9[".*string.(1:length(all_years)).*"]")
+    Lstars_99 = Symbol.("Lstar_99[".*string.(1:length(all_years)).*"]")
+    Lstars_95 = Symbol.("Lstar_95[".*string.(1:length(all_years)).*"]")
+    Lstars_90 = Symbol.("Lstar_90[".*string.(1:length(all_years)).*"]")
+    #Lstars = Symbol.("Lstar[".*string.(1:length(all_years)).*"]")
     Lmeds = Symbol.("Lmed[".*string.(1:length(all_years)).*"]")
 
 
     LE_ests = summarise_forecasts(df_in[:,LEs], all_years, parname = :LE)
     H_ests = summarise_forecasts(df_in[:,Hs], all_years, parname = :H)
     h_ests = summarise_forecasts(df_in[:,hs], all_years, parname = :h)
-    Lstar_ests = summarise_forecasts(df_in[:,Lstars], all_years, parname = :Lstar)
+    Lstar_99p9_ests = summarise_forecasts(df_in[:,Lstars_99p9], all_years, parname = :Lstar_99p9)
+    Lstar_99_ests = summarise_forecasts(df_in[:,Lstars_99], all_years, parname = :Lstar_99)
+    Lstar_95_ests = summarise_forecasts(df_in[:,Lstars_95], all_years, parname = :Lstar_95)
+    Lstar_90_ests = summarise_forecasts(df_in[:,Lstars_90], all_years, parname = :Lstar_90)
+    #Lstar_ests = summarise_forecasts(df_in[:,Lstars], all_years, parname = :Lstar)
     Lmed_ests = summarise_forecasts(df_in[:,Lmeds], all_years, parname = :Lmed)
 
 
-    par_ests = vcat(par_ests, LE_ests, H_ests, h_ests, Lstar_ests, Lmed_ests)
+    par_ests = vcat(par_ests, LE_ests, H_ests, h_ests, Lstar_99p9_ests, Lstar_99_ests,
+        Lstar_95_ests, Lstar_90_ests, Lmed_ests)
 
 
     insertcols!(par_ests, 2, :forecast => repeat([0], nrow(par_ests)) )
