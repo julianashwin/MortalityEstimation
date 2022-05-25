@@ -7,6 +7,8 @@ require(HMDHFDplus)
 require(stringr)
 require(plyr)
 require(zoo)
+require(reshape2)
+
 
 
 # Import Best practice gradients
@@ -265,7 +267,7 @@ plot_df1 <- plot_df1[,c("code", "name", "year", "year_label", "age", "Forecast",
 plot_df1 <- data.frame(pivot_wider(plot_df1, id_cols = c(code, name, year, year_label, Forecast, Lstar, c, C) , 
                                   names_from = age, names_glue = "{.value}_{age}",
                                   values_from = c(LE)))
-
+### L*-C vs LE
 LE0_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
   geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
@@ -293,6 +295,53 @@ LE80_plt <- ggplot(plot_df1) + theme_bw() +
 ggarrange(LE0_plt, LE80_plt, nrow = 1, ncol=2, common.legend = TRUE, 
           legend = "right")
 ggsave("figures/benchmark/LE0LE80_Lstar_C.pdf", width = 10, height = 5)
+
+### L*-LE vs LE
+LE0_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_0, y = Lstar-LE_0, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = Lstar-LE_0, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = Lstar-LE_0, color = name, label = year_label), show.legend=FALSE, size = 1) +
+  xlab("LE(0)") + ylab("L*-LE(0)") + guides(color=guide_legend(ncol=2))
+
+LE80_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_80, y = Lstar-LE_80-80, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-LE_80-80, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-LE_80-80, color = name, label = year_label), show.legend=FALSE, size = 1) +
+  xlab("LE(80)") + ylab("L*-LE(80)-80") + guides(color=guide_legend(ncol=2))
+
+ggarrange(LE0_plt, LE80_plt, nrow = 1, ncol=2, common.legend = TRUE, 
+          legend = "right")
+ggsave("figures/benchmark/LE0LE80_Lstar_LE.pdf", width = 10, height = 5)
+
+
+
+### L*-C vs C
+ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_0, y = C-LE_0, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = C-LE_0, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_0, y = C-LE_0, color = name, label = year_label), show.legend=FALSE, size = 1) +
+  #geom_abline(intercept = 10, slope = 1, size = 0.5) +
+  xlab("LE(0)") + ylab("C-LE(0)") + guides(color=guide_legend(ncol=2))
+  
+#ggsave("figures/benchmark/LE0LE80_Lstar_LE.pdf", width = 10, height = 5)
 
 
 
@@ -325,6 +374,67 @@ ggplot(Lstar_df) + theme_bw() +
 ggsave("figures/benchmark/Lstar_defs_modelfit.pdf", width = 6, height = 4)
 
   
+
+
+
+
+
+
+"
+Out of sample forecasts
+"
+
+forecasts_df <- read.csv("figures/benchmark/held-out/siler_i2drift_preds_all.csv", stringsAsFactors = F)
+forecasts_df <- forecasts_df[which(forecasts_df$parameter == "LE"),]
+forecasts_df$Forecast <- "Estimate"
+forecasts_df$Forecast[which(forecasts_df$forecast == 1)] <- "Forecast"
+forecasts_df$`Estimation Year` <- as.character(forecasts_df$est_year)
+
+
+bp_data_df <- mort_df[which(mort_df$best_practice == 1 & mort_df$age == 0 & 
+                              mort_df$year > 1900),]
+bp_data_df <- bp_data_df[order(bp_data_df$year),]
+
+ggplot() + theme_bw() + 
+  geom_ribbon(data=forecasts_df, aes(x = year, ymin = pc15, ymax = pc85, fill = `Estimation Year`,
+              group = interaction(`Estimation Year`, Forecast)), alpha = 0.3) + 
+  geom_point(data=bp_data_df, aes(x = year, y = ex_f), shape = 3) + 
+  xlab("Year") + ylab("Life expectancy at birth")
+ggsave("figures/benchmark/LE_oos_forecasts.pdf", width = 6, height = 3)
+
+
+
+"
+Remaining LE by age group
+"
+rle_df <- read.csv("figures/benchmark/siler_i2drift_rle_ages.csv", stringsAsFactors = F)
+# Reshape for empirical measures
+rle_data_df <- melt(rle_df[,c("year", names(rle_df)[which(str_detect(names(rle_df), "ex"))])],
+               id = c("year"), value.name = "LE_data",
+               variable.name = "Age")
+rle_data_df$Age <- str_replace(rle_data_df$Age, "ex","")
+# Reshape for model implied measures
+rle_model_df <- melt(rle_df[,c("year", names(rle_df)[which(str_detect(names(rle_df), "LE"))])],
+                    id = c("year"), value.name = "LE_mod",
+                    variable.name = "Age")
+rle_model_df$Age <- str_replace(rle_model_df$Age, "LE","")
+# Combine again
+rle_df <- merge(rle_data_df, rle_model_df, by = c("year", "Age"))
+rle_df$Age <- factor(rle_df$Age, 
+                     levels = unique(rle_df$Age)[order(as.numeric(rle_df$Age))])
+rle_df$Forecast <- "Estimate"
+rle_df$Forecast[which(rle_df$year > 2018)] <- "Forecast"
+extra_obs <- rle_df[which(rle_df$year == 2018),]
+extra_obs$Forecast <- "Forecast"
+plot_df <- rbind(rle_df, extra_obs)
+
+
+# Plot
+ggplot(plot_df[which(plot_df$Age != 100),]) + theme_bw() + 
+  geom_point(aes(x = year, y = LE_data, color = Age)) + 
+  geom_line(aes(x = year, y = LE_mod, color = Age, linetype = Forecast)) + 
+  xlab("Year") + ylab("Remaining Life Expectancy") +guides(color=guide_legend(ncol=2))
+ggsave("figures/benchmark/rLE_byage.pdf", width = 6, height = 3)
 
 
 

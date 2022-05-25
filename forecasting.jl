@@ -130,12 +130,12 @@ Check the life expectancy at later ages
 # Which extra ages do we want?
 eval_ages = Int.(0:10:90)
 # Add extra rows for these remianing life expectancies
-rle_df = DataFrame(year = unique(parests_pred_col.year[parests_pred_col.year.>0]), LE0 = 0.)
+rle_df = DataFrame(year = unique(parests_pred.year[parests_pred.year.>0]), LE0 = 0.)
 for eval_age in eval_ages
     rle_df[:,Symbol("LE"*string(eval_age))] .= NaN
     rle_df[:,Symbol("ex"*string(eval_age))] .= NaN
     for yy in rle_df.year
-        year_df = parests_pred_col[parests_pred_col.year .== yy,:]
+        year_df = parests_pred[parests_pred.year .== yy,:]
         params = SilerParam(b = year_df.median[year_df.parameter.==:b][1],
             B = year_df.median[year_df.parameter.==:B][1],
             c = year_df.median[year_df.parameter.==:c][1],
@@ -176,7 +176,7 @@ vline!([2020,2020], linestyle=:dot, color = :black, label = false, ylims = (0,10
 plot!(size = (600,300))
 savefig(folder*"/siler_"*model*"_rle_dist_pred.pdf")
 
-
+CSV.write("figures/benchmark/siler_"*model*"_rle_ages.csv", rle_df)
 
 
 """
