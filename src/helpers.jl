@@ -768,7 +768,8 @@ function compute_LEgrad_df(decomp_pred; ages = 0:140)
         :Lstar, :Lstar_Bs, :Lstar_bs, :Lstar_Cs, :Lstar_cs, :Lstar_ds, :Lstar_cC,
         :Lmed, :Lmed_Bs, :Lmed_bs, :Lmed_Cs, :Lmed_cs, :Lmed_ds, :Lmed_cC,
         :h, :h_Bs, :h_bs, :h_Cs, :h_cs, :h_ds, :h_cC,
-        :H, :H_Bs, :H_bs, :H_Cs, :H_cs, :H_ds, :H_cC]
+        :H, :H_Bs, :H_bs, :H_Cs, :H_cs, :H_ds, :H_cC,
+        :mortality, :survival]
     LEgrad_df = hcat(LEgrad_df,DataFrame(NaN.*zeros(nrow(LEgrad_df), length(grad_vars)), grad_vars))
     # Loop over each year
     prog = Progress(length(all_years), desc = "Computing gradient df: ")
@@ -817,6 +818,10 @@ function compute_LEgrad_df(decomp_pred; ages = 0:140)
         LEgrad_df.h_cs[out_obs] = hgrad.([params], ages, [:c], spec = :Bergeron)
         LEgrad_df.h_ds[out_obs] = hgrad.([params], ages, [:d], spec = :Bergeron)
         LEgrad_df.h_cC[out_obs] = hcross.([params], ages, [:c], [:C], spec = :Bergeron)
+
+
+        LEgrad_df.mortality[out_obs] = siler.([params], ages; spec = :Bergeron)
+        LEgrad_df.survival[out_obs] = siler_S.([params], [0.0], ages; spec = :Bergeron)
         next!(prog)
     end
 

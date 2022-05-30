@@ -128,7 +128,7 @@ sum(decomp_post2020.ΔC.*decomp_post2020.LE_C)/sum(decomp_post2020.ΔLE_mod)
 Check the life expectancy at later ages
 """
 # Which extra ages do we want?
-eval_ages = Int.(0:10:90)
+eval_ages = Int.(0:10:100)
 # Add extra rows for these remianing life expectancies
 rle_df = DataFrame(year = unique(parests_pred.year[parests_pred.year.>0]), LE0 = 0.)
 for eval_age in eval_ages

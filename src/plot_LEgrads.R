@@ -8,6 +8,7 @@ require(stringr)
 require(plyr)
 require(zoo)
 require(reshape2)
+require(tidyr)
 
 
 
@@ -47,7 +48,7 @@ LEgrad_df <- LEgrad_df[which(LEgrad_df$year > 0),]
 
 LEgrad_df$code <- str_replace(LEgrad_df$code, "NZL_NM", "NZL")
 
-temp_df <- LEgrad_df[LEgrad_df$code == "USA",]
+#temp_df <- LEgrad_df[LEgrad_df$code == "USA",]
 
 # Colour scheme
 col_scheme <- c("Other" = "gray",
@@ -166,7 +167,7 @@ bp_lecC_plt <- ggplot(bp_df) + theme_bw() +
   scale_color_gradientn(colours = rainbow(5), name = "Year") + 
   xlab("Age") + ylab("Cross-derivative") + 
   ggtitle(expression(Cross~derivative~of~LE~wrt~c[t]~and~C[t]))
-ggarrange(bp_lec_plt, bp_leC_plt, bp_lecC_plt, nrow = 1, ncol=3, common.legend = TRUE, 
+ggarrange(bp_lec_plt, bp_leC_plt, nrow = 1, ncol = 2, common.legend = TRUE, 
           legend = "right")
 ggsave(paste0("figures/benchmark/LEgrads_cC.pdf"), width = 10, height = 4)
 
@@ -190,27 +191,11 @@ bp_hcC_plt <- ggplot(bp_df[bp_df$age <111,]) + theme_bw() +
   scale_color_gradientn(colours = rainbow(5), name = "Year") + 
   xlab("Age") + ylab("Cross-derivative") + ylim(c(-3,0.36)) +
   ggtitle(expression(Cross~derivative~of~h~wrt~c[t]~and~C[t]))
-ggarrange(bp_hc_plt, bp_hC_plt, bp_hcC_plt, nrow = 1, ncol=3, common.legend = TRUE, 
+ggarrange(bp_hc_plt, bp_hC_plt, nrow = 1, ncol = 2, common.legend = TRUE, 
           legend = "right")
 ggsave(paste0("figures/benchmark/hgrads_cC.pdf"), width = 10, height = 4)
 
-
-bp_leB_plt <- ggplot(LEgrad_df[which(LEgrad_df$age < 5),]) + theme_bw() +
-  geom_line(aes(x = age, y = LE_Bs, group = year, color = year, linetype = Forecast)) +
-  geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
-  xlab("Age") + ylab("Gradient") + 
-  ggtitle(expression(Gradient~of~LE~wrt~B[t]))
-bp_leb_plt <- ggplot(LEgrad_df[which(LEgrad_df$age < 5),]) + theme_bw() +
-  geom_line(aes(x = age, y = LE_bs, group = year, color = year, linetype = Forecast)) +
-  geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
-  xlab("Age") + ylab("Gradient") + 
-  ggtitle(expression(Gradient~of~LE~wrt~b[t]))
-
-ggarrange(bp_leb_plt, bp_leB_plt, nrow = 1, ncol=2, common.legend = TRUE, 
-          legend = "right")
-ggsave(paste0(folder,"LEgrads_bB.pdf"), width = 10, height = 4)
+rm(bp_leC_plt,bp_lec_plt,bp_lecC_plt,bp_hC_plt,bp_hc_plt,bp_hcC_plt)
 
 
 "
@@ -236,7 +221,7 @@ hgrad_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
 
 ggarrange(LEgrad_plt, hgrad_plt, nrow = 1, ncol=2, legend = FALSE)
 ggsave("figures/benchmark/LEgrad_hgrad_birth.pdf", width = 8, height = 4)
-
+rm(LEgrad_plt,hgrad_plt)
 
 
 "
@@ -271,7 +256,7 @@ helas_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
 
 ggarrange(LEelas_plt, helas_plt, nrow = 1, ncol=2, common.legend = TRUE, legend = "right")
 ggsave("figures/benchmark/LEelas_helas_birth.pdf", width = 8, height = 4)
-
+rm(LEelas_plt,helas_plt)
 
 "
 LE(0) and LE(80) versus L*-C
@@ -308,8 +293,11 @@ LE0_plt <- ggplot(plot_df1) + theme_bw() +
             aes(x = LE_0, y = Lstar-C, group = interaction(code, Forecast), 
                 color = name, linetype = Forecast)) + 
   geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
-            aes(x = LE_0, y = Lstar-C, color = name, label = year_label), show.legend=FALSE, size = 1) +
-  xlab("LE(0)") + ylab("L*-C") + guides(color=guide_legend(ncol=2))
+            aes(x = LE_0, y = Lstar-C, color = name, label = year_label), 
+            show.legend=FALSE, size = 2) +
+  xlab("LE(0)") + ylab("L*-C") + guides(color=guide_legend(ncol=1)) + 
+  scale_x_continuous(limits = c(45,95),breaks=seq(0,100,5))+ 
+  scale_y_continuous(limits = c(12,30),breaks=seq(0,100,5))
 
 LE80_plt <- ggplot(plot_df1) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
@@ -320,12 +308,34 @@ LE80_plt <- ggplot(plot_df1) + theme_bw() +
             aes(x = LE_80, y = Lstar-C, group = interaction(code, Forecast), 
                 color = name, linetype = Forecast)) + 
   geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
-            aes(x = LE_80, y = Lstar-C, color = name, label = year_label), show.legend=FALSE, size = 1) +
-  xlab("LE(80)") + ylab("L*-C") + guides(color=guide_legend(ncol=2))
+            aes(x = LE_80, y = Lstar-C, color = name, label = year_label), 
+            show.legend=FALSE, size = 2) +
+  xlab("LE(80)") + ylab("L*-C") + guides(color=guide_legend(ncol=2)) + 
+  scale_x_continuous(limits = c(4,17.5),breaks=seq(0,100,5)) + 
+  scale_y_continuous(limits = c(12,30),breaks=seq(0,100,5))
 
-ggarrange(LE0_plt, LE80_plt, nrow = 1, ncol=2, common.legend = TRUE, 
+Lstar_plt <- ggplot(plot_df1) + theme_bw() + 
+  scale_color_manual("Country", values = col_scheme) + 
+  geom_path(data = plot_df1[which(plot_df1$name == "Other"),], alpha = 0.5,
+            aes(x = LE_80, y = Lstar-LE_80-80, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_path(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-LE_80-80, group = interaction(code, Forecast), 
+                color = name, linetype = Forecast)) + 
+  geom_text(data = plot_df1[which(plot_df1$name != "Other"),],
+            aes(x = LE_80, y = Lstar-LE_80-80, color = name, label = year_label), 
+            show.legend=FALSE, size = 2) +
+  xlab("LE(80)") + ylab("L*-LE(80)-80") + guides(color=guide_legend(ncol=2)) + 
+  scale_x_continuous(limits = c(4,17.5),breaks=seq(0,100,5)) + 
+  scale_y_continuous(limits = c(12,30),breaks=seq(0,100,5)) 
+
+
+ggarrange(LE0_plt, LE80_plt, Lstar_plt, nrow = 1, ncol=3, common.legend = TRUE, 
           legend = "right")
-ggsave("figures/benchmark/LE0LE80_Lstar_C.pdf", width = 10, height = 5)
+ggsave("figures/benchmark/LE0LE80_Lstar_C.pdf", width = 10, height = 4)
+
+rm(LE0_plt,LE80_plt,Lstar_plt)
+
 
 ### L*-LE vs LE
 LE0_plt <- ggplot(plot_df1) + theme_bw() + 

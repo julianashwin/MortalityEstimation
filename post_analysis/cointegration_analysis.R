@@ -705,8 +705,10 @@ ggplot(plot_df) + theme_bw() +
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = LE, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("Lifespan") + 
-  guides(color=guide_legend(ncol=2))
-ggsave("figures/countries/summary/LstarLE_paths.pdf", width = 10, height = 5)
+  guides(color=guide_legend(ncol=2)) + 
+  scale_x_continuous(limits = c(46,93),breaks=seq(0,130,5)) + 
+  scale_y_continuous(limits = c(96,118),breaks=seq(0,130,5)) 
+ggsave("figures/countries/summary/LstarLE_paths.pdf", width = 10, height = 4)
 
 
 # LstarC path

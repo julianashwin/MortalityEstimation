@@ -290,6 +290,8 @@ fut_years = Int.(maximum(years_selected) .+ 5.0.*(1:nahead))
 parests_pred = extract_forecast_variables(df_pred, past_years, fut_years,
     log_pars = true, spec = :Bergeron, model_vers = :i2drift)
 CSV.write("figures/"*folder*"/siler_"*model*"_preds.csv", parests_pred)
+#parests_pred = CSV.read("figures/"*folder*"/siler_"*model*"_preds.csv", DataFrame, ntasks = 1)
+
 
 # Plot Siler parameter forecasts
 plot_siler_params(parests_pred, forecasts = true, bands = true)
@@ -426,6 +428,12 @@ plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.LE_cC[LEgrad_df.age .<111],
     group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
     ylabel = L"h_c(a)", xlabel = "Age")
 hline!([0,0], color = :black, linestyle = :dash, label = false)
+
+plot(LEgrad_df.age[LEgrad_df.age .<111], LEgrad_df.mortality[LEgrad_df.age .<111],
+    group=LEgrad_df.year[LEgrad_df.age .<111], legend = false,
+    ylabel = L"\mu(a)", xlabel = "Age")
+hline!([0,0], color = :black, linestyle = :dash, label = false)
+
 
 
 
