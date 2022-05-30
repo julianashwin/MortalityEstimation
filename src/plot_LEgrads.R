@@ -213,33 +213,64 @@ ggarrange(bp_leb_plt, bp_leB_plt, nrow = 1, ncol=2, common.legend = TRUE,
 ggsave(paste0(folder,"LEgrads_bB.pdf"), width = 10, height = 4)
 
 
-
+"
+Gradients for C and c
+"
 
 plot_df <- bp_df[which(bp_df$age == 0 & bp_df$Forecast == "Estimate"),]
 
 LEgrad_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
-  scale_color_manual("Gradient w.r.t.", values = c("c" = "blue", "C" = "forestgreen")) + 
-  geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  geom_line(aes(x = year, y = LE_Cs, color = "C")) +
-  geom_line(aes(x = year, y = LE_cs/max(LE_cs), color = "c")) +
-  scale_y_continuous(expression(LE[C]~at~birth), sec.axis = sec_axis(
-    ~ . *max(plot_df$LE_cs), name = expression(LE[c]~at~birth)))
+  geom_hline(yintercept=0, color = "gray") +
+  geom_line(aes(x = year, y = LE_Cs), linetype = "solid") +
+  geom_line(aes(x = year, y = LE_cs/max(LE_cs)), linetype = "dashed") +
+  scale_y_continuous(expression(LE[C]~at~birth~(solid)), sec.axis = sec_axis(
+    ~ . *max(plot_df$LE_cs), name = expression(LE[c]~at~birth~(dashed))))
 
 # Actual max of h_cs is around 10
 hgrad_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
-  scale_color_manual("Gradient w.r.t.", values = c("c" = "blue", "C" = "forestgreen")) + 
-  geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  geom_line(aes(x = year, y = h_Cs, color = "C")) +
-  geom_line(aes(x = year, y = h_cs*(max(h_Cs)/max(h_cs)), color = "c")) +
-  scale_y_continuous(expression(h[C]~at~birth), sec.axis = sec_axis(
-    ~ . *(max(plot_df$h_Cs)/max(plot_df$h_cs)), name = expression(h[c]~at~birth)))
+  geom_hline(yintercept=0, color = "gray") +
+  geom_line(aes(x = year, y = h_Cs), linetype = "solid") +
+  geom_line(aes(x = year, y = h_cs*(max(h_Cs)/max(h_cs))), linetype = "dashed") +
+  scale_y_continuous(expression(h[C]~at~birth~(solid)), sec.axis = sec_axis(
+    ~ . *(max(plot_df$h_Cs)/max(plot_df$h_cs)), name = expression(h[c]~at~birth~(dashed))))
 
-ggarrange(LEgrad_plt, hgrad_plt, nrow = 1, ncol=2, common.legend = TRUE, 
-          legend = "right")
+ggarrange(LEgrad_plt, hgrad_plt, nrow = 1, ncol=2, legend = FALSE)
 ggsave("figures/benchmark/LEgrad_hgrad_birth.pdf", width = 8, height = 4)
 
 
 
+"
+Elasticities for C and c
+  e_C = (dLE/dc)(c/LE)
+"
+
+bp_pars_df <- read.csv("figures/benchmark/siler_i2drift_preds.csv", stringsAsFactors = F)
+bp_pars_df <- bp_pars_df[which(bp_pars_df$parameter %in% c("c", "C") & 
+                                 bp_pars_df$year < 2020),]
+bp_pars_df <- data.frame(pivot_wider(bp_pars_df, id_cols = c(year), names_from = parameter, 
+                                              values_from = c(median)))
+plot_df <- bp_df[which(bp_df$age == 0 & bp_df$Forecast == "Estimate"),]
+plot_df <- merge(plot_df, bp_pars_df, by = "year")
+
+# LE elasticity
+LEelas_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
+  scale_linetype_manual("Elasticity wrt ", values = c("C" = "solid",
+                                             "c" = "dashed")) + 
+  geom_hline(yintercept=0, color = "gray") +
+  geom_line(aes(x = year, y = LE_Cs*(C/LE), linetype = "C")) +
+  geom_line(aes(x = year, y = LE_cs*(c/LE), linetype = "c")) + 
+  ylab("Elasticity of Life Expectancy at birth")
+# h elasticity
+helas_plt <- ggplot(plot_df) + theme_bw() + xlab("Year") +
+  scale_linetype_manual("Elasticity wrt ", values = c("C" = "solid",
+                                                      "c" = "dashed")) + 
+  geom_hline(yintercept=0, color = "gray") +
+  geom_line(aes(x = year, y = h_Cs*(C/h), linetype = "C")) +
+  geom_line(aes(x = year, y = h_cs*(c/h), linetype = "c")) + 
+  ylab("Elasticity of Lifespan Equality at birth") 
+
+ggarrange(LEelas_plt, helas_plt, nrow = 1, ncol=2, common.legend = TRUE, legend = "right")
+ggsave("figures/benchmark/LEelas_helas_birth.pdf", width = 8, height = 4)
 
 
 "
