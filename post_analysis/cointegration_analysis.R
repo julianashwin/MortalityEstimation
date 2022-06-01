@@ -61,6 +61,18 @@ all_df <- all_df[which(all_df$year > 0),]
 
 all_df$code <- str_replace(all_df$code, "NZL_NM", "NZL")
 
+## Forecast label for pretty legends
+all_df$Forecast <- "Estimate"
+all_df$Forecast[which(all_df$forecast == 1)] <- "Forecast"
+
+
+export_df <- all_df[which(all_df$year > 1900),]
+export_df <- data.frame(pivot_wider(export_df, id_cols = c(name, code, year), names_from = parameter, 
+                                  values_from = median))
+write.csv(export_df, "data/results/siler_panel.csv", row.names = FALSE)
+rm(export_df)
+
+
 # Merge in the best practice results
 bp_df <- read.csv("figures/benchmark/siler_i2drift_preds.csv", stringsAsFactors = F)
 bp_df$code <- "BP"
@@ -128,9 +140,6 @@ for (ii in 2:nrow(econ_df)){
 "
 Plot estimates and forecasts
 "
-## Forecast label for pretty legends
-all_df$Forecast <- "Estimate"
-all_df$Forecast[which(all_df$forecast == 1)] <- "Forecast"
 ## Life expectancy
 plot_df <- all_df[which(all_df$parameter == "LE"),]
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|

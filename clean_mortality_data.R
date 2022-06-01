@@ -452,7 +452,6 @@ ggplot(plt_df, aes(x = year)) + theme_bw() +
 rm(plt_df)
 
 
-
 # Mortality 
 temp_df <- bp_5y_df[which(bp_5y_df$year > 1900),]
 temp_df <- temp_df[order(temp_df$year, temp_df$age),which(!str_detect(names(temp_df), "_m"))]
@@ -513,6 +512,51 @@ plt2 <- ggarrange(bp_le_plt, bp_h_plt, bp_lstar_plt, nrow = 1, ncol=3, common.le
 
 ggarrange(plt1, plt2, nrow = 1, ncol=2, common.legend = FALSE)
 ggsave("figures/data/best_practice_5y_summary.pdf", width = 16, height = 4)
+
+
+
+
+
+
+
+# Where do changes in mortaliity come? 
+LEgrad_df <- read.csv("figures/benchmark/siler_i2drift_LEgrads.csv", stringsAsFactors = FALSE)
+
+plot_df <- LEgrad_df[which(LEgrad_df$age %% 10 == 0 & LEgrad_df$age < 110 & 
+                             LEgrad_df$year >= 1900),
+                      c("age", "year", "mortality", "survival")]
+plot_df <- merge(plot_df,bp_5y_df, by = c("age", "year"), all.x = T)
+
+plot_df$Age <- factor(plot_df$age, 
+                     levels = unique(plot_df$age)[order(as.numeric(plot_df$age))])
+
+
+ggplot(plot_df) + theme_bw() + 
+  geom_point(aes(x = year, y = mx_f, color = Age)) + 
+  geom_line(aes(x = year, y = mortality, color = Age)) + 
+  xlab("Year") + ylab("Mortality Rate")
+ggsave("figures/benchmark/best_practice_mortality_age.pdf", width = 8, height = 4)
+
+plot_df <- plot_df[,c("year","code","age", "mortality",  "survival", "mx_f","lx_f")]
+plot_df <- plot_df[order(plot_df$year,as.numeric(plot_df$age)),]
+
+write.csv(plot_df, "data/results/bple_mortality.csv", row.names = FALSE)
+
+
+
+
+plot_df <- LEgrad_df[which(LEgrad_df$age == 0 & LEgrad_df$year >= 1900),
+                     c("age", "year", "Lstar")]
+plot_df <- merge(plot_df,bp_5y_df, by = c("age", "year"), all.x = T)
+
+ggplot(plot_df) + theme_bw() + 
+  geom_point(aes(x = year, y = l_99p9_f, color = code)) + 
+  geom_line(aes(x = year, y = Lstar)) + 
+  xlab("Year") + ylab("Lifespan (99.9%)")
+
+
+
+
 
 
 
