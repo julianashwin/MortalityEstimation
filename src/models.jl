@@ -56,6 +56,34 @@ Static Siler model on log data
     #m_dist = exp.(lm_dist)
 end
 
+"""
+Siler model with linear threshold
+"""
+@model function log_siler_threshold(lm_dist, ages)
+    # The number of observations.
+    N = length(lm_dist)
+    # Our prior beliefs
+    B ~ LogNormal(log(2), 2.0)
+    b ~ LogNormal(log(1), 1.0)
+    C ~ LogNormal(log(80), 2.0)
+    c ~ LogNormal(log(0.1), 1.0)
+    d ~ LogNormal(log(0.01), 1.0)
+    σ ~ LogNormal(log(0.001), 1.0)
+    ā ~ Uniform(50, N-1)
+    g ~ Uniform(0,1)
+    # Find mean using the siler mortality function
+    μs = b.*exp.(- b.* (ages .+ B)) .+ c.*exp.(c .* (ages .- C)) .+ d
+    μs[Int(round(ā)+1):end] = g.*ages[Int(round(ā)+1):end]
+    m_vars = σ.*ones(N)
+    #m_vars[m_vars.<= 1e-10] .= 1e-10
+    # Variance matrix
+    Σ = Diagonal(m_vars)
+    # Draw from normal dist
+    lm_dist ~ MvNormal(log.(μs), Σ)
+    #m_dist = exp.(lm_dist)
+end
+
+
 
 
 

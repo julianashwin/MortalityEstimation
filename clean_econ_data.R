@@ -27,13 +27,12 @@ col_scheme <- c("Other" = "gray",
 
 
 siler_df <- read.csv("data/results/siler_panel.csv", stringsAsFactors = FALSE)
-siler_df <- siler_df[which(siler_df$year < 2020),]
 siler_df$plot_name <- siler_df$name
 siler_df$plot_name[which(!(siler_df$plot_name %in% names(col_scheme)))] <- "Other"
 
 ggplot(siler_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(aes(x = C, y = c, color = plot_name, group = code))
+  geom_line(aes(x = C, y = Lstar_90, color = plot_name, group = code))
 
 
 
@@ -148,7 +147,7 @@ Average years education
 owid_educ <- read.csv("data/economic-inequality/mean-years-of-schooling-long-run.csv", 
                      stringsAsFactors = FALSE)
 names(owid_educ) <- c("name", "code", "year", "school_avg")
-unique(siler_df$code)[!(unique(siler_df$code) %in% unique(oid_educ$code))]
+unique(siler_df$code)[!(unique(siler_df$code) %in% unique(owid_educ$code))]
 # Merge in Siler names 
 owid_educ <- merge(owid_educ[,c("code", "year", "school_avg")], 
                   unique(siler_df[,c("code", "name")]), by = "code")
@@ -199,7 +198,7 @@ econ_5y_df <- econ_5y_df[c("name", "year", "income_pc", "gdp_pc", "wealth_pc",
 
 
 
-all_panel_df <- merge(siler_df, econ_5y_df, by = c("name", "year"))
+all_panel_df <- merge(siler_df, econ_5y_df, by = c("name", "year"), all.x = TRUE)
 all_panel_df$year_num <- as.numeric(as.factor(all_panel_df$year))
 all_panel_df <- pdata.frame(all_panel_df, index = c("name", "year_num"))
 # Create som lags and first diffs
@@ -219,6 +218,8 @@ all_panel_df$school_avg_lag <- plm::lag(all_panel_df$school_avg)
 all_panel_df$school_avg_diff <- all_panel_df$school_avg - all_panel_df$school_avg_lag
 all_panel_df$health_share_lag <- plm::lag(all_panel_df$health_share)
 all_panel_df$health_share_diff <- all_panel_df$health_share - all_panel_df$health_share_lag
+
+write.csv(all_panel_df, "data/results/siler_econ_panel.csv", row.names = FALSE)
 
 
 
@@ -343,4 +344,4 @@ stargazer(model1, model2, model3, model4, model5, model6, table.placement = "H",
           font.size = "scriptsize")
 
 
-summary(felm(c_diff ~ income_gini_diff + log_gdp_pc_diff| year, data =all_panel_df))
+summary(felm(Lstar_99 ~ income_gini + log(gdp_pc)| year, data =all_panel_df))

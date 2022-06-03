@@ -16,6 +16,20 @@ function siler(param::SilerParam, age::Real; spec::Symbol = :Bergeron )
     return μ
 end
 
+function siler_thresh(param::SilerParam, age::Real, ā::Int, g::Real)
+    @unpack b, B, c, C, d = param
+	if age < ā
+		μ = b.*exp.(- b.* (age + B)) .+ c.*exp.(c .* (age.- C)) .+ d
+	else
+		μ = g.*age
+	end
+
+	μ = min.(μ, 1.0)
+
+    return μ
+end
+
+
 #plot(siler.([param], 0:110, spec = :Colchero))
 #plot(siler.([param], 0:110, spec = :Scott))
 #plot(siler.([param], 0:110, spec = :Bergeron))

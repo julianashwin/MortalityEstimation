@@ -225,10 +225,12 @@ lifetab_df <- compute_ineq(lifetab_df)
 "
 Compute 99.9% lifespan
 " 
-compute_lifespan <- function(lifetab_5y_df){
-  lifetab_5y_df$l_99p9 <- NA
-  lifetab_5y_df$l_99p9_f <- NA
-  lifetab_5y_df$l_99p9_m <- NA
+thresh <- 0.001
+tname <- "99p9"
+compute_lifespan <- function(lifetab_5y_df, thresh, tname){
+  lifetab_5y_df[,paste0("l_",tname)] <- NA
+  lifetab_5y_df[,paste0("l_",tname,"_f")] <- NA
+  lifetab_5y_df[,paste0("l_",tname,"_m")] <- NA
   for (code in unique(lifetab_5y_df$code)){
     print(code)
     years <- unique(lifetab_5y_df$year[which(lifetab_5y_df$code == code)])
@@ -240,40 +242,44 @@ compute_lifespan <- function(lifetab_5y_df){
       S_ms <- lifetab_5y_df$lx_m[data_obs]
       
       # Both genders
-      if (all(Ss > 0.001)){
+      if (all(Ss > thresh)){
         Lstar <- 110
       } else {
-        above <- min(ages[which(Ss < 0.001)])
-        below <- max(ages[which(Ss >= 0.001)])
-        Lstar <- below + (Ss[below+1] - 0.001)/(Ss[below+1] - Ss[above+1])
+        above <- min(ages[which(Ss < thresh)])
+        below <- max(ages[which(Ss >= thresh)])
+        Lstar <- below + (Ss[below+1] - thresh)/(Ss[below+1] - Ss[above+1])
       }
       # Only Male
-      if (all(S_fs > 0.001)){
+      if (all(S_fs > thresh)){
         Lstar_f <- 110
       } else {
-        above <- min(ages[which(S_fs < 0.001)])
-        below <- max(ages[which(S_fs >= 0.001)])
-        Lstar_f <- below + (S_fs[below+1] - 0.001)/(S_fs[below+1] - S_fs[above+1])
+        above <- min(ages[which(S_fs < thresh)])
+        below <- max(ages[which(S_fs >= thresh)])
+        Lstar_f <- below + (S_fs[below+1] - thresh)/(S_fs[below+1] - S_fs[above+1])
       }
       # Only Female
-      if (all(S_ms > 0.001)){
+      if (all(S_ms > thresh)){
         Lstar_m <- 110
       } else {
-        above <- min(ages[which(S_ms < 0.001)])
-        below <- max(ages[which(S_ms >= 0.001)])
-        Lstar_m <- below + (S_ms[below+1] - 0.001)/(S_ms[below+1] - S_ms[above+1])
+        above <- min(ages[which(S_ms < thresh)])
+        below <- max(ages[which(S_ms >= thresh)])
+        Lstar_m <- below + (S_ms[below+1] - thresh)/(S_ms[below+1] - S_ms[above+1])
       }
       
       
-      lifetab_5y_df$l_99p9[data_obs] <- Lstar
-      lifetab_5y_df$l_99p9_f[data_obs] <- Lstar_f
-      lifetab_5y_df$l_99p9_m[data_obs] <- Lstar_m
+      lifetab_5y_df[data_obs,paste0("l_",tname)] <- Lstar
+      lifetab_5y_df[data_obs,paste0("l_",tname,"_f")] <- Lstar_f
+      lifetab_5y_df[data_obs,paste0("l_",tname,"_m")] <- Lstar_m
     }
   }
   return(lifetab_5y_df)
 }
-lifetab_5y_df <- compute_lifespan(lifetab_5y_df)
-lifetab_df <- compute_lifespan(lifetab_df)
+lifetab_5y_df <- compute_lifespan(lifetab_5y_df,  0.001, "99p9")
+lifetab_5y_df <- compute_lifespan(lifetab_5y_df,  0.01, "99")
+lifetab_5y_df <- compute_lifespan(lifetab_5y_df,  0.05, "95")
+lifetab_5y_df <- compute_lifespan(lifetab_5y_df,  0.1, "90")
+
+lifetab_df <- compute_lifespan(lifetab_df,  0.001, "99p9")
 
 
 
@@ -424,6 +430,9 @@ lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age"
                                           "mx", "mx_f", "mx_m", "lx", "lx_f", "lx_m", 
                                           "ex", "ex_f", "ex_m", "Hx", "Hx_f", "Hx_m",
                                           "l_99p9", "l_99p9_f", "l_99p9_m",
+                                          "l_99", "l_99_f", "l_99_m",
+                                          "l_95", "l_95_f", "l_95_m",
+                                          "l_90", "l_90_f", "l_90_m",
                                           "Total", "Male", "Female","best_practice")]
 
 write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)

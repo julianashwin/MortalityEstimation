@@ -407,7 +407,7 @@ function compute_LE_post(df_post, years, nahead; spec = :Bergeron, model_vers = 
     Lstars_95 = Symbol.("Lstar_95[".*string.(1:length(years)+nahead).*"]")
     Lstars_90 = Symbol.("Lstar_90[".*string.(1:length(years)+nahead).*"]")
     Lmeds = Symbol.("Lmed[".*string.(1:length(years)+nahead).*"]")
-    impl_vars = vcat(LEs, Hs, hs, Lstars)
+    impl_vars = vcat(LEs, Hs, hs, Lstars_99p9, Lstars_99, Lstars_95, Lstars_90)
     df_post = hcat(df_post,DataFrame(NaN.*zeros(nrow(df_post), length(impl_vars)), impl_vars))
     # Loop through each period
     prog = Progress(length(years), desc = "Calculating model implied LE and H: ")

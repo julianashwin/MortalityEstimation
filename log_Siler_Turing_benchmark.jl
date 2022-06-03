@@ -18,7 +18,7 @@ workers()
 
 
 # Import libraries.
-using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra, Optim
+using Turing, StatsPlots, Random, Optim, StatsBase, LinearAlgebra
 using TruncatedDistributions, PDMats
 using CSV, DataFrames, TableView, StatsPlots, LaTeXStrings, JLD2
 
@@ -63,38 +63,58 @@ T = length(country_lm_data)
 @assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
 @assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
 
-
-lifespan_df = DataFrame(year = unique(country_df.year), Lstar_99p9 = 0.,
-    Lstar_99 = 0., Lstar_95 = 0., Lstar_90 = 0.)
-for yy in 1:nrow(lifespan_df)
-    year = lifespan_df.year[yy]
-    year_df = country_df[country_df.year .== year,:]
-    plot(year_df.age, year_df.lx_f)
-    # 99.9%
-    Lstar_emp = year_df.age[year_df.lx_f .<= 0.001]
-    if length(Lstar_emp) > 0
-        Lstar_emp = minimum(Lstar_emp)
-    else
-        Lstar_emp = 110
-    end
-    lifespan_df.Lstar_99p9[yy] = Lstar_emp
-    # 99%
-    Lstar_emp = year_df.age[year_df.lx_f .<= 0.01]
-    lifespan_df.Lstar_99[yy] = minimum(Lstar_emp)
-    # 95%
-    Lstar_emp = year_df.age[year_df.lx_f .<= 0.05]
-    lifespan_df.Lstar_95[yy] = minimum(Lstar_emp)
-    # 90%
-    Lstar_emp = year_df.age[year_df.lx_f .<= 0.1]
-    lifespan_df.Lstar_90[yy] = minimum(Lstar_emp)
-end
-
-CSV.write("data/clean/BP_lifespan_5y.csv", lifespan_df)
-
-
 # Adjust if you don't want every period
 periods = Int.(1:T)
 years_selected = Int.(round.(country_years[periods]))
+
+
+
+"""
+Test model with linear threshold
+"""
+# Sample from prior to Initialise
+prior_thresh = sample(log_siler_threshold(country_lm_data[1], country_ages), Prior(), 5000)
+df_prior = DataFrame(prior_thresh)
+insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+prior_thresh_vals = df_prior[1,3:(end-1)]
+
+niters = 1000
+nchains = 4
+# Standard static Siler model
+tt = 24
+
+chain_static = sample(log_siler_static(country_lm_data[tt], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains)
+display(chain_static)
+df_static = DataFrame(chain_static)
+params_static = SilerParam(B = median(df_static.B), b = median(df_static.b),
+    C = median(df_static.C), c = median(df_static.c), d = median(df_static.d))
+# Threshold static Siler model
+chain_thresh = sample(log_siler_threshold(country_lm_data[tt], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains, init_params = prior_thresh_vals)
+display(chain_thresh)
+df_thresh = DataFrame(chain_thresh)
+param_thresh = SilerParam(B = median(df_thresh.B), b = median(df_thresh.b),
+    C = median(df_thresh.C), c = median(df_thresh.c), d = median(df_thresh.d))
+# Compare models
+scatter(country_ages, country_m_data[tt], label = "Data "*string(years_selected[tt]),
+    xlabel = "Age", ylabel = "Mortality Rate", markershape = :cross)
+plot!(country_ages, siler.([params_static], country_ages, spec = :Bergeron),
+    label = "Siler fit", legend = :topleft)
+plot!(country_ages, siler_thresh.([param_thresh], country_ages,
+    [Int(median(round.(df_thresh.ā)))],[median(df_thresh.g)]),
+    label = "Siler threshold fit")
+savefig("figures/"*folder*"/fit/compare_fit_"*string(years_selected[tt])*".pdf")
+
+scatter(country_ages, country_lm_data[tt], label = "Data "*string(years_selected[tt]),
+    xlabel = "Age", ylabel = "Mortality Rate", markershape = :cross)
+plot!(country_ages, log.(siler.([params_static], country_ages, spec = :Bergeron)),
+    label = "Siler fit", legend = :topleft)
+plot!(country_ages, log.(siler_thresh.([param_thresh], country_ages,
+    [Int(median(round.(df_thresh.ā)))],[median(df_thresh.g)])),
+    label = "Siler threshold fit")
+savefig("figures/"*folder*"/fit/compare_log_fit_"*string(years_selected[tt])*".pdf")
+
 
 
 """
