@@ -463,41 +463,74 @@ CSV.write("figures/"*folder*"/siler_"*model*"_LEgrads.csv", LEgrad_df)
 
 
 """
-Cross derivatives
+Relative mortality
 """
-# Initialise the parameters at the latest estimated level
-obs = decomp_pred.year .== 2018
-param_base = SilerParam(b = decomp_pred.b[obs][1], B = decomp_pred.B[obs][1],
-    c = decomp_pred.c[obs][1], C = decomp_pred.C[obs][1], d = decomp_pred.d[obs][1])
+# Initialise dataframe to fill
+ratio_vars = [:year, :forecast, :B, :b, :C, :c, :d, :a1, :a2, :mu_a1, :mu_a2, :mx_a1, :mx_a2,
+    :rmu, :rmu_C, :rmu_c, :rmu_d, :dmu, :dmu_C, :dmu_c, :dmu_d]
+ratio_df = DataFrame(NaN.*zeros(nrow(decomp_pred), length(ratio_vars)), ratio_vars)
+ratio_df.year = decomp_pred.year
+ratio_df.forecast = decomp_pred.forecast
+ratio_df.B = decomp_pred.B
+ratio_df.b = decomp_pred.b
+ratio_df.C = decomp_pred.C
+ratio_df.c = decomp_pred.c
+ratio_df.d = decomp_pred.d
 
 
-param = deepcopy(param_base)
-plot(ages, LEcross.([param], ages, [:c], [:C], spec = :Bergeron), xlabel = "Age",
-    ylabel = L"LE_{cC}(a)")
-hline!([0,0], color = :black, linestyle = :dash, label = false)
+a1 = 20; a2 = 40;
+ratio_df.a1 .= a1
+ratio_df.a2 .= a2
+for ii in 1:nrow(ratio_df)
+    param_temp = SilerParam(b = ratio_df.b[ii], B = ratio_df.B[ii],
+        c = ratio_df.c[ii], C = ratio_df.C[ii], d = ratio_df.d[ii])
 
+    ratio_df.mu_a1[ii] = siler(param_temp, a1)
+    ratio_df.mu_a2[ii] = siler(param_temp, a2)
 
-plot(ages, repeat([0.], length(ages)), xlabel = "Age", linestyle = :dash, color = :black,
-    ylabel = L"LE_{C}(a)", label = false)
-for c_ in 0.07:0.01:0.14
-    param = deepcopy(param_base)
-    param.c = c_
-    plot!(ages, LEgrad.([param], ages, [:C], spec = :Bergeron), label = "c = "*string(param.c))
+    ratio_df.rmu[ii] = rμ(param_temp, a1, a2)
+    ratio_df.rmu_C[ii] = rμgrad(param_temp, a1, a2, :C)
+    ratio_df.rmu_c[ii] = rμgrad(param_temp, a1, a2, :c)
+    ratio_df.rmu_d[ii] = rμgrad(param_temp, a1, a2, :d)
+
+    ratio_df.dmu[ii] = dμ(param_temp, a1, a2)
+    ratio_df.dmu_C[ii] = dμgrad(param_temp, a1, a2, :C)
+    ratio_df.dmu_c[ii] = dμgrad(param_temp, a1, a2, :c)
+    ratio_df.dmu_d[ii] = dμgrad(param_temp, a1, a2, :d)
+
+    if ratio_df.year[ii] <= 2018
+        ratio_df.mx_a1[ii] = country_df.mx_f[(country_df.year .== ratio_df.year[ii]) .& (country_df.age .== a1)][1]
+        ratio_df.mx_a2[ii] = country_df.mx_f[(country_df.year .== ratio_df.year[ii]) .& (country_df.age .== a2)][1]
+    end
 end
-plot!(title = "Gradient wrt C for different c")
+ratio_df
+plot(layout = (2,2))
+# Ratio
+plot!(ratio_df.year, ratio_df.rmu, label = "μ("*string(a1)*")/μ("*string(a2)*") model", subplot = 1)
+scatter!(ratio_df.year, ratio_df.mx_a1./ratio_df.mx_a2,
+    label = "m("*string(a1)*")/m("*string(a2)*") data", subplot = 1)
+hline!([0], linestyle=:dot, color = :black, label = false, subplot = 1)
+# Difference
+plot!(ratio_df.year, ratio_df.dmu, label = "μ("*string(a1)*") - μ("*string(a2)*") model", subplot = 2)
+scatter!(ratio_df.year, ratio_df.mx_a1.-ratio_df.mx_a2,
+    label = "m("*string(a1)*") - m("*string(a2)*") model", legend = :topleft, subplot = 2)
+hline!([0], linestyle=:dot, color = :black, label = false, subplot = 2)
+# Ratio gradients
+plot!(ratio_df.year, ratio_df.rmu_C./maximum(abs.(ratio_df.rmu_C)), label = "r_C", subplot = 3)
+plot!(ratio_df.year, ratio_df.rmu_c./maximum(abs.(ratio_df.rmu_c)), label = "r_c", subplot = 3)
+plot!(ratio_df.year, ratio_df.rmu_d./maximum(vcat(abs.(ratio_df.rmu_d), 0.0001)), label = "r_d", subplot = 3)
+hline!([0], linestyle=:dot, color = :black, label = false, subplot = 3)
+# Difference gradients
+plot!(ratio_df.year, ratio_df.dmu_C./maximum(abs.(ratio_df.dmu_C)), label = "d_C", subplot = 4)
+plot!(ratio_df.year, ratio_df.dmu_c./maximum(abs.(ratio_df.dmu_c)), label = "d_c", subplot = 4)
+plot!(ratio_df.year, ratio_df.dmu_d./maximum(vcat(abs.(ratio_df.dmu_d), 0.0001)), label = "d_d", subplot = 4)
+hline!([0], linestyle=:dot, color = :black, label = false, subplot = 4)
+plot!(size = (650,400))
+savefig("figures/"*folder*"/rel_mort_"*string(a1)*"_"*string(a2)*".pdf")
 
-plot(ages, repeat([0.], length(ages)), xlabel = "Age", linestyle = :dash, color = :black,
-    ylabel = L"LE_{c}(a)", label = false)
-for C_ in 80:3.0:110.0
-    param = deepcopy(param_base)
-    param.C = C_
-    plot!(ages, LEgrad.([param], ages, [:c], spec = :Bergeron), label = "C = "*string(param.C))
-end
-plot!(title = "Gradient wrt c for different C")
+plot!(ratio_df.year, ratio_df.C./80)
 
 
-
-plot(ages, siler_S.([param], [0.0], ages, spec = :Bergeron))
 
 
 

@@ -50,6 +50,44 @@ bp_df <- merge(bp_df, bp_mort_df[,c("year", "age", "mx_f", "lx_f", "ex_f", "Hx_f
                                    "Female")], 
                 by = c("year", "age"), all.x = T)
 
+ggplot(bp_lx_fc) + theme_bw() + 
+  geom_line(aes(x = as.numeric(age), y = mx_LC, group = year, color = year)) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  scale_color_gradientn(colours = rainbow(5), name = "Year") 
+
+ggplot(bp_df[which(bp_df$year == 1903),]) + theme_bw() + 
+  geom_line(aes(x = age, y = log(mortality), color = "Siler")) +
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  geom_point(aes(x = age, y = log(mx_f)))
+
+bp_df$LE_sum <- NA
+bp_df$LE_sum2 <- NA
+
+temp_df <- bp_df[which(bp_df$age == 0 ),]
+ggplot(temp_df) + theme_bw() + 
+  geom_point(aes(x = LE, y = ex_f)) + 
+  geom_smooth(aes(x = LE, y = ex_f), method = "lm")
+summary(lm(LE-ex_f ~ B + b, temp_df))
+
+ages <- min(bp_df$age):max(bp_df$age)
+agep5 <- ages + 0.
+for(ii in 1:nrow(bp_df)){
+  yy <- bp_df$year[ii]
+  aa <- bp_df$age[ii]
+  Sa <- bp_df$survival[which(bp_df$age>=aa & bp_df$year ==yy)]
+  ma <- bp_df$mortality[which(bp_df$age>=aa & bp_df$year ==yy)]
+  bp_df$LE_sum[ii] <- max(sum(Sa*ma*agep5[which(agep5 >= aa)]) - aa,0)
+  bp_df$LE_sum2[ii] <- sum(Sa/Sa[1])
+}
+temp_df <- bp_df[which(bp_df$age == 0 ),]
+ggplot(temp_df) + theme_bw() + 
+  geom_point(aes(x = year, y = ex_f)) + 
+  geom_line(aes(x = year, y = LE, color = "integral")) + 
+  geom_line(aes(x = year, y = LE_sum, color = "sum")) + 
+  geom_line(aes(x = year, y = LE_sum2, color = "sum (2)"))
+
+
+
 rm(bp_pars_df,bp_mort_df)
 
 # Import gradients for each country
@@ -57,12 +95,14 @@ import_files <- dir("figures/countries/")
 import_files <- import_files[which(str_detect(import_files, "_LEgrads.csv"))]
 for (ii in 1:length(import_files)){
   filename <- import_files[ii]
+  print(filename)
   country_df <- read.csv(paste0("figures/countries/", filename), stringsAsFactors = F)
   country_df$Forecast <- "Estimate"
   country_df$Forecast[which(country_df$year > 2020)] <- "Forecast"
   country_df$code <- str_remove(filename, "_i2_LEgrads.csv")
   
   if (is.null(country_df$mortality)){
+    print(paste0("No update for ",filename))
     country_df$mortality <- NA
     country_df$survival <- NA
   }
@@ -340,26 +380,65 @@ rm(plot_df, extra_obs)
 
 
 
+"
+Average forecasts in life expectancy
+"
+plot_df <- all_df[which(all_df$age == 0),]
+plot_df <- plot_df[order(plot_df$year),]
+plot_df <- data.frame(pivot_wider(plot_df, id_cols = c(code) , 
+                                  names_from = year, names_glue = "{.value}_{year}",
+                                  values_from = c(LE)))
+
+plot_df$LE_88to18 <- plot_df$LE_2018 - plot_df$LE_1988
+plot_df$LE_18to48 <- plot_df$LE_2048 - plot_df$LE_2018
+
+ggplot(plot_df) + theme_bw() + 
+  scale_color_manual("Period", values = c("1988-2018" = "blue", "2018-2048" = "firebrick")) + 
+  geom_density(aes(x = LE_88to18/3, color = "1988-2018")) + 
+  geom_density(aes(x = LE_18to48/3, color = "2018-2048")) + 
+  xlab("LE increase (years per decade)") + ylab("Density")
+ggsave("figures/countries/summary/LE_increases_dist.pdf", width = 4, height = 2)
+
+
+
+
+plot_df$LE_88to18_bins <- as.character(cut(plot_df$LE_88to18/3, seq(0, 2.5, 0.5)) )
+plot_df$LE_18to48_bins <- as.character(cut(plot_df$LE_18to48/3, seq(0, 2.5, 0.5)) )
+stargazer(rbind(table(plot_df$LE_88to18_bins),table(plot_df$LE_18to48_bins)),
+          table.placement = "H", title = "Forecast increases in LE (years per decade)")
+
+mean(plot_df$LE_88to18/3, na.rm = T)
+var(plot_df$LE_88to18/3, na.rm = T)
+mean(plot_df$LE_18to48/3, na.rm = T)
+var(plot_df$LE_18to48/3, na.rm = T)
+
+
 
 "
 Jean Calment exercise
 "
 JC_age <- 122+(164/365)
 
-
+JC_vars <- c("age", "Female", "code", "pop_2022",paste0(c("m_", "pop_"),rep(2023:2050, each = 2)))
+JC_df <- data.frame(matrix(NA,nrow=0,ncol = length(JC_vars)))
+names(JC_df) <- JC_vars
 
 for (code in unique(all_df$code)){
   country_df <- all_df[which(all_df$code == code & all_df$year >= 2018),]
-  current_df <- country_df[which(country_df$year == 2018),c("age", "Female")]
+  current_df <- all_df[which(all_df$code == code & all_df$year == 2018),c("age", "Female")]
+  if (all(is.na(current_df$Female))){
+    current_df <- all_df[which(all_df$code == code & all_df$year == 2013),c("age", "Female")]
+  }
+  current_df$code <- code
   current_df$Female[which(is.na(current_df$Female))] <- 0
   current_df$pop_2022 <- current_df$Female
-  years <- 2023:max(country_df$year)
+  years <- 2023:(max(country_df$year)+2)
   
   N_age <- nrow(current_df)
   
   temp_df <- data.frame(year = years)
   temp_df$closest <- c(rep(2023,3), rep(2028,5), rep(2033,5), rep(2038,5),
-                       rep(2043,5), rep(2048,3))
+                       rep(2043,5), rep(2048,5))[1:nrow(temp_df)]
   
   for(yy in 1:nrow(temp_df)){
     yy_closest <- temp_df$closest[yy]
@@ -373,16 +452,22 @@ for (code in unique(all_df$code)){
     
   }
   
+  missed_cols <- names(JC_df)[which(!(names(JC_df) %in% names(current_df)))]
+  current_df[,missed_cols] <- NA
   
-  
-  
+  JC_df <- rbind(JC_df, current_df)
 }
 
+JC_120_df <- JC_df[which(JC_df$age == 120),]
 
+ggplot(current_df) + theme_bw() + 
+  geom_line(aes(x = age, y = pop_2022, color = "2022")) + 
+  geom_line(aes(x = age, y = pop_2027, color = "2027")) + 
+  geom_line(aes(x = age, y = pop_2032, color = "2032")) + 
+  geom_line(aes(x = age, y = pop_2037, color = "2037")) + 
+  geom_line(aes(x = age, y = pop_2042, color = "2042"))
 
-
-
-
+rm(country_df, current_df, current_mort, JC_120_df, JC_df, temp_df)
 
 
 

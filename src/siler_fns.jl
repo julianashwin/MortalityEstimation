@@ -258,6 +258,58 @@ function Lmedgrad(param::SilerParam, aa::Real, θ::Symbol; spec::Symbol = :Berge
 end
 
 
+
+"""
+Function to calculate the ratio between mortality rates at two different ages
+"""
+function rμ(param::SilerParam, a1,a2; spec::Symbol = :Bergeron)
+	r_out = siler(param, a1, spec = spec)/siler(param, a2, spec = spec)
+
+	return r_out
+end
+
+
+"""
+Compute the gradient of the ratio between mortality rates at two different ages (a1/a2)
+"""
+function rμgrad(param::SilerParam, a1::Real, a2::Real, θ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, θ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, θ, x);
+		rμ(temp_param, a1,a2, spec = spec) end, getfield(param, θ))
+	return grad
+end
+
+
+"""
+Function to calculate the difference between mortality rates at two different ages
+"""
+function dμ(param::SilerParam, a1,a2; spec::Symbol = :Bergeron)
+	d_out = siler(param, a1, spec = spec) - siler(param, a2, spec = spec)
+
+	return d_out
+end
+
+
+"""
+Compute the gradient of the difference between mortality rates at two different ages (a1/a2)
+"""
+function dμgrad(param::SilerParam, a1::Real, a2::Real, θ::Symbol; spec::Symbol = :Bergeron)
+
+	grad = central_fdm(5,1,
+		max_range = getfield(param, θ))(function(x)
+		temp_param=deepcopy(param);
+		setfield!(temp_param, θ, x);
+		dμ(temp_param, a1,a2, spec = spec) end, getfield(param, θ))
+	return grad
+end
+
+
+
+
+
 """
 Function to initialise an illustrative dataframe
 """
