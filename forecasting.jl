@@ -309,39 +309,24 @@ parests_2008 = extract_forecast_variables(df_2008_pred, years_2008, fut_2008,
 
 ## Plot Siler parameter forecasts
 plot_siler_params(parests_1968, forecasts = true)
-savefig(folder*"/siler_"*model*"_param_pred_1968.pdf")
 plot_siler_params(parests_1978, forecasts = true)
-savefig(folder*"/siler_"*model*"_param_pred_1978.pdf")
 plot_siler_params(parests_1988, forecasts = true)
-savefig(folder*"/siler_"*model*"_param_pred_1988.pdf")
 plot_siler_params(parests_1998, forecasts = true)
-savefig(folder*"/siler_"*model*"_param_pred_1998.pdf")
 plot_siler_params(parests_2008, forecasts = true)
-savefig(folder*"/siler_"*model*"_param_pred_2008.pdf")
 
 ## Plot time series parameter forecasts
 plot_ts_params(parests_1968, model_vers = :i2drift, forecasts = true)
-savefig(folder*"/siler_"*model*"_ts_pred_1968.pdf")
 plot_ts_params(parests_1978, model_vers = :i2drift, forecasts = true)
-savefig(folder*"/siler_"*model*"_ts_pred_1978.pdf")
 plot_ts_params(parests_1988, model_vers = :i2drift, forecasts = true)
-savefig(folder*"/siler_"*model*"_ts_pred_1988.pdf")
 plot_ts_params(parests_1998, model_vers = :i2drift, forecasts = true)
-savefig(folder*"/siler_"*model*"_ts_pred_1998.pdf")
 plot_ts_params(parests_2008, model_vers = :i2drift, forecasts = true)
-savefig(folder*"/siler_"*model*"_ts_pred_2008.pdf")
 
 ## Plot forecasts for model implied LE and H
 plot_LE_H(parests_1968, forecasts = true, bands = true)
-savefig(folder*"/siler_"*model*"_leh_pred_1968.pdf")
 plot_LE_H(parests_1978, forecasts = true, bands = true)
-savefig(folder*"/siler_"*model*"_leh_pred_1978.pdf")
 plot_LE_H(parests_1988, forecasts = true, bands = true)
-savefig(folder*"/siler_"*model*"_leh_pred_1988.pdf")
 plot_LE_H(parests_1998, forecasts = true, bands = true)
-savefig(folder*"/siler_"*model*"_leh_pred_1998.pdf")
 plot_LE_H(parests_2008, forecasts = true, bands = true)
-savefig(folder*"/siler_"*model*"_leh_pred_2008.pdf")
 
 ## Combine into a single dataframe
 parests_1968[:,:est_year] .= 1968
@@ -398,3 +383,36 @@ plot!(parests_pred.year[obs], parests_pred.median[obs], label = false, color = 7
 # Save
 plot!(size = (800,400), margin=3Plots.mm)
 savefig(folder*"/siler_"*model*"_oos_forecasts.pdf")
+
+
+
+ages = 0:140
+
+decomp_1968 = create_decomp(parests_1968, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_1968 = compute_LEgrad_df(decomp_1968; ages = ages)
+decomp_1978 = create_decomp(parests_1978, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_1978 = compute_LEgrad_df(decomp_1978; ages = ages)
+decomp_1988 = create_decomp(parests_1988, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_1988 = compute_LEgrad_df(decomp_1988; ages = ages)
+decomp_1998 = create_decomp(parests_1998, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_1998 = compute_LEgrad_df(decomp_1998; ages = ages)
+decomp_2008 = create_decomp(parests_2008, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_2008 = compute_LEgrad_df(decomp_2008; ages = ages)
+decomp_2018 = create_decomp(parests_pred, spec = :Bergeron, eval_age = 0, forecasts = true)
+LEgrad_2018 = compute_LEgrad_df(decomp_2018; ages = ages)
+
+
+plot(LEgrad_2018.age, LEgrad_2018.mortality, color = LEgrad_2018.year, group = LEgrad_2018.year)
+
+LEgrad_1968[:,:est_year] .= 1968
+LEgrad_1978[:,:est_year] .= 1978
+LEgrad_1988[:,:est_year] .= 1988
+LEgrad_1998[:,:est_year] .= 1998
+LEgrad_2008[:,:est_year] .= 2008
+LEgrad_2018[:,:est_year] .= 2018
+
+
+
+LEgrad_oos = vcat(LEgrad_1968, LEgrad_1978, LEgrad_1988, LEgrad_1998, LEgrad_2008, LEgrad_2018)
+showtable(LEgrad_oos)
+CSV.write(folder*"siler_"*model*"_LEgrad_oos.csv", LEgrad_oos)

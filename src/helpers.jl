@@ -763,7 +763,8 @@ function compute_LEgrad_df(decomp_pred; ages = 0:140)
     # Years
     all_years = decomp_pred.year
     # Initialise dataframe for results
-    LEgrad_df = DataFrame(age = repeat(ages, length(all_years)), year = repeat(all_years, inner = length(ages)))
+    LEgrad_df = DataFrame(age = repeat(ages, length(all_years)), year = repeat(all_years, inner = length(ages)),
+        forecast = repeat(decomp_pred.forecast, inner = length(ages)))
     grad_vars = [:LE, :LE_Bs, :LE_bs, :LE_Cs, :LE_cs, :LE_ds, :LE_cC,
         :Lstar, :Lstar_Bs, :Lstar_bs, :Lstar_Cs, :Lstar_cs, :Lstar_ds, :Lstar_cC,
         :Lmed, :Lmed_Bs, :Lmed_bs, :Lmed_Cs, :Lmed_cs, :Lmed_ds, :Lmed_cC,
