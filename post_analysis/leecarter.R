@@ -22,7 +22,7 @@ col_scheme <- c("Australia" = "pink", "France" = "blue3", "Italy" =  "forestgree
                 "United Kingdom" = "gray", "Japan"= "red","Best Practice"= "black",
                 "Belgium" = "gold3", "Denmark" = "firebrick4", "Finland" = "darkslategray1",
                 "Netherlands" = "darkorange1", "Norway" = "deeppink", "Sweden" = "yellow",
-                "Switzerland" = "darkorchid3", "Iceland" = "cornsilk3")
+                "Switzerland" = "darkorchid3", "Iceland" = "cornsilk3", "Spain" = "coral")
 
 
 ## Function to create a dataframe of Lee-Carter fitted values and forecasts 
@@ -520,7 +520,7 @@ int_forecasts_df <- merge(country_forecasts_df, country_siler_df,
                                by = c("name", "year", "age", "est_year"), all.x = T)
 
 
-ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_bw() + 
+ggplot(int_forecasts_df[which(int_forecasts_df$age == 0 & !is.na(int_forecasts_df$ex_siler)),]) + theme_bw() + 
   facet_wrap(name~., nrow = 4, scales = "free") +
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
@@ -572,7 +572,7 @@ err_plt <- ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_b
            stat = "summary", fun = mean, width = 0.5) +
   geom_bar(aes(x = n_ahead+1, y = LC_e0_fe, fill = "Lee-Carter (e0)"), 
            stat = "summary", fun = mean, width = 0.5) +
-  xlab("Est. year") + ylab("Mean forecast error")+ ggtitle("FE")
+  xlab("Years ahead") + ylab("Mean forecast error")+ ggtitle("FE")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
 
 
