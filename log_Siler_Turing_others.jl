@@ -192,3 +192,60 @@ for code in country_codes
 
 
 end
+
+
+
+
+
+"""
+Out-of-sample forecasts
+"""
+
+folder = "countries/held-out"
+model = "i2"
+
+for code in country_codes[[11,12,13]]
+    print("Working on oos forecasts for "*code)
+    # Extract and convert relevant data into correct form
+    country_df = select_df[(select_df.code .== code), :]
+    country_df = country_df[country_df.year .>=1900,:]
+    sort!(select_df, [:year, :age])
+    # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
+    country_df.mx_f[country_df.mx_f .== 0.0] .=  minimum(country_df.mx_f[country_df.mx_f .> 0.0])
+    # Get data into right format
+    country_m_data = chunk(country_df.mx_f, 110)
+    country_lm_data = [log.(m_dist) for m_dist in country_m_data]
+    country_ages = Int64.(0:maximum(country_df.age))
+    country_years = unique(country_df.year)
+    T = length(country_lm_data)
+    name = country_df.name[1]
+    if T >= 18
+        for held_out = 2:2:10
+            # Adjust if you don't want every period
+            periods = Int.(1:T-held_out)
+            years_selected = Int.(round.(country_years[periods]))
+
+            ## Find some starting points
+            # MAP estimate for multiple independent models on log mortality
+            #map_i2 = optimize(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), MAP(), LBFGS(),
+            #    Optim.Options(iterations=60_000, allow_f_increases=true))
+            #map_i2_vals =  map_i2.values.array
+            # Alternatively, we can simulate from the prior and start there
+            prior_i2 = sample(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), Prior(), 5000)
+            df_prior = DataFrame(prior_i2)
+            insert!.(eachcol(df_prior), 1, vcat([0,0],median.(eachcol(df_prior[:,3:end]))))
+            showtable(df_prior)
+            prior_i2_vals = df_prior[1,3:(end-1)]
+
+            ## Estimate the model
+            niters = 1000
+            nchains = 4
+            # MCMC sampling
+            chain_i2 = sample(log_siler_dyn_i2drift(country_lm_data[periods], country_ages), NUTS(0.65), MCMCThreads(),
+                niters, nchains, init_params = prior_i2_vals)
+            display(chain_i2)
+            @save "figures/"*folder*"/"*code*"_siler_"*model*"_chain_"*string(years_selected[T-held_out])*".jld2" chain_i2
+
+        end
+    end
+end

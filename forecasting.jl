@@ -416,3 +416,131 @@ LEgrad_2018[:,:est_year] .= 2018
 LEgrad_oos = vcat(LEgrad_1968, LEgrad_1978, LEgrad_1988, LEgrad_1998, LEgrad_2008, LEgrad_2018)
 showtable(LEgrad_oos)
 CSV.write(folder*"siler_"*model*"_LEgrad_oos.csv", LEgrad_oos)
+
+
+
+
+
+
+
+"""
+Country out-of-sample forecasts
+"""
+## Select which countries to go through
+oos_codes = [ "AUS", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "USA"]
+
+oos_codes = ["BEL", "ESP", "FIN", "FRA", "GBR"]
+
+folder = "figures/countries/held-out/"
+for cc in oos_codes
+
+    # Country data
+    country_df = mort_df[mort_df.code .== cc,:]
+    #country_df = country_df[country_df.year .>= 1900,:]
+
+    # Import the estimated chains
+    @load "figures/countries/held-out/"*cc*"_siler_i2_chain_1968.jld2" chain_i2
+    chain_1968 = deepcopy(chain_i2)
+    @load "figures/countries/held-out/"*cc*"_siler_i2_chain_1978.jld2" chain_i2
+    chain_1978 = deepcopy(chain_i2)
+    @load "figures/countries/held-out/"*cc*"_siler_i2_chain_1988.jld2" chain_i2
+    chain_1988 = deepcopy(chain_i2)
+    @load "figures/countries/held-out/"*cc*"_siler_i2_chain_1998.jld2" chain_i2
+    chain_1998 = deepcopy(chain_i2)
+    @load "figures/countries/held-out/"*cc*"_siler_i2_chain_2008.jld2" chain_i2
+    chain_2008 = deepcopy(chain_i2)
+    @load "figures/countries/"*cc*"_i2_chain.jld2" chain_i2
+    chain_2018 = deepcopy(chain_i2)
+
+    # Extract dataframes
+    df_1968 = DataFrame(chain_1968)
+    years_1968 = Int.((5+1968- 5*sum(occursin.("lB[",names(df_1968)))):5:1968)
+    df_1978 = DataFrame(chain_1978)
+    years_1978 = Int.((5+1978- 5*sum(occursin.("lB[",names(df_1978)))):5:1978)
+    df_1988 = DataFrame(chain_1988)
+    years_1988 = Int.((5+1988- 5*sum(occursin.("lB[",names(df_1988)))):5:1988)
+    df_1998 = DataFrame(chain_1998)
+    years_1998 = Int.((5+1998- 5*sum(occursin.("lB[",names(df_1998)))):5:1998)
+    df_2008 = DataFrame(chain_2008)
+    years_2008 = Int.((5+2008- 5*sum(occursin.("lB[",names(df_2008)))):5:2008)
+    df_2018 = DataFrame(chain_2018)
+    years_2018 = Int.((5+2018- 5*sum(occursin.("lB[",names(df_2018)))):5:2018)
+
+    ## Compute the model implied LE and H for the in-sample periods
+    df_1968 = compute_LE_post(df_1968, years_1968, nahead, spec = :Bergeron, model_vers = :i2drift)
+    df_1978 = compute_LE_post(df_1978, years_1978, nahead, spec = :Bergeron, model_vers = :i2drift)
+    df_1988 = compute_LE_post(df_1988, years_1988, nahead, spec = :Bergeron, model_vers = :i2drift)
+    df_1998 = compute_LE_post(df_1998, years_1998, nahead, spec = :Bergeron, model_vers = :i2drift)
+    df_2008 = compute_LE_post(df_2008, years_2008, nahead, spec = :Bergeron, model_vers = :i2drift)
+    df_2018 = compute_LE_post(df_2018, years_2018, nahead, spec = :Bergeron, model_vers = :i2drift)
+
+    ## Compute df_pred which extends df_post with predictions
+    df_1968_pred = compute_forecasts(df_1968, nahead, ndraws, years_1968, spec = :Bergeron, model_vers = :i2drift)
+    df_1978_pred = compute_forecasts(df_1978, nahead, ndraws, years_1978, spec = :Bergeron, model_vers = :i2drift)
+    df_1988_pred = compute_forecasts(df_1988, nahead, ndraws, years_1988, spec = :Bergeron, model_vers = :i2drift)
+    df_1998_pred = compute_forecasts(df_1998, nahead, ndraws, years_1998, spec = :Bergeron, model_vers = :i2drift)
+    df_2008_pred = compute_forecasts(df_2008, nahead, ndraws, years_2008, spec = :Bergeron, model_vers = :i2drift)
+    df_2018_pred = compute_forecasts(df_2018, nahead, ndraws, years_2018, spec = :Bergeron, model_vers = :i2drift)
+
+    # Summarize past and forecast variables
+    fut_1968 = Int.(maximum(years_1968) .+ 5.0.*(1:nahead))
+    parests_1968 = extract_forecast_variables(df_1968_pred, years_1968, fut_1968,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    fut_1978 = Int.(maximum(years_1978) .+ 5.0.*(1:nahead))
+    parests_1978 = extract_forecast_variables(df_1978_pred, years_1978, fut_1978,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    fut_1988 = Int.(maximum(years_1988) .+ 5.0.*(1:nahead))
+    parests_1988 = extract_forecast_variables(df_1988_pred, years_1988, fut_1988,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    fut_1998 = Int.(maximum(years_1998) .+ 5.0.*(1:nahead))
+    parests_1998 = extract_forecast_variables(df_1998_pred, years_1998, fut_1998,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    fut_2008 = Int.(maximum(years_2008) .+ 5.0.*(1:nahead))
+    parests_2008 = extract_forecast_variables(df_2008_pred, years_2008, fut_2008,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+    fut_2018 = Int.(maximum(years_2018) .+ 5.0.*(1:nahead))
+    parests_2018 = extract_forecast_variables(df_2018_pred, years_2018, fut_2018,
+        log_pars = true, spec = :Bergeron, model_vers = :i2drift)
+
+    # Combine into a single dataframe
+    parests_1968[:,:est_year] .= 1968
+    parests_1978[:,:est_year] .= 1978
+    parests_1988[:,:est_year] .= 1988
+    parests_1998[:,:est_year] .= 1998
+    parests_2008[:,:est_year] .= 2008
+    parests_2018[:,:est_year] .= 2018
+
+    parests_oos = vcat(parests_1968, parests_1978, parests_1988, parests_1998, parests_2008, parests_2018)
+    showtable(parests_oos)
+    CSV.write("figures/countries/held-out/"*cc*"_preds_all.csv", parests_oos)
+
+    # Compute gradients and mortality/survival curves
+    ages = 0:140
+
+    decomp_1968 = create_decomp(parests_1968, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_1968 = compute_LEgrad_df(decomp_1968; ages = ages)
+    decomp_1978 = create_decomp(parests_1978, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_1978 = compute_LEgrad_df(decomp_1978; ages = ages)
+    decomp_1988 = create_decomp(parests_1988, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_1988 = compute_LEgrad_df(decomp_1988; ages = ages)
+    decomp_1998 = create_decomp(parests_1998, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_1998 = compute_LEgrad_df(decomp_1998; ages = ages)
+    decomp_2008 = create_decomp(parests_2008, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_2008 = compute_LEgrad_df(decomp_2008; ages = ages)
+    decomp_2018 = create_decomp(parests_2018, spec = :Bergeron, eval_age = 0, forecasts = true)
+    LEgrad_2018 = compute_LEgrad_df(decomp_2018; ages = ages)
+
+    plot(LEgrad_2018.age, LEgrad_2018.mortality, color = LEgrad_2018.year, group = LEgrad_2018.year)
+
+    LEgrad_1968[:,:est_year] .= 1968
+    LEgrad_1978[:,:est_year] .= 1978
+    LEgrad_1988[:,:est_year] .= 1988
+    LEgrad_1998[:,:est_year] .= 1998
+    LEgrad_2008[:,:est_year] .= 2008
+    LEgrad_2018[:,:est_year] .= 2018
+
+    LEgrad_oos = vcat(LEgrad_1968, LEgrad_1978, LEgrad_1988, LEgrad_1998, LEgrad_2008, LEgrad_2018)
+    showtable(LEgrad_oos)
+    CSV.write("figures/countries/held-out/"*cc*"_LEgrad_oos.csv", LEgrad_oos)
+
+end
