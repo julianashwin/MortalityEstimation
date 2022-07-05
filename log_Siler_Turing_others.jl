@@ -44,7 +44,7 @@ country_codes = ["AUT", "BGR", "BLR", "CHL", "CZE", "DEU", "DEUTW", "DNK", "EST"
     "HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK", "SVN", "TWN", "UKR"]
 
 country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", "HKG", "ITA", "ISL",
-    "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "USA", "AUT", "BGR", "BLR", "CHL", "CZE", "DEU",
+    "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "SWE", "USA", "AUT", "BGR", "BLR", "CHL", "CZE", "DEU",
     "DEUTW", "DNK", "EST", "HRV","HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK",
     "SVN", "TWN", "UKR"]
 
@@ -204,8 +204,8 @@ Out-of-sample forecasts
 folder = "countries/held-out"
 model = "i2"
 
-for code in country_codes[[11,12,13]]
-    print("Working on oos forecasts for "*code)
+for code in country_codes[[12,13,20]]
+    print("Working on oos forecasts for "*code*"\n")
     # Extract and convert relevant data into correct form
     country_df = select_df[(select_df.code .== code), :]
     country_df = country_df[country_df.year .>=1900,:]

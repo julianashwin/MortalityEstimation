@@ -376,7 +376,7 @@ International Lee-Carter
 mort_df$name <- str_replace_all(mort_df$name, " of America", "")
 countries <- unique(mort_df$name)
 
-countries <- countries[which(countries %in% names(col_scheme))]
+#countries <- countries[which(countries %in% names(col_scheme))]
 
 LC_df <- data.frame(matrix(NA, nrow = 0, ncol = 16))
 names(LC_df) <-c("name","year", "est_year", "age", "mx_LC", "lx_LC", "ex_LC", 
@@ -545,7 +545,9 @@ int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_dxt")
 int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_e0")
 
 # Plot the errors
-fe_plt <- ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_bw() + 
+obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
+               int_forecasts_df$est_year > 1960)
+fe_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = n_ahead-1, y = siler_fe2, fill = "Siler"), 
@@ -559,10 +561,10 @@ fe_plt <- ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_bw
   geom_bar(aes(x = n_ahead+1, y = LC_e0_fe2, fill = "Lee-Carter (e0)"), 
            stat = "summary", fun = mean, width = 0.5) +
   xlab("Years ahead") + ylab("MSE")+ ggtitle("MSE")
-err_plt <- ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_bw() + 
+err_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
-  geom_bar(aes(x = n_ahead-1, y = siler_fe2, fill = "Siler"), 
+  geom_bar(aes(x = n_ahead-1, y = siler_fe, fill = "Siler"), 
            stat = "summary", fun = mean, width = 0.5) +
   geom_bar(aes(x = n_ahead-0.5, y = LC_fe, fill = "Lee-Carter"), 
            stat = "summary", fun = mean, width = 0.5) +
@@ -576,23 +578,20 @@ err_plt <- ggplot(int_forecasts_df[which(int_forecasts_df$age == 0),]) + theme_b
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
 
 
-obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0)
+obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
+               int_forecasts_df$est_year > 1970)
 aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe")], 
-          by = list(name = country_forecasts_df$name[obs]), FUN = mean,)
+          by = list(name = int_forecasts_df$name[obs]), FUN = mean,)
 
 aggregate(int_forecasts_df[obs,c("siler_fe2","LC_fe2","LC_dt_fe2", "LC_dxt_fe2", "LC_e0_fe2")], 
           by = list(name = country_forecasts_df$name[obs]), FUN = mean,)
 
 
 
-t.test(country_forecasts_df$LC_e0_fe[which(country_forecasts_df$age == 0 & 
-                                             country_forecasts_df$name == "Netherlands")], na.rm = T)
-mean(country_forecasts_df$LC_e0_fe[which(country_forecasts_df$age == 0)]^2, na.rm = T)
-
-t.test(country_forecasts_df$LC_e0_fe[which(country_forecasts_df$age == 0)], na.rm = T)
-mean(country_forecasts_df$LC_e0_fe[which(country_forecasts_df$age == 0)]^2, na.rm = T)
-t.test(country_forecasts_df$LC_e0_err[which(country_forecasts_df$age == 0)], na.rm = T)
-mean(country_forecasts_df$LC_e0_err[which(country_forecasts_df$age == 0)]^2, na.rm = T)
+t.test(int_forecasts_df$LC_e0_fe[obs], na.rm = T)
+mean(int_forecasts_df$LC_e0_fe[obs]^2, na.rm = T)
+t.test(int_forecasts_df$siler_fe[obs], na.rm = T)
+mean(int_forecasts_df$siler_fe[obs]^2, na.rm = T)
 
 
 
