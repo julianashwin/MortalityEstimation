@@ -72,6 +72,31 @@ export_df <- data.frame(pivot_wider(export_df, id_cols = c(name, code, year), na
 write.csv(export_df, "data/results/siler_panel.csv", row.names = FALSE)
 rm(export_df)
 
+## Plot the parameters over time in each country
+plot_df <- all_df[which(all_df$year > 1900),]
+plot_df <- plot_df[which(str_detect(plot_df$parameter, "α")),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
+ggplot(plot_df) + theme_bw() + 
+  facet_wrap(parameter~., nrow = 2, scales = "free") +
+  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  xlab("Year") + ylab("Life expectancy at birth")
+
+summary(lm(median ~ parameter*year, data = plot_df))
+
+
+
+
+
 
 # Merge in the best practice results
 bp_df <- read.csv("figures/benchmark/siler_i2drift_preds.csv", stringsAsFactors = F)

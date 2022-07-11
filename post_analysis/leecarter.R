@@ -527,7 +527,6 @@ ggplot(int_forecasts_df[which(int_forecasts_df$age == 0 & !is.na(int_forecasts_d
                                          "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_e0, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
-  #geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
   xlab("Year") + ylab("Life expectancy at birth")
 
 
@@ -579,7 +578,7 @@ ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "righ
 
 
 obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
-               int_forecasts_df$est_year > 1970)
+               int_forecasts_df$est_year > 1960)
 aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe")], 
           by = list(name = int_forecasts_df$name[obs]), FUN = mean,)
 
@@ -593,6 +592,9 @@ mean(int_forecasts_df$LC_e0_fe[obs]^2, na.rm = T)
 t.test(int_forecasts_df$siler_fe[obs], na.rm = T)
 mean(int_forecasts_df$siler_fe[obs]^2, na.rm = T)
 
+mean(int_forecasts_df$LC_fe[obs]^2, na.rm = T)
+mean(int_forecasts_df$LC_dt_fe[obs]^2, na.rm = T)
+mean(int_forecasts_df$LC_dxt_fe[obs]^2, na.rm = T)
 
 
 
