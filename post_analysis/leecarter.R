@@ -24,6 +24,9 @@ col_scheme <- c("Australia" = "pink", "France" = "blue3", "Italy" =  "forestgree
                 "Netherlands" = "darkorange1", "Norway" = "deeppink", "Sweden" = "yellow",
                 "Switzerland" = "darkorchid3", "Iceland" = "cornsilk3", "Spain" = "coral")
 
+model_cols <- c("Siler" = "purple", "Lee-Carter" = "red",
+                "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", 
+                "Lee-Carter (e0)" = "blue")
 
 ## Function to create a dataframe of Lee-Carter fitted values and forecasts 
 #adj <- "e0"
@@ -116,14 +119,7 @@ forecasts_dist_df$`Estimation Year` <- as.character(forecasts_dist_df$est_year)
 
 forecasts_dist_df <- merge(forecasts_dist_df, bp_df[which(bp_df$age == 0),c("year", "ex_f")],
                       by = "year", all.x = T)
-if (FALSE){
-  ggplot(forecasts_dist_df) + theme_bw() + 
-    geom_ribbon(aes(x = year, ymin = pc15, ymax = pc85, fill = `Estimation Year`,
-                    group = interaction(`Estimation Year`, Forecast)), alpha = 0.3) + 
-    geom_point(aes(x = year, y = ex_f), shape = 3) + 
-    xlab("Year") + ylab("Life expectancy at birth")
-  
-}
+
 
 # Siler mortality, survival and life expectancy curves
 sil_forecasts_df <- read.csv("figures/benchmark/held-out/siler_i2drift_LEgrad_oos.csv", stringsAsFactors = F)
@@ -191,6 +187,14 @@ for (ii in 1:nrow(forecasts_dist_df)){
 }
 rm(yy, yy_est, obs, adjustment)
 
+if (FALSE){
+  ggplot(forecasts_dist_df) + theme_bw() + 
+    geom_ribbon(aes(x = year, ymin = pc15_adj, ymax = pc85_adj, fill = `Estimation Year`,
+                    group = interaction(`Estimation Year`, Forecast)), alpha = 0.3) + 
+    geom_point(aes(x = year, y = ex_f), shape = 3) + 
+    xlab("Year") + ylab("Life expectancy at birth")
+  ggsave("figures/forecasting/BP_forecast_dist.pdf", width = 8, height = 4)
+}
 
 
 "
@@ -236,15 +240,15 @@ forecasts_df <- merge(sil_forecasts_df, LC_df,by = c("year", "est_year", "age"),
 # Have a quick look
 ggplot(forecasts_df[which(forecasts_df$est_year == 2018 &
                             forecasts_df$age == 0),]) + theme_bw() + 
+  scale_color_manual("Model", values = model_cols) +
   geom_line(aes(x = year, y = ex_siler, color = "Siler")) + 
-  geom_line(aes(x = year, y = ex_LC, color = "LC (none)")) + 
-  geom_line(aes(x = year, y = ex_LC_dt, color = "LC (dt)")) + 
-  geom_line(aes(x = year, y = ex_LC_dxt, color = "LC (dxt)")) + 
-  geom_line(aes(x = year, y = ex_LC_e0, color = "LC (e0)")) + 
+  geom_line(aes(x = year, y = ex_LC, color = "Lee-Carter")) + 
+  geom_line(aes(x = year, y = ex_LC_dt, color = "Lee-Carter (dt)")) + 
+  geom_line(aes(x = year, y = ex_LC_dxt, color = "Lee-Carter (dxt)")) + 
+  geom_line(aes(x = year, y = ex_LC_e0, color = "Lee-Carter (e0)")) + 
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   xlab("Year") + ylab("Life expectancy at birth")
-
-
+ggsave("figures/forecasting/BP_point_forecasts.pdf", width = 8, height = 4)
 
 
 "
@@ -295,18 +299,20 @@ fe_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() +
 err_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
       "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
-  geom_bar(aes(x = est_year-1, y = siler_err2, fill = "Siler"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = est_year-0.5, y = LC_err2, fill = "Lee-Carter"), 
-           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year-2, y = siler_err2, fill = "Siler"), 
+           stat = "summary", fun = mean, width = 1) +
+  geom_bar(aes(x = est_year-1, y = LC_err2, fill = "Lee-Carter"), 
+           stat = "summary", fun = mean, width = 1) +
   geom_bar(aes(x = est_year, y = LC_dt_err2, fill = "Lee-Carter (dt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = est_year+0.5, y = LC_dxt_err2, fill = "Lee-Carter (dxt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = est_year+1, y = LC_e0_err2, fill = "Lee-Carter (e0)"), 
-           stat = "summary", fun = mean, width = 0.5) +
+           stat = "summary", fun = mean, width = 1) +
+  geom_bar(aes(x = est_year+1, y = LC_dxt_err2, fill = "Lee-Carter (dxt)"), 
+           stat = "summary", fun = mean, width = 1) +
+  geom_bar(aes(x = est_year+2, y = LC_e0_err2, fill = "Lee-Carter (e0)"), 
+           stat = "summary", fun = mean, width = 1) +
   xlab("Est. year") + ylab("MSE")+ ggtitle("In-sample")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
+ggsave("figures/forecasting/BP_forecast_errors.pdf", width = 8, height = 4)
+
 rm(fe_plt,err_plt)
 
 t.test(forecasts_df$siler_fe[which(forecasts_df$age == 0)], na.rm = T)
@@ -328,16 +334,16 @@ Compare Lee-Carter and siler model forecasts
 ## Compare some actual mortality curves
 ggplot(forecasts_df[which(forecasts_df$year %in% c(1903,1963,2018, 2048) &
                             forecasts_df$est_year == 2018),]) + theme_bw() + 
-  scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
-      "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
-  geom_point(aes(x = age, y = log(mx_f)), shape = 3) +
+  scale_color_manual("Model", values = model_cols) +
+  geom_point(aes(x = age, y = log(mx_f)), shape = 3, size = 0.5) +
   geom_line(aes(x = age, y = log(mx_LC), group = year, color = "Lee-Carter"), alpha = 0.5) +
   geom_line(aes(x = age, y = log(mx_LC_dt), group = year, color= "Lee-Carter (dt)"), alpha = 0.5) +
   geom_line(aes(x = age, y = log(mx_LC_dxt), group = year, color = "Lee-Carter (dxt)"), alpha = 0.5) +
   geom_line(aes(x = age, y = log(mx_LC_e0), group = year, color = "Lee-Carter (e0)"), alpha = 0.5) +
   geom_line(aes(x = age, y = log(mortality), group = year, color = "Siler")) +
   facet_wrap(as.character(year)~., nrow = 2, scales = "free") +
-  xlab("Year") + ylab("Life expectancy at birth")
+  xlab("Year") + ylab("log mortality")
+ggsave("figures/forecasting/BP_compare_mcurves.pdf", width = 8, height = 6)
 
 
 ## Out of sample LE forecasts
@@ -352,8 +358,7 @@ ggsave("figures/benchmark/held-out/LE_siler_forecasts.pdf", width = 8, height = 
 
 
 ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
-  scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
-      "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
+  scale_color_manual("Model", values = model_cols) +
   geom_line(aes(x = year, y = ex_LC, group = est_year, color = "Lee-Carter"), alpha =0.3) + 
   geom_line(aes(x = year, y = ex_LC_dt, group = est_year, color= "Lee-Carter (dt)"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_dxt, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
@@ -361,7 +366,8 @@ ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() +
   geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   xlab("Year") + ylab("Life expectancy at birth")
-ggsave("figures/benchmark/held-out/LE_all_forecasts.pdf", width = 8, height = 4)
+ggsave("figures/forecasting/LE_all_forecasts.pdf", width = 8, height = 4)
+
 
 
 
@@ -430,16 +436,16 @@ country_forecasts_df <- merge(mort_df, LC_df,by = c("name", "year", "age"), all.
 
 
 ggplot(country_forecasts_df[which(country_forecasts_df$age == 0),]) + theme_bw() + 
-  facet_wrap(name~., nrow = 4, scales = "free") +
-  geom_point(aes(x = year, y = ex_f), shape = 3) +
-  scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
-                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
+  facet_wrap(name~., ncol = 5, scales = "free") + theme(legend.position="top") +
+  geom_point(aes(x = year, y = ex_f), shape = 3, size = 0.5) +
+  scale_color_manual("Model", values = model_cols) +
   geom_line(aes(x = year, y = ex_LC, group = est_year, color = "Lee-Carter"), alpha =0.3) + 
   geom_line(aes(x = year, y = ex_LC_dt, group = est_year, color= "Lee-Carter (dt)"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_dxt, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_e0, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
   #geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
   xlab("Year") + ylab("Life expectancy at birth")
+ggsave("figures/forecasting/LC_forecasts_countries.pdf", width = 8, height = 12)
 
 
 
@@ -521,13 +527,16 @@ int_forecasts_df <- merge(country_forecasts_df, country_siler_df,
 
 
 ggplot(int_forecasts_df[which(int_forecasts_df$age == 0 & !is.na(int_forecasts_df$ex_siler)),]) + theme_bw() + 
-  facet_wrap(name~., nrow = 4, scales = "free") +
-  geom_point(aes(x = year, y = ex_f), shape = 3) +
+  facet_wrap(name~., nrow = 4, scales = "free") + 
+  theme(legend.position = "top") + 
+  geom_point(aes(x = year, y = ex_f), shape = 3, size = 0.5) +
   scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                          "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_e0, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
+  #geom_line(aes(x = year, y = ex_LC_dxt, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
   xlab("Year") + ylab("Life expectancy at birth")
+ggsave("figures/forecasting/compare_forecasts_countries.pdf", width = 8, height = 6)
 
 
 
@@ -575,16 +584,18 @@ err_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() +
            stat = "summary", fun = mean, width = 0.5) +
   xlab("Years ahead") + ylab("Mean forecast error")+ ggtitle("FE")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
+ggsave("figures/forecasting/compare_errors_countries.pdf", width = 8, height = 4)
 
 
 obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
                int_forecasts_df$est_year > 1960)
-aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe")], 
+fe_tab <- aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe")], 
           by = list(name = int_forecasts_df$name[obs]), FUN = mean,)
+stargazer(fe_tab, summary = FALSE)
 
-aggregate(int_forecasts_df[obs,c("siler_fe2","LC_fe2","LC_dt_fe2", "LC_dxt_fe2", "LC_e0_fe2")], 
+mse_tab <- aggregate(int_forecasts_df[obs,c("siler_fe2","LC_fe2","LC_dt_fe2", "LC_dxt_fe2", "LC_e0_fe2")], 
           by = list(name = country_forecasts_df$name[obs]), FUN = mean,)
-
+stargazer(mse_tab, summary = FALSE)
 
 
 t.test(int_forecasts_df$LC_e0_fe[obs], na.rm = T)
