@@ -200,52 +200,79 @@ if (FALSE){
 "
 Cycle through Best Practice to get out of sample results
 "
-LC_df <- data.frame(matrix(NA, nrow = 0, ncol = 15))
-names(LC_df) <-c("year", "est_year", "age", "mx_LC", "lx_LC", "ex_LC", 
-                 "mx_LC_dt", "lx_LC_dt", "ex_LC_dt","mx_LC_dxt", "lx_LC_dxt", "ex_LC_dxt", 
-                 "mx_LC_e0", "lx_LC_e0", "ex_LC_e0")
+LC_vars <- c("year", "est_year", "age", 
+            "mx_LC", "lx_LC", "ex_LC", "mx_LC_dt", "lx_LC_dt", "ex_LC_dt",
+            "mx_LC_dxt", "lx_LC_dxt", "ex_LC_dxt", "mx_LC_e0", "lx_LC_e0", "ex_LC_e0",
+            "mx_LC_r", "lx_LC_r", "ex_LC_r", "mx_LC_dt_r", "lx_LC_dt_r", "ex_LC_dt_r",
+            "mx_LC_dxt_r", "lx_LC_dxt_r", "ex_LC_dxt_r", "mx_LC_e0_r", "lx_LC_e0_r", "ex_LC_e0_r")
+LC_df <- data.frame(matrix(NA, nrow = 0, ncol = length(LC_vars)))
+names(LC_df) <- LC_vars
 
 #bp_df <- mort_df[which(mort_df$name == "New Zealand"),]
 yy <- est_years[6]
 for (yy in est_years){
-  mx_matrix <- cast(bp_df[which(bp_df$year <= yy),c("year", "age", "mx_f")], 
-                    age ~ year, value = "mx_f")
-  pop_matrix <- cast(bp_df[which(bp_df$year <= yy),c("year", "age", "Female")], 
-                     age ~ year, value = "Female")
-  # Carry over pop data if missing
-  for (ii in 2:ncol(pop_matrix)){
-    pop_matrix[which(is.na(pop_matrix[,ii])),ii] <- pop_matrix[which(is.na(pop_matrix[,ii])),(ii-1)]
+  for (roll in c("_r", "")){
+    if (roll == "_r"){
+      mx_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-70 ),
+                              c("year", "age", "mx_f")], 
+                        age ~ year, value = "mx_f")
+      pop_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-70),
+                               c("year", "age", "Female")], 
+                         age ~ year, value = "Female")
+    } else {
+      mx_matrix <- cast(bp_df[which(bp_df$year <= yy), c("year", "age", "mx_f")], 
+                        age ~ year, value = "mx_f")
+      pop_matrix <- cast(bp_df[which(bp_df$year <= yy), c("year", "age", "Female")], 
+                         age ~ year, value = "Female")
+    }
+    
+    # Carry over pop data if missing
+    for (ii in 2:ncol(pop_matrix)){
+      pop_matrix[which(is.na(pop_matrix[,ii])),ii] <- pop_matrix[which(is.na(pop_matrix[,ii])),(ii-1)]
+    }
+    # Possible adjustments: "dt", "dxt", "e0", "none" 
+    # No adjustment
+    temp_df <- create_LC_df(mx_matrix, pop_matrix, "none", "BP", nahead = 6)
+    names(temp_df)[3:5] <- paste0(names(temp_df)[3:5], roll)
+    # Lee-Carter adjustment
+    temp_df_dt <- create_LC_df(mx_matrix, pop_matrix, "dt", "BP", nahead = 6)
+    names(temp_df_dt)[3:5] <- paste0(names(temp_df_dt)[3:5], paste0("_dt", roll))
+    # BMS adjustment 
+    temp_df_dxt <- create_LC_df(mx_matrix, pop_matrix, "dxt", "BP", nahead = 6)
+    names(temp_df_dxt)[3:5] <- paste0(names(temp_df_dxt)[3:5], paste0("_dxt", roll))
+    # Life expectancy adjustment
+    temp_df_e0 <- create_LC_df(mx_matrix, pop_matrix, "e0", "BP", nahead = 6)
+    names(temp_df_e0)[3:5] <- paste0(names(temp_df_e0)[3:5], paste0("_e0", roll))
+    # Combine 
+    if (roll == "_r"){
+      temp_df_r <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
+      temp_df_r$est_year <- yy
+    } else {
+      temp_df <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
+      temp_df$est_year <- yy
+    }
   }
-  # Possible adjustments: "dt", "dxt", "e0", "none" 
-  # No adjustment
-  temp_df <- create_LC_df(mx_matrix, pop_matrix, "none", "BP", nahead = 6)
-  # Lee-Carter adjustment
-  temp_df_dt <- create_LC_df(mx_matrix, pop_matrix, "dt", "BP", nahead = 6)
-  names(temp_df_dt)[3:5] <- paste0(names(temp_df_dt)[3:5], "_dt")
-  # BMS adjustment 
-  temp_df_dxt <- create_LC_df(mx_matrix, pop_matrix, "dxt", "BP", nahead = 6)
-  names(temp_df_dxt)[3:5] <- paste0(names(temp_df_dxt)[3:5], "_dxt")
-  # Life expectancy adjustment
-  temp_df_e0 <- create_LC_df(mx_matrix, pop_matrix, "e0", "BP", nahead = 6)
-  names(temp_df_e0)[3:5] <- paste0(names(temp_df_e0)[3:5], "_e0")
-  # Combine 
-  temp_df <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
-  temp_df$est_year <- yy
+  temp_df <- merge(temp_df, temp_df_r, by = c("year", "age", "est_year"), all.x = TRUE) 
   LC_df <- rbind(LC_df, temp_df[names(LC_df)])
+  
 
 }
-rm(mx_matrix, pop_matrix, temp_df, temp_df_dt, temp_df_dxt, temp_df_e0,yy)
+rm(mx_matrix, pop_matrix, temp_df, temp_df_r, temp_df_dt, temp_df_dxt, temp_df_e0,yy, roll)
 forecasts_df <- merge(sil_forecasts_df, LC_df,by = c("year", "est_year", "age"), all.x = T)
 
 # Have a quick look
 ggplot(forecasts_df[which(forecasts_df$est_year == 2018 &
                             forecasts_df$age == 0),]) + theme_bw() + 
   scale_color_manual("Model", values = model_cols) +
-  geom_line(aes(x = year, y = ex_siler, color = "Siler")) + 
-  geom_line(aes(x = year, y = ex_LC, color = "Lee-Carter")) + 
-  geom_line(aes(x = year, y = ex_LC_dt, color = "Lee-Carter (dt)")) + 
-  geom_line(aes(x = year, y = ex_LC_dxt, color = "Lee-Carter (dxt)")) + 
-  geom_line(aes(x = year, y = ex_LC_e0, color = "Lee-Carter (e0)")) + 
+  geom_line(aes(x = year, y = ex_siler, color = "Siler", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC, color = "Lee-Carter", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC_dt, color = "Lee-Carter (dt)", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC_dxt, color = "Lee-Carter (dxt)", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC_e0, color = "Lee-Carter (e0)", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC_r, color = "Lee-Carter", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_LC_dt_r, color = "Lee-Carter (dt)", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_LC_dxt_r, color = "Lee-Carter (dxt)", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_LC_e0_r, color = "Lee-Carter (e0)", linetype = "Rolling")) + 
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   xlab("Year") + ylab("Life expectancy at birth")
 ggsave("figures/forecasting/BP_point_forecasts.pdf", width = 8, height = 4)
@@ -280,35 +307,55 @@ forecasts_df <- compute_fe(forecasts_df, suffix = "LC")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dt")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dxt")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_e0")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dt_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dxt_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_e0_r")
 
 # Plot the errors
 fe_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
       "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = n_ahead-1, y = siler_fe2, fill = "Siler"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead-0.5, y = LC_fe2, fill = "Lee-Carter"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead, y = LC_dt_fe2, fill = "Lee-Carter (dt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+0.5, y = LC_dxt_fe2, fill = "Lee-Carter (dxt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+1, y = LC_e0_fe2, fill = "Lee-Carter (e0)"), 
-           stat = "summary", fun = mean, width = 0.5) +
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.75, y = LC_fe2, fill = "Lee-Carter", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.5, y = LC_dt_fe2, fill = "Lee-Carter (dt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.25, y = LC_dxt_fe2, fill = "Lee-Carter (dxt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead, y = LC_e0_fe2, fill = "Lee-Carter (e0)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.25, y = LC_r_fe2, fill = "Lee-Carter", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.5, y = LC_dt_r_fe2, fill = "Lee-Carter (dt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.75, y = LC_dxt_r_fe2, fill = "Lee-Carter (dxt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+1, y = LC_e0_r_fe2, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
   xlab("Years ahead") + ylab("MSE")+ ggtitle("Out-of-sample")
 err_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
       "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = est_year-2, y = siler_err2, fill = "Siler"), 
-           stat = "summary", fun = mean, width = 1) +
-  geom_bar(aes(x = est_year-1, y = LC_err2, fill = "Lee-Carter"), 
-           stat = "summary", fun = mean, width = 1) +
-  geom_bar(aes(x = est_year, y = LC_dt_err2, fill = "Lee-Carter (dt)"), 
-           stat = "summary", fun = mean, width = 1) +
-  geom_bar(aes(x = est_year+1, y = LC_dxt_err2, fill = "Lee-Carter (dxt)"), 
-           stat = "summary", fun = mean, width = 1) +
-  geom_bar(aes(x = est_year+2, y = LC_e0_err2, fill = "Lee-Carter (e0)"), 
-           stat = "summary", fun = mean, width = 1) +
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year-1.5, y = LC_err2, fill = "Lee-Carter", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year-1, y = LC_dt_err2, fill = "Lee-Carter (dt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year-0.5, y = LC_dxt_err2, fill = "Lee-Carter (dxt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year, y = LC_e0_err2, fill = "Lee-Carter (e0)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year+0.5, y = LC_r_err2, fill = "Lee-Carter", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year+1, y = LC_dt_r_err2, fill = "Lee-Carter (dt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year+1.5, y = LC_dxt_r_err2, fill = "Lee-Carter (dxt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = est_year+2, y = LC_e0_r_err2, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.5) +
   xlab("Est. year") + ylab("MSE")+ ggtitle("In-sample")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
 ggsave("figures/forecasting/BP_forecast_errors.pdf", width = 8, height = 4)
@@ -333,14 +380,27 @@ Compare Lee-Carter and siler model forecasts
 
 ## Compare some actual mortality curves
 ggplot(forecasts_df[which(forecasts_df$year %in% c(1903,1963,2018, 2048) &
-                            forecasts_df$est_year == 2018),]) + theme_bw() + 
+                            forecasts_df$est_year %in% c(1968,2018)),]) + theme_bw() + 
   scale_color_manual("Model", values = model_cols) +
   geom_point(aes(x = age, y = log(mx_f)), shape = 3, size = 0.5) +
-  geom_line(aes(x = age, y = log(mx_LC), group = year, color = "Lee-Carter"), alpha = 0.5) +
-  geom_line(aes(x = age, y = log(mx_LC_dt), group = year, color= "Lee-Carter (dt)"), alpha = 0.5) +
-  geom_line(aes(x = age, y = log(mx_LC_dxt), group = year, color = "Lee-Carter (dxt)"), alpha = 0.5) +
-  geom_line(aes(x = age, y = log(mx_LC_e0), group = year, color = "Lee-Carter (e0)"), alpha = 0.5) +
-  geom_line(aes(x = age, y = log(mortality), group = year, color = "Siler")) +
+  geom_line(aes(x = age, y = log(mx_LC), group = interaction(year, est_year), 
+                color = "Lee-Carter", linetype = "Full Sample"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_dt), group = interaction(year, est_year), 
+                color= "Lee-Carter (dt)", linetype = "Full Sample"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_dxt), group = interaction(year, est_year), 
+                color = "Lee-Carter (dxt)", linetype = "Full Sample"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_e0), group = interaction(year, est_year), 
+                color = "Lee-Carter (e0)", linetype = "Full Sample"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mortality), group = interaction(year, est_year), 
+                color = "Siler", linetype = "Full Sample")) +
+  geom_line(aes(x = age, y = log(mx_LC_r), group = interaction(year, est_year), 
+                color = "Lee-Carter", linetype = "Rolling"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_dt_r), group = interaction(year, est_year), 
+                color= "Lee-Carter (dt)", linetype = "Rolling"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_dxt_r), group = interaction(year, est_year), 
+                color = "Lee-Carter (dxt)", linetype = "Rolling"), alpha = 0.5) +
+  geom_line(aes(x = age, y = log(mx_LC_e0_r), group = interaction(year, est_year), 
+                color = "Lee-Carter (e0)", linetype = "Rolling"), alpha = 0.5) +
   facet_wrap(as.character(year)~., nrow = 2, scales = "free") +
   xlab("Year") + ylab("log mortality")
 ggsave("figures/forecasting/BP_compare_mcurves.pdf", width = 8, height = 6)
@@ -359,10 +419,10 @@ ggsave("figures/benchmark/held-out/LE_siler_forecasts.pdf", width = 8, height = 
 
 ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
   scale_color_manual("Model", values = model_cols) +
-  geom_line(aes(x = year, y = ex_LC, group = est_year, color = "Lee-Carter"), alpha =0.3) + 
-  geom_line(aes(x = year, y = ex_LC_dt, group = est_year, color= "Lee-Carter (dt)"), alpha =0.3) +
-  geom_line(aes(x = year, y = ex_LC_dxt, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
-  geom_line(aes(x = year, y = ex_LC_e0, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_r, group = est_year, color = "Lee-Carter"), alpha =0.3) + 
+  geom_line(aes(x = year, y = ex_LC_dt_r, group = est_year, color= "Lee-Carter (dt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_dxt_r, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_e0_r, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   xlab("Year") + ylab("Life expectancy at birth")

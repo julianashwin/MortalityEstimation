@@ -426,10 +426,14 @@ CSV.write(folder*"siler_"*model*"_LEgrad_oos.csv", LEgrad_oos)
 """
 Country out-of-sample forecasts
 """
+## Options
+ndraws = 10 # Number of draws to approximate each future shock
+nahead = 6 # Number of periods to forecast ahead
+
 ## Select which countries to go through
 oos_codes = [ "AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "USA",
     "NLD", "ITA"]
-oos_codes = ["SWE"]
+oos_codes = ["NZL_NM"]
 
 folder = "figures/countries/held-out/"
 for cc in oos_codes
