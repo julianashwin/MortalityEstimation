@@ -213,10 +213,10 @@ yy <- est_years[6]
 for (yy in est_years){
   for (roll in c("_r", "")){
     if (roll == "_r"){
-      mx_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-70 ),
+      mx_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-50 ),
                               c("year", "age", "mx_f")], 
                         age ~ year, value = "mx_f")
-      pop_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-70),
+      pop_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-50),
                                c("year", "age", "Female")], 
                          age ~ year, value = "Female")
     } else {
@@ -404,6 +404,7 @@ ggplot(forecasts_df[which(forecasts_df$year %in% c(1903,1963,2018, 2048) &
   facet_wrap(as.character(year)~., nrow = 2, scales = "free") +
   xlab("Year") + ylab("log mortality")
 ggsave("figures/forecasting/BP_compare_mcurves.pdf", width = 8, height = 6)
+
 
 
 ## Out of sample LE forecasts
