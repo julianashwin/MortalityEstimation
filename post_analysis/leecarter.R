@@ -366,6 +366,8 @@ t.test(forecasts_df$siler_fe[which(forecasts_df$age == 0)], na.rm = T)
 mean(forecasts_df$siler_fe[which(forecasts_df$age == 0)]^2, na.rm = T)
 t.test(forecasts_df$LC_e0_fe[which(forecasts_df$age == 0)], na.rm = T)
 mean(forecasts_df$LC_e0_fe[which(forecasts_df$age == 0)]^2, na.rm = T)
+t.test(forecasts_df$LC_e0_r_fe[which(forecasts_df$age == 0)], na.rm = T)
+mean(forecasts_df$LC_e0_r_fe[which(forecasts_df$age == 0)]^2, na.rm = T)
 
 t.test(forecasts_df$siler_err[which(forecasts_df$age == 0)], na.rm = T)
 mean(forecasts_df$siler_err[which(forecasts_df$age == 0)]^2, na.rm = T)
@@ -444,11 +446,14 @@ mort_df$name <- str_replace_all(mort_df$name, " of America", "")
 countries <- unique(mort_df$name)
 
 #countries <- countries[which(countries %in% names(col_scheme))]
+LC_vars <- c("name", "year", "est_year", "age", 
+             "mx_LC", "lx_LC", "ex_LC", "mx_LC_dt", "lx_LC_dt", "ex_LC_dt",
+             "mx_LC_dxt", "lx_LC_dxt", "ex_LC_dxt", "mx_LC_e0", "lx_LC_e0", "ex_LC_e0",
+             "mx_LC_r", "lx_LC_r", "ex_LC_r", "mx_LC_dt_r", "lx_LC_dt_r", "ex_LC_dt_r",
+             "mx_LC_dxt_r", "lx_LC_dxt_r", "ex_LC_dxt_r", "mx_LC_e0_r", "lx_LC_e0_r", "ex_LC_e0_r")
+LC_df <- data.frame(matrix(NA, nrow = 0, ncol = length(LC_vars)))
+names(LC_df) <- LC_vars
 
-LC_df <- data.frame(matrix(NA, nrow = 0, ncol = 16))
-names(LC_df) <-c("name","year", "est_year", "age", "mx_LC", "lx_LC", "ex_LC", 
-                 "mx_LC_dt", "lx_LC_dt", "ex_LC_dt","mx_LC_dxt", "lx_LC_dxt", "ex_LC_dxt", 
-                 "mx_LC_e0", "lx_LC_e0", "ex_LC_e0")
 
 cc <- countries[1]
 yy <- est_years[1]
@@ -458,40 +463,64 @@ for (cc in countries){
   #bp_df <- mort_df[which(mort_df$name == "New Zealand"),]
   country_LC_df <- LC_df[0,]
   for (yy in est_years){
-    mx_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "mx_f")], 
-                      age ~ year, value = "mx_f")
-    pop_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "Female")], 
-                       age ~ year, value = "Female")
-    if (ncol(mx_matrix) > 10){
-      # Carry over pop data if missing
-      for (ii in 2:ncol(pop_matrix)){
-        pop_matrix[which(is.na(pop_matrix[,ii])),ii] <- pop_matrix[which(is.na(pop_matrix[,ii])),(ii-1)]
-        pop_matrix[which(pop_matrix[,ii]==0),ii] <- 0.01
+    for (roll in c("_r", "")){
+      if (roll == "_r"){
+        mx_matrix <- cast(country_df[which(country_df$year <= yy & country_df$year > yy-50 ),
+                                c("year", "age", "mx_f")], 
+                          age ~ year, value = "mx_f")
+        pop_matrix <- cast(country_df[which(country_df$year <= yy & country_df$year > yy-50),
+                                 c("year", "age", "Female")], 
+                           age ~ year, value = "Female")
+      } else {
+        mx_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "mx_f")], 
+                          age ~ year, value = "mx_f")
+        pop_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "Female")], 
+                           age ~ year, value = "Female")
       }
-      # Possible adjustments: "dt", "dxt", "e0", "none" 
-      # No adjustment
-      temp_df <- create_LC_df(mx_matrix, pop_matrix, "none", cc, nahead = 6)
-      # Lee-Carter adjustment
-      temp_df_dt <- create_LC_df(mx_matrix, pop_matrix, "dt", cc, nahead = 6)
-      names(temp_df_dt)[3:5] <- paste0(names(temp_df_dt)[3:5], "_dt")
-      # BMS adjustment 
-      temp_df_dxt <- create_LC_df(mx_matrix, pop_matrix, "dxt", cc, nahead = 6)
-      names(temp_df_dxt)[3:5] <- paste0(names(temp_df_dxt)[3:5], "_dxt")
-      # Life expectancy adjustment
-      temp_df_e0 <- create_LC_df(mx_matrix, pop_matrix, "e0", cc, nahead = 6)
-      names(temp_df_e0)[3:5] <- paste0(names(temp_df_e0)[3:5], "_e0")
-      # Combine 
-      temp_df <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
-      temp_df$est_year <- yy
-      temp_df$name <- cc
-      country_LC_df <- rbind(country_LC_df, temp_df[names(country_LC_df)])
+      if (ncol(mx_matrix) > 10){
+        # Carry over pop data if missing
+        for (ii in 2:ncol(pop_matrix)){
+          pop_matrix[which(is.na(pop_matrix[,ii])),ii] <- pop_matrix[which(is.na(pop_matrix[,ii])),(ii-1)]
+          pop_matrix[which(pop_matrix[,ii]==0),ii] <- 0.01
+        }
+        # Possible adjustments: "dt", "dxt", "e0", "none" 
+        # No adjustment
+        temp_df <- create_LC_df(mx_matrix, pop_matrix, "none", cc, nahead = 6)
+        names(temp_df)[3:5] <- paste0(names(temp_df)[3:5], roll)
+        # Lee-Carter adjustment
+        temp_df_dt <- create_LC_df(mx_matrix, pop_matrix, "dt", cc, nahead = 6)
+        names(temp_df_dt)[3:5] <- paste0(names(temp_df_dt)[3:5], paste0("_dt", roll))
+        # BMS adjustment 
+        temp_df_dxt <- create_LC_df(mx_matrix, pop_matrix, "dxt", cc, nahead = 6)
+        names(temp_df_dxt)[3:5] <- paste0(names(temp_df_dxt)[3:5], paste0("_dxt", roll))
+        # Life expectancy adjustment
+        temp_df_e0 <- create_LC_df(mx_matrix, pop_matrix, "e0", cc, nahead = 6)
+        names(temp_df_e0)[3:5] <- paste0(names(temp_df_e0)[3:5], paste0("_e0", roll))
+        # Combine 
+        if (roll == "_r"){
+          temp_df_r <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
+          temp_df_r$est_year <- yy
+          temp_df_r$name <- cc
+        } else {
+          temp_df <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
+          temp_df$est_year <- yy
+          temp_df$name <- cc
+        }
+        flag <- TRUE
+      } else { # ncol < 10
+        flag <- FALSE
+        print(paste("Not enough data for", cc, "in", yy))
+      }
+    }
+    # Combine
+    if (flag){
+      temp_df <- merge(temp_df, temp_df_r, by = c("name", "year", "age", "est_year"), all.x = TRUE) 
+      LC_df <- rbind(LC_df, temp_df[names(LC_df)])
     }
   }
-  
-  LC_df <- rbind(LC_df, country_LC_df[names(LC_df)])
-  
 }
-rm(country_df, mx_matrix, pop_matrix, temp_df, temp_df_dt, temp_df_dxt, temp_df_e0,yy,cc)
+rm(country_df, mx_matrix, pop_matrix, temp_df, temp_df_r, temp_df_dt, temp_df_dxt, temp_df_e0,
+   flag,yy,cc)
 
 country_forecasts_df <- merge(mort_df, LC_df,by = c("name", "year", "age"), all.y = T)
 
@@ -507,6 +536,21 @@ ggplot(country_forecasts_df[which(country_forecasts_df$age == 0),]) + theme_bw()
   #geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
   xlab("Year") + ylab("Life expectancy at birth")
 ggsave("figures/forecasting/LC_forecasts_countries.pdf", width = 8, height = 12)
+
+
+ggplot(country_forecasts_df[which(country_forecasts_df$age == 0),]) + theme_bw() + 
+  facet_wrap(name~., ncol = 5, scales = "free") + theme(legend.position="top") +
+  geom_point(aes(x = year, y = ex_f), shape = 3, size = 0.5) +
+  scale_color_manual("Model", values = model_cols) +
+  geom_line(aes(x = year, y = ex_LC_r, group = est_year, color = "Lee-Carter"), alpha =0.3) + 
+  geom_line(aes(x = year, y = ex_LC_dt_r, group = est_year, color= "Lee-Carter (dt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_dxt_r, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_e0_r, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
+  #geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler")) + 
+  xlab("Year") + ylab("Life expectancy at birth")
+ggsave("figures/forecasting/LC_forecasts_countries_rolling.pdf", width = 8, height = 12)
+
+
 
 
 
@@ -594,8 +638,8 @@ ggplot(int_forecasts_df[which(int_forecasts_df$age == 0 & !is.na(int_forecasts_d
   scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                          "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler"), alpha =0.3) +
-  geom_line(aes(x = year, y = ex_LC_e0, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
-  #geom_line(aes(x = year, y = ex_LC_dxt, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_e0_r, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_dt_r, group = est_year, color = "Lee-Carter (dt)"), alpha =0.3) +
   xlab("Year") + ylab("Life expectancy at birth")
 ggsave("figures/forecasting/compare_forecasts_countries.pdf", width = 8, height = 6)
 
@@ -612,6 +656,10 @@ int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC")
 int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_dt")
 int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_dxt")
 int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_e0")
+int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_r")
+int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_dt_r")
+int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_dxt_r")
+int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_e0_r")
 
 # Plot the errors
 obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
@@ -620,29 +668,45 @@ fe_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() +
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = n_ahead-1, y = siler_fe2, fill = "Siler"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead-0.5, y = LC_fe2, fill = "Lee-Carter"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead, y = LC_dt_fe2, fill = "Lee-Carter (dt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+0.5, y = LC_dxt_fe2, fill = "Lee-Carter (dxt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+1, y = LC_e0_fe2, fill = "Lee-Carter (e0)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  xlab("Years ahead") + ylab("MSE")+ ggtitle("MSE")
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.75, y = LC_fe2, fill = "Lee-Carter", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.5, y = LC_dt_fe2, fill = "Lee-Carter (dt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.25, y = LC_dxt_fe2, fill = "Lee-Carter (dxt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead, y = LC_e0_fe2, fill = "Lee-Carter (e0)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.25, y = LC_r_fe2, fill = "Lee-Carter", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.5, y = LC_dt_r_fe2, fill = "Lee-Carter (dt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.75, y = LC_dxt_r_fe2, fill = "Lee-Carter (dxt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+1, y = LC_e0_r_fe2, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  xlab("Years ahead") + ylab("MSE")+ ggtitle("Out-of-sample")
 err_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = n_ahead-1, y = siler_fe, fill = "Siler"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead-0.5, y = LC_fe, fill = "Lee-Carter"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead, y = LC_dt_fe, fill = "Lee-Carter (dt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+0.5, y = LC_dxt_fe, fill = "Lee-Carter (dxt)"), 
-           stat = "summary", fun = mean, width = 0.5) +
-  geom_bar(aes(x = n_ahead+1, y = LC_e0_fe, fill = "Lee-Carter (e0)"), 
-           stat = "summary", fun = mean, width = 0.5) +
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.75, y = LC_fe2, fill = "Lee-Carter", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.5, y = LC_dt_fe, fill = "Lee-Carter (dt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.25, y = LC_dxt_fe, fill = "Lee-Carter (dxt)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead, y = LC_e0_fe, fill = "Lee-Carter (e0)", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.25, y = LC_r_fe, fill = "Lee-Carter", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.5, y = LC_dt_r_fe, fill = "Lee-Carter (dt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.75, y = LC_dxt_r_fe, fill = "Lee-Carter (dxt)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+1, y = LC_e0_r_fe, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
   xlab("Years ahead") + ylab("Mean forecast error")+ ggtitle("FE")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
 ggsave("figures/forecasting/compare_errors_countries.pdf", width = 8, height = 4)
@@ -650,13 +714,18 @@ ggsave("figures/forecasting/compare_errors_countries.pdf", width = 8, height = 4
 
 obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
                int_forecasts_df$est_year > 1960)
-fe_tab <- aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe")], 
+fe_tab <- aggregate(int_forecasts_df[obs,c("siler_fe","LC_fe","LC_dt_fe", "LC_dxt_fe", "LC_e0_fe",
+                                           "LC_r_fe","LC_dt_r_fe", "LC_dxt_r_fe", "LC_e0_r_fe")], 
           by = list(name = int_forecasts_df$name[obs]), FUN = mean,)
-stargazer(fe_tab, summary = FALSE)
+stargazer(fe_tab, summary = FALSE, title = "Mean Forecast error by country (bias)",
+          label = "tab:country_bias", table.placement = "H")
 
-mse_tab <- aggregate(int_forecasts_df[obs,c("siler_fe2","LC_fe2","LC_dt_fe2", "LC_dxt_fe2", "LC_e0_fe2")], 
+mse_tab <- aggregate(int_forecasts_df[obs,c("siler_fe2","LC_fe2","LC_dt_fe2", "LC_dxt_fe2", "LC_e0_fe2",
+                                            "LC_r_fe2","LC_dt_r_fe2", "LC_dxt_r_fe2", "LC_e0_r_fe2")], 
           by = list(name = country_forecasts_df$name[obs]), FUN = mean,)
-stargazer(mse_tab, summary = FALSE)
+rownames(mse_tab) <- NULL
+stargazer(mse_tab, summary = FALSE, title = "Mean Squared Forecast error by country",
+          label = "tab:country_mse", table.placement = "H")
 
 
 t.test(int_forecasts_df$LC_e0_fe[obs], na.rm = T)
