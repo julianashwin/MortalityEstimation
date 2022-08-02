@@ -637,9 +637,11 @@ ggplot(int_forecasts_df[which(int_forecasts_df$age == 0 & !is.na(int_forecasts_d
   geom_point(aes(x = year, y = ex_f), shape = 3, size = 0.5) +
   scale_color_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                          "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
-  geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_e0_r, group = est_year, color = "Lee-Carter (e0)"), alpha =0.3) +
   geom_line(aes(x = year, y = ex_LC_dt_r, group = est_year, color = "Lee-Carter (dt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_dxt_r, group = est_year, color = "Lee-Carter (dxt)"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_LC_r, group = est_year, color = "Lee-Carter"), alpha =0.3) +
+  geom_line(aes(x = year, y = ex_siler, group = est_year, color = "Siler"), alpha =0.3) +
   xlab("Year") + ylab("Life expectancy at birth")
 ggsave("figures/forecasting/compare_forecasts_countries.pdf", width = 8, height = 6)
 
