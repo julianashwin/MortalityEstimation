@@ -25,6 +25,8 @@ col_scheme <- c("Other" = "gray",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Best Practice" = "darkmagenta")
 
+mort_df <- read.csv("data/clean/all_lifetab_1y.csv", stringsAsFactors = FALSE)
+
 
 siler_df <- read.csv("data/results/siler_panel.csv", stringsAsFactors = FALSE)
 siler_df$plot_name <- siler_df$name
@@ -33,7 +35,6 @@ siler_df$plot_name[which(!(siler_df$plot_name %in% names(col_scheme)))] <- "Othe
 ggplot(siler_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
   geom_line(aes(x = C, y = Lstar_90, color = plot_name, group = code))
-
 
 
 "
@@ -167,6 +168,65 @@ owid_health <- merge(owid_health[,c("code", "year", "health_share")],
 owid_health <- owid_health[,c("name", "year", "health_share")]
 
 
+
+
+
+"
+Table for Data Appendix
+"
+mort_sum <- siler_df %>% 
+  group_by(name) %>%
+  mutate(forecast = case_when(lag(forecast) == 0 ~ 0,
+                              is.na(lag(forecast)) ~ 0,
+                              lag(forecast) == 1 ~ 1)) %>%
+  filter(forecast == 0) %>%
+  summarise(mort_start = min(year), mort_end = max(year)) %>%
+  mutate(mort_start = paste0("{",mort_start - 2, ",", mort_start +2,"}")) %>%
+  mutate(mort_end = paste0("{",mort_end - 2, ",", mort_end +2,"}")) %>%
+  mutate(mort_sample = paste0(mort_start,":",mort_end)) %>%
+  select(name, mort_sample)
+
+
+gdp_sum <- wid_pc %>%
+  group_by(name) %>%
+  filter(!is.na(gdp_pc) & year <= 2020) %>%
+  summarise(gdp_start = min(year), gdp_end = max(year)) %>%
+  mutate(gdp_sample = paste0(gdp_start,":",gdp_end)) %>%
+  select(name, gdp_sample)
+gini_sum <- wid_inc %>%
+  group_by(name) %>%
+  filter(!is.na(income_gini) & year <= 2020) %>%
+  summarise(gini_start = min(year), gini_end = max(year)) %>%
+  mutate(gini_sample = paste0(gini_start,":",gini_end)) %>%
+  select(name, gini_sample)
+health_sum <- owid_health %>%
+  group_by(name) %>%
+  filter(!is.na(health_share) & year >= 1990 & year <= 2020) %>%
+  summarise(health_start = min(year), health_end = max(year)) %>%
+  mutate(health_sample = paste0(health_start,":",health_end)) %>%
+  select(name, health_sample)
+mort_sum <- mort_df %>%
+  group_by(name) %>%
+  filter(year <= 2020) %>%
+  summarise(mort_start = min(year), mort_end = max(year)) %>%
+  mutate(mort_sample = paste0(mort_start,":",mort_end)) %>%
+  select(name, mort_sample)
+
+
+
+
+
+summary_df <- mort_sum %>%
+  full_join(gdp_sum) %>%
+  full_join(gini_sum) %>%
+  full_join(health_sum) %>%
+  rename(Country = name, Mortality = mort_sample, GDP = gdp_sample, `Income Inequality` = gini_sample,
+         `Health Share` = health_sample)
+stargazer(as.matrix(summary_df), table.placement = "H", label = "tab:sample_starts",
+          title = "Data availability by country")
+
+
+
 "
 Merge together and aggregate
 "
@@ -276,9 +336,24 @@ plot_cC_econ(all_panel_df, "school_avg", "Average years of schooling")
 plot_cC_econ(all_panel_df, "year", "Year",reg_method = "loess")
 
 
-
-
-
+### For paper
+all_panel_df$US <- all_panel_df$name == "United States of America"
+model1 <- (felm(c ~ income_gini + log(gdp_pc) |
+                            name + year, data = all_panel_df))
+model2 <- (felm(C ~ income_gini + log(gdp_pc) |
+                  name + year, data = all_panel_df))
+model3 <- (felm(c ~ income_gini + log(gdp_pc) + health_share*US|
+                  name + year, data = all_panel_df))
+model4 <- (felm(C ~ income_gini + log(gdp_pc) + health_share*US|
+                  name + year, data = all_panel_df))
+model5 <- (felm(c ~ income_gini_lag + log(gdp_pc_lag) + health_share_lag*US|
+                  name + year, data = all_panel_df))
+model6 <- (felm(C ~ income_gini_lag + log(gdp_pc_lag) + health_share_lag*US|
+                  name + year, data = all_panel_df))
+models <- list(model1, model2, model3, model4, model5, model6)
+stargazer(models, table.placement = "H",
+          df = FALSE, title = "C and c on economic variables", label = "tab:cC_econ",
+          font.size = "scriptsize")
 
 # OLS
 model1 <- (lm(c ~ income_gini + log(gdp_pc) , data = all_panel_df))

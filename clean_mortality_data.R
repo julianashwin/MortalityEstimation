@@ -497,30 +497,33 @@ ggarrange(bp_m_plt, bp_s_plt,bp_le_plt, bp_h_plt, nrow = 1, ncol=4, common.legen
 ggsave("figures/data/best_practice_5y_data.pdf", width = 16, height = 4)
 
 plt1 <- ggarrange(bp_m_plt, bp_s_plt, nrow = 1, ncol=2, common.legend = TRUE,
-          legend = "left")
+          legend = "right")
 
 
 
 bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
   geom_smooth(aes(x = year, y = ex_f), method = "lm") +
   geom_point(aes(x = year, y = ex_f, color = name)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   scale_color_discrete(name = "Country") + ggtitle("Life Expectancy") +
   xlab("Year") + ylab("Life Expectancy at birth")
 bp_h_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
   geom_smooth(aes(x = year, y = -log(Hx_f)), method = "loess") +
   geom_point(aes(x = year, y = -log(Hx_f), color = name)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   scale_color_discrete(name = "Country") + ggtitle("Lifespan Equality") +
   xlab("Year") + ylab("Lifespan Equality at birth")
 bp_lstar_plt <- ggplot(bp_5y_df[which(bp_5y_df$age == 0 & bp_5y_df$year > 1900),]) + theme_bw() +
   geom_smooth(aes(x = year, y = l_99p9_f), method = "loess") +
-  geom_point(aes(x = year, y = l_99p9_f, color = name)) +
+  geom_point(aes(x = year, y = l_99p9_f, color = name)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   scale_color_discrete(name = "Country") + ggtitle("Lifespan (99.9%)") +
   xlab("Year") + ylab("Lifespan")
 plt2 <- ggarrange(bp_le_plt, bp_h_plt, bp_lstar_plt, nrow = 1, ncol=3, common.legend = TRUE,
           legend = "right")
 
-ggarrange(plt1, plt2, nrow = 1, ncol=2, common.legend = FALSE)
-ggsave("figures/data/best_practice_5y_summary.pdf", width = 16, height = 4)
+ggarrange(plt1, plt2, nrow = 2, ncol=1, common.legend = FALSE)
+ggsave("figures/data/best_practice_5y_summary.pdf", width = 9, height = 6)
 
 
 
