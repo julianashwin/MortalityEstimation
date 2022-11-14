@@ -10,6 +10,9 @@ decomp_df <- read.csv("figures/benchmark/siler_i2drift_decomp_ber.csv")
 
 params_df <- read.csv("figures/benchmark/siler_i2drift_preds.csv")
 
+"
+Siler params
+"
 plot_df <- params_df %>% 
   filter(year >1900 & year < 2020 & parameter %in% c("b", "B", "c", "C", "d", "σ")) %>%
   mutate(parameter = factor(parameter, levels =c("b", "c", "d", "B", "C", "σ"), ordered = T))
@@ -21,6 +24,41 @@ ggplot(plot_df) +
   geom_line(aes(x = year, y = median)) + 
   labs(x = "Year", y = "")
 ggsave("figures/benchmark/siler_i2drift_params.pdf", width = 8, height = 4, device = cairo_pdf)
+
+
+"
+Drift terms params
+"
+params_df$parameter <- str_replace_all(params_df$parameter, "α_", "Drift ")
+plot_df <- params_df %>% 
+  filter(year >1900 & year < 2020 & parameter %in% c("Drift b", "Drift B", "Drift c", "Drift C", 
+                                                     "Drift d", "Drift σ")) %>%
+  mutate(parameter = factor(parameter, levels =c("Drift b", "Drift c", "Drift d", "Drift B", 
+                                                 "Drift C", "Drift σ"), ordered = T))
+ggplot(plot_df) + 
+  theme_bw() + facet_wrap(~parameter, scales = "free_y") + 
+  geom_ribbon(aes(x = year, ymin=pc025, ymax=pc975), alpha = 0.2) +
+  geom_ribbon(aes(x = year, ymin=pc15, ymax=pc85), alpha = 0.3) + 
+  geom_line(aes(x = year, y = median)) + 
+  labs(x = "Year", y = "")
+ggsave("figures/benchmark/siler_i2drift_drifts.pdf", width = 8, height = 4, device = cairo_pdf)
+
+
+"
+Variance params
+"
+params_df$parameter <- str_replace_all(params_df$parameter, "σ", "sigma")
+params_df$parameter <- str_replace_all(params_df$parameter, "α", "alpha")
+plot_df <- params_df %>% 
+  mutate(parameter = str_replace_all(parameter, "σ", "sigma"),
+         parameter = str_replace_all(parameter, "alpha", "alpha")) %>%
+  filter(str_detect(parameter, "sigma_")) %>%
+  mutate(across(where(is.numeric), round, digits=3)) %>%
+  select(parameter, median, pc025, pc15, pc85, pc975)
+  
+stargazer(as.matrix(plot_df), table.placement = "H", label = "tab:variance_terms",
+          title = "Posterior distributions of variance terms")
+
 
 
 ggplot(decomp_df) + theme_bw() + 
