@@ -24,15 +24,14 @@ col_scheme <- c("Australia" = "darkolivegreen4", "Belgium" = "gold3",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Best Practice" = "darkmagenta")
 
-col_scheme <- c("Other" = "gray",
-                "Australia" = "darkolivegreen4", 
+col_scheme <- c("Australia" = "darkolivegreen4", 
                 "Canada" = "pink",
                 "France" = "blue3", "United Kingdom" = "darkgoldenrod4", 
                 "Hong Kong" = "lightgoldenrod", 
                 "Italy" = "forestgreen", 
                 "Japan" = "red","New Zealand" = "black", "Russia" = "firebrick",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
-                "Best Practice" = "darkmagenta")
+                "Other" = "gray")
 
 "
 Import data and results
@@ -279,7 +278,7 @@ ggplot(plot_df) + theme_bw() +
             aes(x = year, y = -log(median), color = name, 
                 group = interaction(code, Forecast), linetype = Forecast)) +
   xlab("Year") + ylab("Lifespan equality at birth")
-ggsave("figures/countries/summary/h_international.pdf", width = 8, height = 4)
+ggsave("figures/countries/summary/h_international.pdf", width = 10, height = 4)
 ## Lifespan
 plot_df <- all_df[which(all_df$parameter == "Lstar"),]
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
@@ -683,9 +682,9 @@ ggplot(plot_df) + theme_bw() +
             aes(x = C, y = c, color = name, linetype = Forecast)) + 
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = C, y = c, color = name, label = year_label), show.legend=FALSE, size = 2) +
-  xlab("Senescent elongation (C)") + ylab("Senescent rectangularity (c)") + 
+  xlab("Timing of aging (C)") + ylab("Speed of aging (c)") + 
   guides(color=guide_legend(ncol=2))
-ggsave("figures/countries/summary/Cc_paths.pdf", width = 10, height = 5)
+ggsave("figures/countries/summary/Cc_paths.pdf", width = 10, height = 4)
 
 # Bb path
 ggplot(plot_df) + theme_bw() + 
@@ -698,7 +697,7 @@ ggplot(plot_df) + theme_bw() +
             aes(x = B, y = b, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Infant elongation (B)") + ylab("Infant rectangularity (b)") + 
   guides(color=guide_legend(ncol=2))
-ggsave("figures/countries/summary/Bb_paths.pdf", width = 10, height = 5)
+ggsave("figures/countries/summary/Bb_paths.pdf", width = 10, height = 4)
 
 # LEh path
 ggplot(plot_df) + theme_bw() + 
@@ -711,17 +710,17 @@ ggplot(plot_df) + theme_bw() +
             aes(x = LE, y = h, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("Lifespan equality at birth") + 
   guides(color=guide_legend(ncol=2))
-ggsave("figures/countries/summary/Leh_paths.pdf", width = 10, height = 5)
+ggsave("figures/countries/summary/Leh_paths.pdf", width = 10, height = 4)
 
 # LstarLE path
 ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
   geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
-            aes(x = LE, y = Lstar, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast)) + 
   geom_path(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = LE, y = Lstar, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast)) + 
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = LE, y = Lstar, color = name, label = year_label), show.legend=FALSE, size = 2) +
+            aes(x = LE, y = Lstar_99p9, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("Lifespan") + 
   guides(color=guide_legend(ncol=2)) + 
   scale_x_continuous(limits = c(46,93),breaks=seq(0,130,5)) + 

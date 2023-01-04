@@ -13,15 +13,14 @@ require(tidyr)
 
 
 # Colour scheme
-col_scheme <- c("Other" = "gray",
-                "Australia" = "darkolivegreen4", 
+col_scheme <- c("Australia" = "darkolivegreen4", 
                 "Canada" = "pink",
                 "France" = "blue3", "United Kingdom" = "darkgoldenrod4", 
                 "Hong Kong" = "lightgoldenrod", 
                 "Italy" = "forestgreen", 
                 "Japan" = "red","New Zealand" = "black", "Russia" = "firebrick",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
-                "Best Practice" = "darkmagenta")
+                "Other" = "gray")
 
 "
 Import and prepare data
@@ -50,10 +49,6 @@ bp_df <- merge(bp_df, bp_mort_df[,c("year", "age", "mx_f", "lx_f", "ex_f", "Hx_f
                                    "Female")], 
                 by = c("year", "age"), all.x = T)
 
-ggplot(bp_lx_fc) + theme_bw() + 
-  geom_line(aes(x = as.numeric(age), y = mx_LC, group = year, color = year)) +
-  geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") 
 
 ggplot(bp_df[which(bp_df$year == 1903),]) + theme_bw() + 
   geom_line(aes(x = age, y = log(mortality), color = "Siler")) +
@@ -155,19 +150,28 @@ Gradients for C and c
 bp_leC_plt <- ggplot(bp_df) + theme_bw() +
   geom_line(aes(x = age, y = LE_Cs, group = year, color = year, linetype = Forecast)) +
   geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900, 1950, 2000,2049),
+                        labels=c(1900,1950,2000,2049),
+                        limits=c(1900,2049)) +
   xlab("Age") + ylab("Gradient") + 
   ggtitle(expression(Gradient~of~LE~wrt~C[t]))
 bp_lec_plt <- ggplot(bp_df) + theme_bw() +
   geom_line(aes(x = age, y = LE_cs, group = year, color = year, linetype = Forecast)) +
   geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900, 1950, 2000,2049),
+                        labels=c(1900,1950,2000,2049),
+                        limits=c(1900,2049)) +
   xlab("Age") + ylab("Gradient") + 
   ggtitle(expression(Gradient~of~LE~wrt~c[t]))
 bp_lecC_plt <- ggplot(bp_df) + theme_bw() +
   geom_line(aes(x = age, y = LE_cC, group = year, color = year, linetype = Forecast)) +
   geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900, 1950, 2000,2049),
+                        labels=c(1900,1950,2000,2049),
+                        limits=c(1900,2049)) +
   xlab("Age") + ylab("Cross-derivative") + 
   ggtitle(expression(Cross~derivative~of~LE~wrt~c[t]~and~C[t]))
 ggarrange(bp_lec_plt, bp_leC_plt, nrow = 1, ncol = 2, common.legend = TRUE, 
@@ -270,7 +274,7 @@ LE0_plt <- ggplot(plot_df) + theme_bw() +
   geom_text(data = plot_df[which(plot_df$plot_name != "Other"),],
             aes(x = LE_0, y = Lstar-C, color = plot_name, label = year_label), 
             show.legend=FALSE, size = 2) +
-  xlab("LE(0)") + ylab("L*-C") + guides(color=guide_legend(ncol=1)) + 
+  xlab("Life expectancy at birth") + ylab("L*-C") + guides(color=guide_legend(ncol=1)) + 
   scale_x_continuous(limits = c(45,95),breaks=seq(0,100,5))+ 
   scale_y_continuous(limits = c(12,30),breaks=seq(0,100,5))
 LE80_plt <- ggplot(plot_df) + theme_bw() + 
@@ -304,6 +308,11 @@ Lstar_plt <- ggplot(plot_df) + theme_bw() +
 ggarrange(LE0_plt, LE80_plt, Lstar_plt, nrow = 1, ncol=3, common.legend = TRUE, 
           legend = "right")
 ggsave("figures/benchmark/LE0LE80_Lstar_C.pdf", width = 10, height = 4)
+
+LE0_plt + 
+guides(color=guide_legend(ncol=2))
+ggsave("figures/countries/summary/LstarC_LE_paths.pdf", width = 10, height = 4)
+
 rm(plot_df,extra_obs,LE0_plt,LE80_plt,Lstar_plt)
 
 

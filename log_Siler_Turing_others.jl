@@ -46,7 +46,7 @@ country_codes = ["AUT", "BGR", "BLR", "CHL", "CZE", "DEU", "DEUTW", "DNK", "EST"
 country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", "HKG", "ITA", "ISL",
     "JPN", "KOR", "NLD", "NZL_NM", "NOR", "PRT", "USA", "AUT", "BGR", "BLR", "CHL", "CZE", "DEU",
     "DEUTW", "DNK", "EST", "HRV","HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK",
-    "SVN", "TWN", "UKR"]
+    "SVN", "SWE", "TWN", "UKR"]
 
 
 #unique(mort_df.code)[.!(in.(unique(mort_df.code),[country_codes]))]

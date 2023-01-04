@@ -469,12 +469,20 @@ temp_df <- temp_df[,which(!(names(temp_df) %in% c("ex", "lx", "mx", "Hx")))]
 
 bp_m_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = mx_f, group = year, color = year)) + 
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                       breaks=c(1900,1925,1950,1975,2000,2019),
+                       labels=c(1900,1925,1950,1975,2000,2019),
+                       limits=c(1900,2019)) +
+  ylim(c(0,1)) + 
   xlab("Age") + ylab("Mortality rate") + ggtitle("Mortality")
 # Survival
 bp_s_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +
   geom_line(aes(x = age, y = lx_f, group = year, color = year)) + 
-  scale_color_gradientn(colours = rainbow(5), name = "Year") + ylim(c(0,1)) + 
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900,1925,1950,1975,2000,2019),
+                        labels=c(1900,1925,1950,1975,2000,2019),
+                        limits=c(1900,2019)) +
+  ylim(c(0,1)) + 
   xlab("Age") + ylab("Survival rate") + ggtitle("Survival")
 # Life expectancy
 bp_le_plt <- ggplot(bp_5y_df[which(bp_5y_df$year > 1900),]) + theme_bw() +

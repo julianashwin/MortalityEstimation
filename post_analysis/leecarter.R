@@ -687,7 +687,7 @@ fe_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() +
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead+1, y = LC_e0_r_fe2, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
            stat = "summary", fun = mean, width = 0.25) +
-  xlab("Years ahead") + ylab("MSE")+ ggtitle("Out-of-sample")
+  xlab("Years ahead") + ylab("MSE")+ ggtitle("Mean Square Error")
 err_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
                                         "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
@@ -709,7 +709,7 @@ err_plt <- ggplot(int_forecasts_df[obs,]) + theme_bw() +
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead+1, y = LC_e0_r_fe, fill = "Lee-Carter (e0)", alpha = "Rolling"), 
            stat = "summary", fun = mean, width = 0.25) +
-  xlab("Years ahead") + ylab("Mean forecast error")+ ggtitle("FE")
+  xlab("Years ahead") + ylab("Mean forecast error")+ ggtitle("Mean Error")
 ggarrange(err_plt, fe_plt, nrow = 1, ncol = 2, common.legend = T, legend = "right")
 ggsave("figures/forecasting/compare_errors_countries.pdf", width = 8, height = 4)
 

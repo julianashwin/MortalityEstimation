@@ -267,8 +267,8 @@ Plot decomposition
 decomp_df_ber = create_decomp(parests_i2_ber; spec = :Bergeron, eval_age = 0)
 LE_p = plot_decomp(decomp_df_ber, :LE)
 LE_p = plot!(legend = false, title = "Life Expectancy")
-H_p = plot_decomp(decomp_df_ber, :H)
-H_p = plot!(legend = false, title = "Lifespan Inequality")
+Lstar_p = plot_decomp(decomp_df_ber, :Lstar)
+Lstar_p = plot!(legend = false, title = "Lifespan")
 h_p = plot_decomp(decomp_df_ber, :h)
 h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
