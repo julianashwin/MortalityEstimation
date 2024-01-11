@@ -63,7 +63,7 @@ model = "i2"
 Check data looks sensible for a single country
 """
 ## Data prep for single coujntry
-code = country_codes[18]
+code = country_codes[40]
 #country_df = mort_df[(mort_df.code .== code), :]
 country_df = select_df[select_df.code .== code,:]
 # Need to remove any zeros
@@ -186,6 +186,7 @@ for code in country_codes
     # Extract decomp
     decomp_df = create_decomp(parests_pred; spec = :Bergeron, eval_age = 0)
     CSV.write("figures/"*folder*"/"*code*"_"*model*"_decomp_pred.csv", decomp_df)
+    plot_decomp(decomp_df, :LE)
     # Extract gradients
     LEgrad_df = compute_LEgrad_df(decomp_df; ages = 0:140)
     CSV.write("figures/"*folder*"/"*code*"_"*model*"_LEgrads.csv", LEgrad_df)

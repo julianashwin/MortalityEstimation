@@ -54,19 +54,29 @@ for (ii in 1:length(import_files)){
 
 # Merge in the actual data to get country names
 mort_df <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
+
+pop_df <- as_tibble(mort_df) %>%
+  group_by(code, year) %>%
+  summarise(pop = sum(Total, na.rm = T))
+
 mort_df <- mort_df[which(mort_df$age == 0),]
 all_df <- merge(countries_df, unique(mort_df[,c("code", "name")]), by = "code")
+all_df <- merge(all_df, pop_df, by = c("code", "year"), all.x = T)
 all_df <- all_df[which(all_df$year > 0),]
 
 all_df$code <- str_replace(all_df$code, "NZL_NM", "NZL")
+
+
+as_tibble(all_df)
+
 
 ## Forecast label for pretty legends
 all_df$Forecast <- "Estimate"
 all_df$Forecast[which(all_df$forecast == 1)] <- "Forecast"
 
 
-export_df <- all_df[which(all_df$year > 1900),]
-export_df <- data.frame(pivot_wider(export_df, id_cols = c(name, code, year, forecast), names_from = parameter, 
+all_df <- all_df[which(all_df$year > 1900),]
+export_df <- data.frame(pivot_wider(all_df, id_cols = c(name, code, year, forecast, pop), names_from = parameter, 
                                   values_from = median))
 write.csv(export_df, "data/results/siler_panel.csv", row.names = FALSE)
 rm(export_df)
@@ -604,6 +614,7 @@ plot_df <- plot_df[order(plot_df$code, plot_df$year),]
 plot_df$year_num <- as.numeric(as.factor(plot_df$year))
 
 write.csv(plot_df, "data/results/econ_panel.csv", row.names = FALSE)
+plot_df <- read.csv("data/results/econ_panel.csv")
 
 
 panel_df <- pdata.frame(data.frame(plot_df), index = c("code", "year_num"))
@@ -819,12 +830,32 @@ export_table$C <- round(export_table$C, 1)
 
 stargazer(as.matrix(export_table), table.placement = "H", column.sep.width = "2")
 
+library(tidyverse)
 
 
 
+as_tibble(export_table) %>%
+  rename(country = name) %>%
+  pivot_longer(cols = -country) %>%
+  mutate(country = factor(country)) %>%
+  mutate(parameter = str_c("Proportion~of~LE~gains~due~to~", str_sub(name, 8, 8), "[t]")) %>%
+  mutate(interval = str_replace(str_sub(name, 10, 18), "\\.", "-")) %>%
+  mutate(interval = case_when(interval == "" ~ "Latest", TRUE ~ interval),
+         parameter = case_when(parameter == "Proportion~of~LE~gains~due~to~[t]" ~ "Latest~C[t]", TRUE ~ parameter)) %>%
+  mutate(parameter = factor(parameter, levels = c("Proportion~of~LE~gains~due~to~c[t]", "Proportion~of~LE~gains~due~to~C[t]",
+                                              "Latest~C[t]"))) %>%
+  mutate(value_latest = case_when(name == "C" ~ value, TRUE ~ NA_real_)) %>%
+  mutate(value = case_when(name == "C" ~ NA_real_, TRUE ~ value)) %>%
+  ggplot(aes(y =fct_rev(country), x = interval)) + theme_bw() + 
+  facet_grid(~parameter, labeller = label_parsed, scales = "free_x", space="free_x") +
+  geom_tile(aes(fill = value), color = "black") +
+  geom_text(aes(label = value), color = "black", size = 2.5) +
+  geom_text(aes(label = value_latest), color = "black", size = 2.5) +
+  scale_fill_gradient2(low = "white", high = "red", na.value = 'white') +  #, midpoint = 0)
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  labs(x = "Interval", y = "Country", fill = "Proportion of LE gains \ndue to parameter") 
 
-
-
+ggsave("figures/countries/summary/decomp_table.pdf", width = 8, height = 8)
 
 
 

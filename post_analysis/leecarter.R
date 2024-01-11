@@ -11,6 +11,7 @@ require(plm)
 require(lfe)
 require(stargazer)
 require(demography)
+require(StMoMo)
 require(qlcMatrix)
 
 "
@@ -24,7 +25,7 @@ col_scheme <- c("Australia" = "pink", "France" = "blue3", "Italy" =  "forestgree
                 "Netherlands" = "darkorange1", "Norway" = "deeppink", "Sweden" = "yellow",
                 "Switzerland" = "darkorchid3", "Iceland" = "cornsilk3", "Spain" = "coral")
 
-model_cols <- c("Siler" = "purple", "Lee-Carter" = "red",
+model_cols <- c("Siler" = "purple", "Lee-Carter" = "red",  "FDM" = "forestgreen", "CBD" = "darkorange1",
                 "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", 
                 "Lee-Carter (e0)" = "blue")
 
@@ -37,7 +38,7 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
                           ages=mx_matrix$age, 
                           years = as.numeric(names(mx_matrix[,2:ncol(mx_matrix)])), 
                           type= "mortality",label=cc, name="female")
-  # Estimate model
+  ## Estimate LCA model
   bp_LC <- lca(bp_demdata, adjust = adj,scale = FALSE)
   lc_matrix <- cbind(data.frame(age = 0:100), data.frame(exp(bp_LC$fitted$y)))
   lc_demdata <- demogdata(data=lc_matrix[,2:ncol(mx_matrix)], 
@@ -46,51 +47,202 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
                           years = as.numeric(str_remove(names(lc_matrix[,2:ncol(lc_matrix)]),"X")), 
                           type= "mortality",label="BP", name="female")
   bp_lt <- lifetable(lc_demdata)
+  ## Estimate FDM model Hyndman, R.J., and Ullah, S. (2007) 
+  if (adj == "none"){
+    bp_fdm <- suppressWarnings(fdm(bp_demdata, order = 6, method = c("M")))
+    fdm_matrix <- cbind(data.frame(age = 0:109), data.frame(exp(bp_fdm$fitted$y)))
+    fdm_demdata <- demogdata(data=fdm_matrix[,2:ncol(mx_matrix)], 
+                             pop = pop_matrix[1:nrow(fdm_matrix),2:ncol(mx_matrix)],
+                             ages=fdm_matrix$age, 
+                             years = as.numeric(str_remove(names(fdm_matrix[,2:ncol(fdm_matrix)]),"X")), 
+                             type= "mortality",label="BP", name="female")
+    bp_fdm_lt <- lifetable(fdm_demdata)
+  }
+  
   
   # Historical ex
   bp_ex <- data.frame(bp_lt$ex)
   bp_ex$age <- rownames(bp_ex)
   bp_ex <- reshape2::melt(bp_ex, id = "age", variable.name = "year",value.name = "ex_LC")
   bp_ex$year <- as.numeric(str_remove(bp_ex$year, "X"))
+  if (adj == "none"){
+    bp_fdm_ex <- data.frame(bp_fdm_lt$ex)
+    bp_fdm_ex$age <- rownames(bp_fdm_ex)
+    bp_fdm_ex <- reshape2::melt(bp_fdm_ex, id = "age", variable.name = "year",value.name = "ex_FDM")
+    bp_fdm_ex$year <- as.numeric(str_remove(bp_fdm_ex$year, "X"))
+  }
   # Historical lx
   bp_lx <- data.frame(bp_lt$lx)
   bp_lx$age <- rownames(bp_lx)
   bp_lx <- reshape2::melt(bp_lx, id = "age", variable.name = "year",value.name = "lx_LC")
   bp_lx$year <- as.numeric(str_remove(bp_lx$year, "X"))
+  if (adj == "none"){
+    bp_fdm_lx <- data.frame(bp_fdm_lt$lx)
+    bp_fdm_lx$age <- rownames(bp_fdm_lx)
+    bp_fdm_lx <- reshape2::melt(bp_fdm_lx, id = "age", variable.name = "year",value.name = "lx_FDM")
+    bp_fdm_lx$year <- as.numeric(str_remove(bp_fdm_lx$year, "X"))
+  }
   # Historical mx
   bp_mx <- data.frame(bp_lt$mx)
   bp_mx$age <- rownames(bp_mx)
   bp_mx <- reshape2::melt(bp_mx, id = "age", variable.name = "year",value.name = "mx_LC")
   bp_mx$year <- as.numeric(str_remove(bp_mx$year, "X"))
-  
+  if (adj == "none"){
+    bp_fdm_mx <- data.frame(bp_fdm_lt$mx)
+    bp_fdm_mx$age <- rownames(bp_fdm_mx)
+    bp_fdm_mx <- reshape2::melt(bp_fdm_mx, id = "age", variable.name = "year",value.name = "mx_FDM")
+    bp_fdm_mx$year <- as.numeric(str_remove(bp_fdm_mx$year, "X"))
+  }
   # Estimate forecast
-  bp_LC_fc <- forecast(bp_LC,jumpchoice="fit", h = nahead)  
+  bp_LC_fc <- forecast(bp_LC, jumpchoice="fit", h = nahead)  
   bp_lt_fc <- lifetable(bp_LC_fc)
+  if (adj == "none"){
+    bp_FDM_fc <- suppressWarnings(forecast(bp_fdm, jumpchoice="fit", h = nahead))
+    bp_FDM_fc$year <- bp_lt_fc$year
+    bp_fdm_lt_fc <- suppressWarnings(lifetable(bp_FDM_fc))
+  }
   
   # Forecast ex
   bp_ex_fc <- data.frame(bp_lt_fc$ex)
   bp_ex_fc$age <- rownames(bp_ex_fc)
   bp_ex_fc <- reshape2::melt(bp_ex_fc, id = "age", variable.name = "year",value.name = "ex_LC")
   bp_ex_fc$year <- as.numeric(str_remove(bp_ex_fc$year, "X"))
+  if (adj == "none"){
+    bp_fdm_ex_fc <- data.frame(bp_fdm_lt_fc$ex)
+    bp_fdm_ex_fc$age <- rownames(bp_fdm_ex_fc)
+    bp_fdm_ex_fc <- reshape2::melt(bp_fdm_ex_fc, id = "age", variable.name = "year",value.name = "ex_FDM")
+    bp_fdm_ex_fc$year <- as.numeric(str_remove(bp_fdm_ex_fc$year, "X"))
+  }
+  
   # Forecast lx
   bp_lx_fc <- data.frame(bp_lt_fc$lx)
   bp_lx_fc$age <- rownames(bp_lx_fc)
   bp_lx_fc <- reshape2::melt(bp_lx_fc, id = "age", variable.name = "year",value.name = "lx_LC")
   bp_lx_fc$year <- as.numeric(str_remove(bp_lx_fc$year, "X"))
+  if (adj == "none"){
+    bp_fdm_lx_fc <- data.frame(bp_fdm_lt_fc$lx)
+    bp_fdm_lx_fc$age <- rownames(bp_fdm_lx_fc)
+    bp_fdm_lx_fc <- reshape2::melt(bp_fdm_lx_fc, id = "age", variable.name = "year",value.name = "lx_FDM")
+    bp_fdm_lx_fc$year <- as.numeric(str_remove(bp_fdm_lx_fc$year, "X"))
+  }
+  
   # Forecast mx
   bp_mx_fc <- data.frame(bp_lt_fc$mx)
   bp_mx_fc$age <- rownames(bp_mx_fc)
   bp_mx_fc <- reshape2::melt(bp_mx_fc, id = "age", variable.name = "year",value.name = "mx_LC")
   bp_mx_fc$year <- as.numeric(str_remove(bp_mx_fc$year, "X"))
+  if (adj == "none"){
+    bp_fdm_mx_fc <- data.frame(bp_fdm_lt_fc$mx)
+    bp_fdm_mx_fc$age <- rownames(bp_fdm_mx_fc)
+    bp_fdm_mx_fc <- reshape2::melt(bp_fdm_mx_fc, id = "age", variable.name = "year",value.name = "mx_FDM")
+    bp_fdm_mx_fc$year <- as.numeric(str_remove(bp_fdm_mx_fc$year, "X"))
+  }
   
+  # Merge results
   temp_df <- merge(rbind(bp_mx,bp_mx_fc), rbind(bp_lx,bp_lx_fc), 
                    by = c("year", "age"))
   temp_df <- merge(temp_df, rbind(bp_ex,bp_ex_fc), 
                    by = c("year", "age"))
+  if (adj == "none"){
+    temp_df <- merge(temp_df, rbind(bp_fdm_mx,bp_fdm_mx_fc), 
+                     by = c("year", "age"))
+    temp_df <- merge(temp_df, rbind(bp_fdm_lx,bp_fdm_lx_fc), 
+                     by = c("year", "age"))
+    temp_df <- merge(temp_df, rbind(bp_fdm_ex,bp_fdm_ex_fc), 
+                     by = c("year", "age"))
+  }
+  temp_df$age <- as.numeric(temp_df$age)
+  temp_df <- temp_df[order(temp_df$year, temp_df$age),]
   
   return(temp_df)
 }
 
+
+
+
+
+create_StMoMo_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
+  # Get data into right formate for StMoMo
+  bp_demdata <- demogdata(data=mx_matrix[,2:ncol(mx_matrix)], 
+                          pop = pop_matrix[,2:ncol(mx_matrix)],
+                          ages=mx_matrix$age, 
+                          years = as.numeric(names(mx_matrix[,2:ncol(mx_matrix)])), 
+                          type= "mortality",label=cc, name="female")
+  bp_smmdata <- central2initial(StMoMoData(bp_demdata))
+  ages.fit <- 0:100
+  wxt <- genWeightMat(ages = ages.fit, years = bp_smmdata$years, clip = 3)
+  
+  
+  ## LC model
+  constLC <- function(ax, bx, kt, b0x, gc, wxt, ages){
+    c1 <- mean(kt[1, ], na.rm = TRUE)
+    c2 <- sum(bx[, 1], na.rm = TRUE)
+    list(ax=ax+c1*bx,bx=bx/c2,kt= c2*(kt-c1))
+  }
+  LC <- StMoMo(link = "logit", staticAgeFun = TRUE, periodAgeFun = "NP",constFun = constLC)
+  LCfit <- fit(LC, data = bp_smmdata, ages.fit = ages.fit, wxt = wxt)
+  LCfor <- forecast(LCfit, h = 6)
+  #ggplot(bp_ex_fc, aes(x = as.numeric(age), y = ex_LC_SMM, color = year, group = year)) + geom_line()
+  
+  # Save forecasts
+  LC_lt <- lifetable(demogdata(data = LCfor$rate, pop = 1-LCfor$rate, ages = 0:100, 
+                     years = seq(as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+5, 
+                                 as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+30, 5),
+                     type= "mortality",label=cc, name="female"))
+  # Forecast ex
+  LC_ex_fc <- data.frame(LC_lt$ex)
+  LC_ex_fc$age <- rownames(LC_ex_fc)
+  LC_ex_fc <- reshape2::melt(LC_ex_fc, id = "age", variable.name = "year",value.name = "ex_LC_SMM")
+  LC_ex_fc$year <- as.numeric(str_remove(LC_ex_fc$year, "X"))
+  # Forecast lx
+  LC_lx_fc <- data.frame(LC_lt$lx)
+  LC_lx_fc$age <- rownames(LC_lx_fc)
+  LC_lx_fc <- reshape2::melt(LC_lx_fc, id = "age", variable.name = "year",value.name = "lx_LC_SMM")
+  LC_lx_fc$year <- as.numeric(str_remove(LC_lx_fc$year, "X"))
+  # Forecast mx
+  LC_mx_fc <- data.frame(LC_lt$mx)
+  LC_mx_fc$age <- rownames(LC_mx_fc)
+  LC_mx_fc <- reshape2::melt(LC_mx_fc, id = "age", variable.name = "year",value.name = "mx_LC_SMM")
+  LC_mx_fc$year <- as.numeric(str_remove(LC_mx_fc$year, "X"))
+  
+  ## CBD model
+  f2 <- function(x, ages) x - mean(ages)
+  CBD <- StMoMo(link = "logit", staticAgeFun = FALSE,
+                periodAgeFun = c("1", f2))
+  CBDfit <- fit(CBD, data = bp_smmdata, ages.fit = ages.fit, wxt = wxt)
+  CBDfor <- forecast(CBDfit, h = 6)
+  
+  # Save forecasts
+  CBD_lt <- lifetable(demogdata(data = CBDfor$rate, pop = 1-CBDfor$rate, ages = 0:100, 
+                               years = seq(as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+5, 
+                                           as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+30, 5),
+                               type= "mortality",label=cc, name="female"))
+  # Forecast ex
+  CBD_ex_fc <- data.frame(CBD_lt$ex)
+  CBD_ex_fc$age <- rownames(CBD_ex_fc)
+  CBD_ex_fc <- reshape2::melt(CBD_ex_fc, id = "age", variable.name = "year",value.name = "ex_CBD_SMM")
+  CBD_ex_fc$year <- as.numeric(str_remove(CBD_ex_fc$year, "X"))
+  # Forecast lx
+  CBD_lx_fc <- data.frame(CBD_lt$lx)
+  CBD_lx_fc$age <- rownames(CBD_lx_fc)
+  CBD_lx_fc <- reshape2::melt(CBD_lx_fc, id = "age", variable.name = "year",value.name = "lx_CBD_SMM")
+  CBD_lx_fc$year <- as.numeric(str_remove(CBD_lx_fc$year, "X"))
+  # Forecast mx
+  CBD_mx_fc <- data.frame(CBD_lt$mx)
+  CBD_mx_fc$age <- rownames(CBD_mx_fc)
+  CBD_mx_fc <- reshape2::melt(CBD_mx_fc, id = "age", variable.name = "year",value.name = "mx_CBD_SMM")
+  CBD_mx_fc$year <- as.numeric(str_remove(CBD_mx_fc$year, "X"))
+ 
+  temp_df <- LC_mx_fc %>%
+    left_join(LC_lx_fc) %>% left_join(LC_ex_fc) %>%
+    left_join(CBD_mx_fc) %>% left_join(CBD_lx_fc) %>%
+    left_join(CBD_ex_fc) 
+  
+  temp_df$age <- as.numeric(temp_df$age)
+  temp_df <- temp_df[order(temp_df$year, temp_df$age),]
+  
+  return(temp_df) 
+}
 
 
 
@@ -200,17 +352,12 @@ if (FALSE){
 "
 Cycle through Best Practice to get out of sample results
 "
-LC_vars <- c("year", "est_year", "age", 
-            "mx_LC", "lx_LC", "ex_LC", "mx_LC_dt", "lx_LC_dt", "ex_LC_dt",
-            "mx_LC_dxt", "lx_LC_dxt", "ex_LC_dxt", "mx_LC_e0", "lx_LC_e0", "ex_LC_e0",
-            "mx_LC_r", "lx_LC_r", "ex_LC_r", "mx_LC_dt_r", "lx_LC_dt_r", "ex_LC_dt_r",
-            "mx_LC_dxt_r", "lx_LC_dxt_r", "ex_LC_dxt_r", "mx_LC_e0_r", "lx_LC_e0_r", "ex_LC_e0_r")
-LC_df <- data.frame(matrix(NA, nrow = 0, ncol = length(LC_vars)))
-names(LC_df) <- LC_vars
+LC_df <- data.frame()
 
 #bp_df <- mort_df[which(mort_df$name == "New Zealand"),]
-yy <- est_years[6]
+yy <- est_years[1]
 for (yy in est_years){
+  print(yy)
   for (roll in c("_r", "")){
     if (roll == "_r"){
       mx_matrix <- cast(bp_df[which(bp_df$year <= yy & bp_df$year > yy-50 ),
@@ -233,7 +380,7 @@ for (yy in est_years){
     # Possible adjustments: "dt", "dxt", "e0", "none" 
     # No adjustment
     temp_df <- create_LC_df(mx_matrix, pop_matrix, "none", "BP", nahead = 6)
-    names(temp_df)[3:5] <- paste0(names(temp_df)[3:5], roll)
+    names(temp_df)[3:8] <- paste0(names(temp_df)[3:8], roll)
     # Lee-Carter adjustment
     temp_df_dt <- create_LC_df(mx_matrix, pop_matrix, "dt", "BP", nahead = 6)
     names(temp_df_dt)[3:5] <- paste0(names(temp_df_dt)[3:5], paste0("_dt", roll))
@@ -243,39 +390,51 @@ for (yy in est_years){
     # Life expectancy adjustment
     temp_df_e0 <- create_LC_df(mx_matrix, pop_matrix, "e0", "BP", nahead = 6)
     names(temp_df_e0)[3:5] <- paste0(names(temp_df_e0)[3:5], paste0("_e0", roll))
+    # Models from StMoMo package
+    temp_df_smm <- create_StMoMo_df(mx_matrix, pop_matrix, "e0", "BP", nahead = 6)
+    names(temp_df_smm)[3:8] <- paste0(names(temp_df_smm)[3:8], roll)
+    temp_df_smm$est_year <- yy
     # Combine 
     if (roll == "_r"){
       temp_df_r <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
       temp_df_r$est_year <- yy
+      temp_df_r <- merge(temp_df_r, temp_df_smm, by = c("year", "age", "est_year"), all.x = T)
     } else {
       temp_df <- cbind(temp_df, temp_df_dt[,3:5], temp_df_dxt[,3:5], temp_df_e0[,3:5])
       temp_df$est_year <- yy
+      temp_df <- merge(temp_df, temp_df_smm, by = c("year", "age", "est_year"), all.x = T)
     }
   }
   temp_df <- merge(temp_df, temp_df_r, by = c("year", "age", "est_year"), all.x = TRUE) 
-  LC_df <- rbind(LC_df, temp_df[names(LC_df)])
-  
-
+  LC_df <- rbind(LC_df, temp_df)
 }
 rm(mx_matrix, pop_matrix, temp_df, temp_df_r, temp_df_dt, temp_df_dxt, temp_df_e0,yy, roll)
 forecasts_df <- merge(sil_forecasts_df, LC_df,by = c("year", "est_year", "age"), all.x = T)
 
+tibble(forecasts_df) %>%
+  filter(age ==0 & est_year == 1968) %>%
+  select(year, age, est_year, ex_LC, ex_FDM, ex_siler, ex_LC_SMM, ex_CBD_SMM)
+
 # Have a quick look
-ggplot(forecasts_df[which(forecasts_df$est_year == 2018 &
+ggplot(forecasts_df[which(forecasts_df$est_year == 1968 & 
                             forecasts_df$age == 0),]) + theme_bw() + 
   scale_color_manual("Model", values = model_cols) +
   geom_line(aes(x = year, y = ex_siler, color = "Siler", linetype = "Full Sample")) + 
-  geom_line(aes(x = year, y = ex_LC, color = "Lee-Carter", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_LC_SMM, color = "Lee-Carter", linetype = "Full Sample")) +
+  geom_line(aes(x = year, y = ex_FDM, color = "FDM", linetype = "Full Sample")) + 
+  geom_line(aes(x = year, y = ex_CBD_SMM, color = "CBD", linetype = "Full Sample")) + 
   geom_line(aes(x = year, y = ex_LC_dt, color = "Lee-Carter (dt)", linetype = "Full Sample")) + 
   geom_line(aes(x = year, y = ex_LC_dxt, color = "Lee-Carter (dxt)", linetype = "Full Sample")) + 
   geom_line(aes(x = year, y = ex_LC_e0, color = "Lee-Carter (e0)", linetype = "Full Sample")) + 
-  geom_line(aes(x = year, y = ex_LC_r, color = "Lee-Carter", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_LC_SMM_r, color = "Lee-Carter", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_FDM_r, color = "FDM", linetype = "Rolling")) + 
+  geom_line(aes(x = year, y = ex_CBD_SMM_r, color = "CBD", linetype = "Rolling")) + 
   geom_line(aes(x = year, y = ex_LC_dt_r, color = "Lee-Carter (dt)", linetype = "Rolling")) + 
   geom_line(aes(x = year, y = ex_LC_dxt_r, color = "Lee-Carter (dxt)", linetype = "Rolling")) + 
   geom_line(aes(x = year, y = ex_LC_e0_r, color = "Lee-Carter (e0)", linetype = "Rolling")) + 
   geom_point(aes(x = year, y = ex_f), shape = 3) +
   xlab("Year") + ylab("Life expectancy at birth")
-ggsave("figures/forecasting/BP_point_forecasts.pdf", width = 8, height = 4)
+
 
 
 "
@@ -304,21 +463,32 @@ compute_fe <- function(forecasts_df, suffix = "siler"){
 
 forecasts_df <- compute_fe(forecasts_df, suffix = "siler")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_SMM")
+forecasts_df <- compute_fe(forecasts_df, suffix = "FDM")
+forecasts_df <- compute_fe(forecasts_df, suffix = "CBD_SMM")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dt")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dxt")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_e0")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "LC_SMM_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "FDM_r")
+forecasts_df <- compute_fe(forecasts_df, suffix = "CBD_SMM_r")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dt_r")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_dxt_r")
 forecasts_df <- compute_fe(forecasts_df, suffix = "LC_e0_r")
 
 # Plot the errors
-fe_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() + 
+fe_plt <-
+  tibble(forecasts_df) %>%
+  filter(age == 0 & nahead > 0) %>%
+  ggplot() + theme_bw() + 
   scale_fill_manual("Model", values = c("Siler" = "purple", "Lee-Carter" = "red",
       "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", "Lee-Carter (e0)" = "blue")) +
   geom_bar(aes(x = n_ahead-1, y = siler_fe2, fill = "Siler"), 
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead-0.75, y = LC_fe2, fill = "Lee-Carter", alpha = "Full Sample"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead-0.6, y = FDM_fe2, fill = "FDM", alpha = "Full Sample"), 
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead-0.5, y = LC_dt_fe2, fill = "Lee-Carter (dt)", alpha = "Full Sample"), 
            stat = "summary", fun = mean, width = 0.25) +
@@ -327,6 +497,8 @@ fe_plt <- ggplot(forecasts_df[which(forecasts_df$age == 0),]) + theme_bw() +
   geom_bar(aes(x = n_ahead, y = LC_e0_fe2, fill = "Lee-Carter (e0)", alpha = "Full Sample"), 
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead+0.25, y = LC_r_fe2, fill = "Lee-Carter", alpha = "Rolling"), 
+           stat = "summary", fun = mean, width = 0.25) +
+  geom_bar(aes(x = n_ahead+0.35, y = FDM_r_fe2, fill = "FDM", alpha = "Rolling"), 
            stat = "summary", fun = mean, width = 0.25) +
   geom_bar(aes(x = n_ahead+0.5, y = LC_dt_r_fe2, fill = "Lee-Carter (dt)", alpha = "Rolling"), 
            stat = "summary", fun = mean, width = 0.25) +
