@@ -6,6 +6,7 @@ require(ggpubr)
 require(HMDHFDplus)
 require(stringr)
 require(plyr)
+require(tidyverse)
 
 
 "
@@ -115,13 +116,99 @@ unique(lifetab_df$code)
 lifetab_df <- lifetab_df[which(lifetab_df$code != "FRACNP"),]
 lifetab_df <- lifetab_df[which(lifetab_df$code != "GBRCENW"),]
 
+lifetab_df %>%
+  mutate(name = case_when(code == "USA" ~ "United States of America"))
+
+
+
+"
+Import the WPP data for developing countries
+"
+hmd_codes <- unique(lifetab_df$code)
+library(janitor)
+wpp_df <- read_csv("/Users/julianashwin/Documents/Research/MortalityEstimation/data/WPP2024_Life_Table_Complete_Medium_Female_1950-2023.csv")
+wpp_df <- wpp_df %>% 
+  filter(LocTypeName == "Country/Area") %>%
+  filter(AgeGrpSpan == 1) %>%
+  filter(!(ISO3_code %in% hmd_codes)) %>%
+  rename(code = ISO3_code, name = Location, year = Time, age = AgeGrpStart,
+         mx_f = mx, lx_f = lx, ex_f = ex) %>% 
+  mutate(mx = NA_real_, lx = NA_real_, ex = NA_real_, mx_m = NA_real_, lx_m = NA_real_, ex_m = NA_real_, 
+         Male = NA_real_, Female = NA_real_, Total = NA_real_) %>%
+  select(any_of(c(names(lifetab_df), "name"))) 
+
+
+"
+Add names as well as codes
+"
+convert_df <- wpp_df %>% 
+  distinct(code, name) %>%
+  rbind(tibble(code = hmd_codes, name = NA_character_))
+
+convert_df$name[which(convert_df$code== "AUS")] <- "Australia"
+convert_df$name[which(convert_df$code== "AUT")] <- "Austria"
+convert_df$name[which(convert_df$code== "BEL")] <- "Belgium"
+convert_df$name[which(convert_df$code== "BGR")] <- "Bulgaria"
+convert_df$name[which(convert_df$code== "BLR")] <- "Belarus"
+convert_df$name[which(convert_df$code== "CAN")] <- "Canada"
+convert_df$name[which(convert_df$code== "CHE")] <- "Switzerland"
+convert_df$name[which(convert_df$code== "CHL")] <- "Chile"
+convert_df$name[which(convert_df$code== "CZE")] <- "Czechia"
+convert_df$name[which(convert_df$code== "DEU")] <- "Germany"
+convert_df$name[which(convert_df$code== "DEUTE")] <- "East Germany"
+convert_df$name[which(convert_df$code== "DEUTW")] <- "West Germany"
+convert_df$name[which(convert_df$code== "DNK")] <- "Denmark"
+convert_df$name[which(convert_df$code== "ENW")] <- "England and Wales"
+convert_df$name[which(convert_df$code== "ESP")] <- "Spain"
+convert_df$name[which(convert_df$code== "EST")] <- "Estonia"
+convert_df$name[which(convert_df$code== "FIN")] <- "Finland"
+convert_df$name[which(convert_df$code== "FRA")] <- "France"
+convert_df$name[which(convert_df$code== "GBR")] <- "United Kingdom"
+convert_df$name[which(convert_df$code== "GRC")] <- "Greece"
+convert_df$name[which(convert_df$code== "HKG")] <- "Hong Kong"
+convert_df$name[which(convert_df$code== "HRV")] <- "Croatia"
+convert_df$name[which(convert_df$code== "HUN")] <- "Hungary"
+convert_df$name[which(convert_df$code== "IRL")] <- "Ireland"
+convert_df$name[which(convert_df$code== "ISL")] <- "Iceland"
+convert_df$name[which(convert_df$code== "ISR")] <- "Israel"
+convert_df$name[which(convert_df$code== "ITA")] <- "Italy"
+convert_df$name[which(convert_df$code== "JPN")] <- "Japan"
+convert_df$name[which(convert_df$code== "KOR")] <- "South Korea"
+convert_df$name[which(convert_df$code== "LTU")] <- "Lithuania"
+convert_df$name[which(convert_df$code== "LUX")] <- "Luxembourg"
+convert_df$name[which(convert_df$code== "LVA")] <- "Latvia"
+convert_df$name[which(convert_df$code== "NLD")] <- "Netherlands"
+convert_df$name[which(convert_df$code== "NOR")] <- "Norway"
+#convert_df$name[which(convert_df$code== "NZL")] <- "New Zealand"
+convert_df$name[which(convert_df$code== "NZL_NM")] <- "New Zealand"# (non-Maori)"
+convert_df$name[which(convert_df$code== "POL")] <- "Poland"
+convert_df$name[which(convert_df$code== "PRT")] <- "Portugal"
+convert_df$name[which(convert_df$code== "RUS")] <- "Russia"
+convert_df$name[which(convert_df$code== "SCO")] <- "Scotland"
+convert_df$name[which(convert_df$code== "SVK")] <- "Slovakia"
+convert_df$name[which(convert_df$code== "SVN")] <- "Slovenia"
+convert_df$name[which(convert_df$code== "SWE")] <- "Sweden"
+convert_df$name[which(convert_df$code== "TWN")] <- "Taiwan"
+convert_df$name[which(convert_df$code== "UKR")] <- "Ukraine"
+convert_df$name[which(convert_df$code== "USA")] <- "United States of America"
+
+convert_df %>% write_csv("data/clean/names_key.csv")
+
+
+lifetab_df <- rbind(lifetab_df, data.frame(select(wpp_df, -name)))
+
 
 
 "
 Who's looking good in the 21st century?
 "
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
+                "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
+                "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
+
 ex_df <- lifetab_df[which(lifetab_df$year >= 1900 & lifetab_df$age == 0 & 
-                                  lifetab_df$ex_f >= 60),]
+                                  lifetab_df$ex_f >= 60 & lifetab_df$code %in% keep_codes),]
 ggplot(ex_df, aes(x = year, y = ex_f)) + 
   geom_line(aes(group = code, color = code)) + scale_color_discrete(name = "Country") + 
   xlab("Year") + ylab("LE(0)") + theme_bw() +
@@ -157,6 +244,10 @@ ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "ENW" & lifetab_5y_df$year > 19
                     aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
   geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
   xlab("Age") + ylab("Mortality Rate") + ggtitle("England and Wales (Female)")
+ggplot(lifetab_5y_df[which(lifetab_5y_df$code == "IND" & lifetab_5y_df$year > 1900),], 
+       aes(x = age, y = mx_f)) + scale_color_continuous(name = "Year") + theme_bw() +
+  geom_line(aes(group = year, color = year)) + ylim(c(0,0.85)) +
+  xlab("Age") + ylab("Mortality Rate") + ggtitle("India (Female)")
 
 
 
@@ -245,7 +336,9 @@ compute_lifespan <- function(lifetab_5y_df, thresh, tname){
       S_ms <- lifetab_5y_df$lx_m[data_obs]
       
       # Both genders
-      if (all(Ss > thresh)){
+      if (all(is.na(Ss))){
+        Lstar <- NA
+      } else if (all(Ss > thresh)){
         Lstar <- 110
       } else {
         above <- min(ages[which(Ss < thresh)])
@@ -253,7 +346,9 @@ compute_lifespan <- function(lifetab_5y_df, thresh, tname){
         Lstar <- below + (Ss[below+1] - thresh)/(Ss[below+1] - Ss[above+1])
       }
       # Only Male
-      if (all(S_fs > thresh)){
+      if (all(is.na(Ss))){
+        Lstar_f <- NA
+      } else if (all(S_fs > thresh)){
         Lstar_f <- 110
       } else {
         above <- min(ages[which(S_fs < thresh)])
@@ -261,7 +356,9 @@ compute_lifespan <- function(lifetab_5y_df, thresh, tname){
         Lstar_f <- below + (S_fs[below+1] - thresh)/(S_fs[below+1] - S_fs[above+1])
       }
       # Only Female
-      if (all(S_ms > thresh)){
+      if (all(is.na(Ss))){
+        Lstar_m <- NA
+      } else if (all(S_ms > thresh)){
         Lstar_m <- 110
       } else {
         above <- min(ages[which(S_ms < thresh)])
@@ -287,7 +384,7 @@ lifetab_df <- compute_lifespan(lifetab_df,  0.001, "99p9")
 
 
 "
-Calculate best practice
+Calculate best practice (only use HMD here for consistency)
 "
 identify_best_practice <- function(lifetab_df){
   # Initialise indicators
@@ -299,8 +396,10 @@ identify_best_practice <- function(lifetab_df){
   for (yy in all_years ){
     print(yy)
     # Find which country had best LE at birth 
+    # Exclude countries that don't have mx_m as this means that they are not from HMD
     year_df <- lifetab_df[which(lifetab_df$year == yy & 
-                                     lifetab_df$age == 0),]
+                                     lifetab_df$age == 0 & 
+                                  !is.na(lifetab_df$mx_m)),]
     max_le_f <- max(year_df$ex_f, na.rm = T)
     max_le_m <- max(year_df$ex_m, na.rm = T)
     if (max_le_f >= max_le_m){
@@ -323,67 +422,10 @@ lifetab_df <- identify_best_practice(lifetab_df)
 lifetab_5y_df <- identify_best_practice(lifetab_5y_df)
 
 
-
-
-"
-Add names as well as codes
-"
-
-all_codes <- unique(lifetab_5y_df$code)
-convert_df <- data.frame(code = all_codes, name = NA)
-
-convert_df$name[which(convert_df$code== "AUS")] <- "Australia"
-convert_df$name[which(convert_df$code== "AUT")] <- "Austria"
-convert_df$name[which(convert_df$code== "BEL")] <- "Belgium"
-convert_df$name[which(convert_df$code== "BGR")] <- "Bulgaria"
-convert_df$name[which(convert_df$code== "BLR")] <- "Belarus"
-convert_df$name[which(convert_df$code== "CAN")] <- "Canada"
-convert_df$name[which(convert_df$code== "CHE")] <- "Switzerland"
-convert_df$name[which(convert_df$code== "CHL")] <- "Chile"
-convert_df$name[which(convert_df$code== "CZE")] <- "Czechia"
-convert_df$name[which(convert_df$code== "DEU")] <- "Germany"
-convert_df$name[which(convert_df$code== "DEUTE")] <- "East Germany"
-convert_df$name[which(convert_df$code== "DEUTW")] <- "West Germany"
-convert_df$name[which(convert_df$code== "DNK")] <- "Denmark"
-convert_df$name[which(convert_df$code== "ENW")] <- "England and Wales"
-convert_df$name[which(convert_df$code== "ESP")] <- "Spain"
-convert_df$name[which(convert_df$code== "EST")] <- "Estonia"
-convert_df$name[which(convert_df$code== "FIN")] <- "Finland"
-convert_df$name[which(convert_df$code== "FRA")] <- "France"
-convert_df$name[which(convert_df$code== "GBR")] <- "United Kingdom"
-convert_df$name[which(convert_df$code== "GRC")] <- "Greece"
-convert_df$name[which(convert_df$code== "HKG")] <- "Hong Kong"
-convert_df$name[which(convert_df$code== "HRV")] <- "Croatia"
-convert_df$name[which(convert_df$code== "HUN")] <- "Hungary"
-convert_df$name[which(convert_df$code== "IRL")] <- "Ireland"
-convert_df$name[which(convert_df$code== "ISL")] <- "Iceland"
-convert_df$name[which(convert_df$code== "ISR")] <- "Israel"
-convert_df$name[which(convert_df$code== "ITA")] <- "Italy"
-convert_df$name[which(convert_df$code== "JPN")] <- "Japan"
-convert_df$name[which(convert_df$code== "KOR")] <- "South Korea"
-convert_df$name[which(convert_df$code== "LTU")] <- "Lithuania"
-convert_df$name[which(convert_df$code== "LUX")] <- "Luxembourg"
-convert_df$name[which(convert_df$code== "LVA")] <- "Latvia"
-convert_df$name[which(convert_df$code== "NLD")] <- "Netherlands"
-convert_df$name[which(convert_df$code== "NOR")] <- "Norway"
-#convert_df$name[which(convert_df$code== "NZL")] <- "New Zealand"
-convert_df$name[which(convert_df$code== "NZL_NM")] <- "New Zealand"# (non-Maori)"
-convert_df$name[which(convert_df$code== "POL")] <- "Poland"
-convert_df$name[which(convert_df$code== "PRT")] <- "Portugal"
-convert_df$name[which(convert_df$code== "RUS")] <- "Russia"
-convert_df$name[which(convert_df$code== "SCO")] <- "Scotland"
-convert_df$name[which(convert_df$code== "SVK")] <- "Slovakia"
-convert_df$name[which(convert_df$code== "SVN")] <- "Slovenia"
-convert_df$name[which(convert_df$code== "SWE")] <- "Sweden"
-convert_df$name[which(convert_df$code== "TWN")] <- "Taiwan"
-convert_df$name[which(convert_df$code== "UKR")] <- "Ukraine"
-convert_df$name[which(convert_df$code== "USA")] <- "United States of America"
-
-
+## Add in the names
 lifetab_5y_export <- merge(lifetab_5y_df, convert_df, by = "code", all.x = TRUE)
 lifetab_export <- merge(lifetab_df, convert_df, by = "code", all.x = TRUE)
 
-rm(convert_df)
 
 " 
 Plot BP life expectancy over time, survival and mortality curves
@@ -438,9 +480,19 @@ lifetab_5y_export <- lifetab_5y_export[,c("code", "name", "years", "year", "age"
                                           "l_90", "l_90_f", "l_90_m",
                                           "Total", "Male", "Female","best_practice")]
 
-write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
-write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
+lifetab_5y_export %>%
+  tabyl(name)
+#write.csv(lifetab_5y_export, "data/clean/all_lifetab_5y.csv", row.names = FALSE)
+#write.csv(lifetab_export, "data/clean/all_lifetab_1y.csv", row.names = FALSE)
 #lifetab_5y_export <- read.csv("data/clean/all_lifetab_5y.csv", stringsAsFactors = FALSE)
+lifetab_5y_export %>%
+  write_csv("/Users/julianashwin/Documents/Research/MortalityEstimation/data/all_lifetab_5y.csv")
+lifetab_5y_export %>%
+  write_csv("data/clean/all_lifetab_5y.csv")
+
+lifetab_export %>%
+  write_csv("/Users/julianashwin/Documents/Research/MortalityEstimation/data/all_lifetab_1y.csv")
+
 
 bp_df <-  lifetab_export[which(lifetab_export$best_practice == 1),]
 write.csv(bp_df, "data/clean/bp.csv", row.names = FALSE)

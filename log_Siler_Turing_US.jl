@@ -238,15 +238,6 @@ p_title = plot(title = "I(2) Siler Bergeron parameters "*string(code),
 display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
 savefig("figures/"*folder*"/siler_"*model*"_params_ber.pdf")
 CSV.write("figures/"*folder*"/siler_"*model*"_params_ber.csv", parests_i2_ber)
-# with Colchero specification
-parests_i2_col = extract_variables(chain_i2, years_selected, log_pars = true,
-    model_vers = :i2drift, spec = :Colchero)
-p1 = plot_siler_params(parests_i2_col)
-p_title = plot(title = "I(2) Siler Colchero parameters "*string(code),
-    grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-display(plot(p_title, p1, layout = @layout([A{0.01h}; B])))
-savefig("figures/"*folder*"/siler_"*model*"_params_col.pdf")
-CSV.write("figures/"*folder*"/siler_"*model*"_params_col.csv", parests_i2_col)
 
 
 ## Plot time series parameters
@@ -270,7 +261,7 @@ h_p = plot_decomp(decomp_df_ber, :h)
 h_p = plot!(title = "Lifespan Equality")
 p_title = plot(title = "Historical decomposition Siler Bergeron parameters "*string(code),
     grid = false, showaxis = false, bottom_margin = -10Plots.px, yticks = false, xticks = false)
-plot(p_title, LE_p, h_p, H_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
+plot(p_title, LE_p, h_p, h_p, layout = @layout([A{0.01h}; B C D]), size = (1000,400))
 display(plot!(left_margin = 15Plots.px, bottom_margin = 15Plots.px))
 savefig("figures/"*folder*"/siler_"*model*"_decomp_ber.pdf")
 CSV.write("figures/"*folder*"/siler_"*model*"_decomp_ber.csv", decomp_df_ber)
