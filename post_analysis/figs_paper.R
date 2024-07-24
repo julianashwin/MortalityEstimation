@@ -6,6 +6,7 @@ library(ggpubr)
 library(tidyverse)
 library(stargazer)
 library(lfe)
+library(janitor)
 
 
 "
@@ -19,6 +20,11 @@ col_scheme <- c("Australia" = "darkolivegreen4",
                 "Japan" = "red","New Zealand" = "black", "Russia" = "firebrick",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Other" = "gray")
+
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
+                "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
+                "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
 
 "
 Import data and results

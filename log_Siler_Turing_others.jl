@@ -48,10 +48,15 @@ country_codes = ["AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "GRC", 
     "DEUTW", "DNK", "EST", "HRV","HUN", "IRL", "ISR", "LTU", "LUX", "LVA", "POL", "RUS", "SVK",
     "SVN", "SWE", "TWN", "UKR"]
 
+country_codes = ["IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA"]
+
 
 #unique(mort_df.code)[.!(in.(unique(mort_df.code),[country_codes]))]
 
 select_df = mort_df[in.(mort_df.code, [country_codes]),:]
+
+combine(groupby(select_df, :code), nrow => :Freq)
 
 ## Set model and folder to save results
 folder = "countries"
@@ -63,7 +68,7 @@ model = "i2"
 Check data looks sensible for a single country
 """
 ## Data prep for single coujntry
-code = country_codes[40]
+code = country_codes[4]
 #country_df = mort_df[(mort_df.code .== code), :]
 country_df = select_df[select_df.code .== code,:]
 # Need to remove any zeros
@@ -71,7 +76,7 @@ country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[
 # Check data looks sensible
 plot(country_df.age, country_df.mx_f, group = country_df.year, legend = :top)
 # Convert this into a matrix of mortality rates over time, age and year vectors
-country_m_data = chunk(country_df.mx_f, 110)
+country_m_data = chunk(country_df.mx_f, maximum(country_df.age)+1)
 plot(country_m_data, legend = false)
 country_lm_data = [log.(m_dist) for m_dist in country_m_data]
 plot(country_lm_data, legend = false)
@@ -94,7 +99,7 @@ nchains = 4
 ndraws = 10 # Number of draws to approximate each future shock
 nahead = 6 # Number of periods to forecast ahead
 # Loop through the selected codes
-for code in country_codes
+for code in country_codes[2:16]
     print("Working on model for "*code)
     # Extract and convert relevant data into correct form
     country_df = select_df[(select_df.code .== code), :]
@@ -102,7 +107,7 @@ for code in country_codes
     # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
     country_df.mx_f[country_df.mx_f .== 0.0] .=  minimum(country_df.mx_f[country_df.mx_f .> 0.0])
     # Get data into right format
-    country_m_data = chunk(country_df.mx_f, 110)
+    country_m_data = chunk(country_df.mx_f, maximum(country_df.age)+1)
     country_lm_data = [log.(m_dist) for m_dist in country_m_data]
     country_ages = Int64.(0:maximum(country_df.age))
     country_years = unique(country_df.year)
