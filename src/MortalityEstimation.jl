@@ -16,6 +16,18 @@ Parameters of Siler model
     σ::Float64 = 0.0 # variance
 end
 
+@with_kw mutable struct HPParam
+    A::Float64 = 0.1 # Infant
+    B::Float64 = 0.1 # Infant
+    C::Float64 = 0.1 # Infant
+    D::Float64 = 0.1 # Middle age
+    E::Float64 = 10. # Middle age
+    F::Float64 = 25.0 # Middle age
+    G::Float64 = 0.1 # Elderly
+    H::Float64 = 1.0 # Elderly
+    σ::Float64 = 0.0 # Variance
+end
+
 # Various Siler functions and their derivatives
 include("siler_fns.jl")
 # Helper functions

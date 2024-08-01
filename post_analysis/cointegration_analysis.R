@@ -33,6 +33,11 @@ col_scheme <- c("Australia" = "darkolivegreen4",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Other" = "gray")
 
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
+                "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
+                "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
+
 "
 Import data and results
 "
@@ -82,37 +87,43 @@ write.csv(export_df, "data/results/siler_panel.csv", row.names = FALSE)
 rm(export_df)
 
 ## Plot the parameters over time in each country
-plot_df <- all_df[which(all_df$year > 1900),]
+plot_df <- all_df[which(all_df$year > 1900 & all_df$code %in% keep_codes),]
+plot_df <- plot_df[which(plot_df$parameter %in% c("b", "B", "c", "C", "d", "σ")),]
+extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
+                             (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
+extra_obs$Forecast <- "Estimate"
+plot_df <- rbind(plot_df, extra_obs)
+#plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
+ggplot(plot_df) + theme_bw() + 
+  facet_wrap(parameter~., nrow = 2, scales = "free") +
+  #scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  geom_line(data = plot_df[which(plot_df$name != "Other"),],
+            aes(x = year, y = median, color = name, 
+                group = interaction(code, Forecast), linetype = Forecast)) +
+  xlab("Year") + ylab("Parameter")
+
+summary(lm(median ~ parameter*year, data = plot_df))
+
+## Plot the drift terms over time
+plot_df <- all_df[which(all_df$year > 1900 & all_df$code %in% keep_codes),]
 plot_df <- plot_df[which(str_detect(plot_df$parameter, "α")),]
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
                              (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
 plot_df <- rbind(plot_df, extra_obs)
-plot_df$name[which(!(plot_df$name %in% names(col_scheme)))] <- "Other"
 ggplot(plot_df) + theme_bw() + 
   facet_wrap(parameter~., nrow = 2, scales = "free") +
-  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+  #scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
   geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
             aes(x = year, y = median, color = name, 
                 group = interaction(code, Forecast), linetype = Forecast)) +
   geom_line(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = year, y = median, color = name, 
                 group = interaction(code, Forecast), linetype = Forecast)) +
-  xlab("Year") + ylab("Life expectancy at birth")
-
-summary(lm(median ~ parameter*year, data = plot_df))
-
-
-ggplot(plot_df) + theme_bw() + 
-  facet_wrap(parameter~., nrow = 2, scales = "free") +
-  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
-  geom_line(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
-            aes(x = year, y = median, color = name, 
-                group = interaction(code, Forecast), linetype = Forecast)) +
-  geom_line(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = year, y = median, color = name, 
-                group = interaction(code, Forecast), linetype = Forecast)) +
-  xlab("Year") + ylab("Life expectancy at birth")
+  xlab("Year") + ylab("Drift term")
 
 
 

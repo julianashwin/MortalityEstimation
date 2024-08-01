@@ -18,6 +18,14 @@ include("src/MortalityEstimation.jl")
 gr()
 
 """
+Import some data
+"""
+all_df = CSV.read("data/clean/all_lifetab_5y.csv", DataFrame, ntasks = 1);
+bp_df = all_df[(all_df.best_practice .== 1) .& (all_df.year .>= 1900), :];
+sort!(bp_df, [:year, :age]);
+
+
+"""
 Select parameters
 """
 ## Parameters to look at infant mortality
@@ -98,6 +106,12 @@ plot!(ber_df_B.age, ber_df_B.S_Bchange, linestyle = :dash, label = "Change to B"
 plot!(legend = :bottomleft, size = (400,300))
 savefig("figures/interpret/survival_b_example.pdf")
 
+plot(ber_df_b.age, ber_df_b.μ_base, label = "Baseline", ylabel = "Survival Rate", xlabel = "Age")
+plot!(ber_df_b.age, ber_df_b.μ_bchange, linestyle = :dash, label = "Change to b")
+plot!(ber_df_B.age, ber_df_B.μ_Bchange, linestyle = :dash, label = "Change to B")
+plot!(legend = :topright, size = (400,300))
+savefig("figures/interpret/mortality_b_example.pdf")
+
 
 
 # Special case to show effect of C on H can be positive
@@ -110,6 +124,62 @@ ber_df_special, C_plt = param_change_plt(ber_df_special, param_ber_special,
     :C; LE_change = 5, spec = :Bergeron)
 C_plt
 savefig("figures/interpret/bergeron_special_case.pdf")
+
+
+
+"""
+Heligman Pollard example
+"""
+param_hp = HPParam(A = 0.0005, B = 0.04, C = 0.12, D = 0.05, E = 6.0,
+    F = 25.0, G = 0.00009, H = 1.08, σ = 0.0)
+
+mort_rates = HeligmanPollard.([param_hp], 0:100)
+plot(log.(mort_rates))
+
+sum(cumprod(1 .- mort_rates))
+
+ages = 0:109
+first_part = param_hp.A.^((ages .+ param_hp.B).^param_hp.C) 
+second_part = param_hp.D.*exp.(.-param_hp.E.*(log.(ages) .- log.(param_hp.F)).^2) 
+third_part = param_hp.G.*param_hp.H.^(ages) 
+
+plot(log.(first_part), label = "Infant")
+plot!(log.(second_part), label = "Accident")
+plot!(log.(third_part), label = "Later-life")
+plot!(log.(first_part + second_part + third_part), label = "Total")
+
+
+# Extract BP mortality data
+country_df = bp_df;
+country_df[country_df[:,:mx_f] .== 0.0,:mx_f] .=  minimum(country_df[country_df[:,:mx_f] .> 0.0,:mx_f]);
+country_m_data = chunk(country_df.mx_f, maximum(country_df.age)+1);
+country_lm_data = [log.(m_dist) for m_dist in country_m_data];
+plot(country_lm_data, legend = false)
+country_ages = Int64.(0:maximum(country_df.age))
+country_years = unique(country_df.year)
+T = length(country_lm_data)
+@assert length(country_m_data)==length(country_years) "number of years doesn't match length of m_data"
+@assert length(country_m_data[1])==length(country_ages) "number of ages doesn't match length of m_data[1]"
+
+# Standard static Siler model
+niters = 100
+nchains = 1
+tt = 24
+prior_hp = sample(log_hp_static(country_lm_data[tt], country_ages), Prior(), 50)
+
+
+param_hp = HPParam(A = 0.0005, B = 0.04, C = 0.12, D = 0.05, E = 6.0,
+    F = 25.0, G = 0.00009, H = 1.08, σ = 0.0)
+
+mort_rates = HeligmanPollard.([param_hp], 0:100)
+plot(log.(mort_rates))
+
+
+chain_static = sample(log_hp_static(country_lm_data[tt], country_ages), NUTS(0.65), MCMCThreads(),
+    niters, nchains)
+display(chain_static)
+
+
 
 
 

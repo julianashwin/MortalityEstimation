@@ -10,7 +10,8 @@ require(tidyr)
 require(stargazer)
 require(readxl)
 require(plyr)
-
+require(tidyverse)
+require(janitor)
 
 "
 Set colour scheme
@@ -25,15 +26,22 @@ col_scheme <- c("Other" = "gray",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Best Practice" = "darkmagenta")
 
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
+                "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
+                "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
+
 #mort_df <- read.csv("data/clean/all_lifetab_1y.csv", stringsAsFactors = FALSE)
 
 
 siler_df <- read.csv("data/results/siler_panel.csv", stringsAsFactors = FALSE)
 siler_df$plot_name <- siler_df$name
-siler_df$plot_name[which(!(siler_df$plot_name %in% names(col_scheme)))] <- "Other"
+siler_df$plot_name[which(!(siler_df$code %in% keep_codes))] <- "Other"
 
-ggplot(siler_df) + theme_bw() + 
-  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+siler_df %>%
+  filter(plot_name != "Other") %>%
+  ggplot() + theme_bw() + 
+  #scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
   geom_line(aes(x = C, y = Lstar_90, color = plot_name, group = code))
 
 
@@ -67,8 +75,9 @@ wid_pc <- data.frame(pivot_wider(wid_pc, id_cols = c(name, year), names_from = v
 wid_pc$plot_name <- wid_pc$name
 wid_pc$plot_name[which(!(wid_pc$plot_name %in% names(col_scheme)))] <- "Other"
 # Test plot
-ggplot(wid_pc) + theme_bw() + 
-  scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
+wid_pc %>%
+  ggplot() + theme_bw() + 
+  #scale_color_manual("Country", values = col_scheme) + guides(color=guide_legend(ncol=2)) + 
   geom_line(aes(x = year, y = income_pc, color = plot_name, group = name))
 
 

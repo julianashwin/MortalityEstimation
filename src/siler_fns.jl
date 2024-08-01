@@ -30,6 +30,22 @@ function siler_thresh(param::SilerParam, age::Real, ā::Int, g::Real)
 end
 
 
+
+
+"""
+Basic Heligman Pollard mortality function
+"""
+function HeligmanPollard(param_hp::HPParam, age::Real)
+    @unpack A, B, C, D, E, F, G = param_hp
+	hh = param_hp.H
+    qqq = A.^((age.+B).^C) .+ D.*exp.(-E.*(log.(age) .- log.(F)).^2) .+ G.*(hh.^age)
+	μ = qqq./(1 .- qqq)
+	μ = max.(min.(μ, 1.0), 0.0)
+
+    return μ
+end
+
+
 #plot(siler.([param], 0:110, spec = :Colchero))
 #plot(siler.([param], 0:110, spec = :Scott))
 #plot(siler.([param], 0:110, spec = :Bergeron))

@@ -436,7 +436,7 @@ oos_codes = [ "AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "USA",
 oos_codes = ["NZL_NM"]
 
 folder = "figures/countries/held-out/"
-for cc in oos_codes
+for cc in country_codes[[1,2,3,4,5,6,7]]
 
     # Country data
     country_df = mort_df[mort_df.code .== cc,:]

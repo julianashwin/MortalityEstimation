@@ -210,7 +210,7 @@ Out-of-sample forecasts
 folder = "countries/held-out"
 model = "i2"
 
-for code in country_codes[[16,17,18]]
+for code in country_codes[[8,9,10]]
     print("Working on oos forecasts for "*code)
     # Extract and convert relevant data into correct form
     country_df = select_df[(select_df.code .== code), :]
@@ -219,13 +219,13 @@ for code in country_codes[[16,17,18]]
     # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
     country_df.mx_f[country_df.mx_f .== 0.0] .=  minimum(country_df.mx_f[country_df.mx_f .> 0.0])
     # Get data into right format
-    country_m_data = chunk(country_df.mx_f, 110)
+    country_m_data = chunk(country_df.mx_f, maximum(country_df.age)+1)
     country_lm_data = [log.(m_dist) for m_dist in country_m_data]
     country_ages = Int64.(0:maximum(country_df.age))
     country_years = unique(country_df.year)
     T = length(country_lm_data)
     name = country_df.name[1]
-    if T >= 18
+    if T >= 14
         for held_out = 2:2:10
             # Adjust if you don't want every period
             periods = Int.(1:T-held_out)

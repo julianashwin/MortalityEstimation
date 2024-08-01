@@ -21,10 +21,27 @@ col_scheme <- c("Australia" = "darkolivegreen4",
                 "Sweden" = "yellow", "United States of America" = "cornflowerblue",
                 "Other" = "gray")
 
+
+col_scheme <- c("Australia" = "darkolivegreen4", 
+                "India" = "pink",
+                "France" = "blue3", "Mexico" = "darkgoldenrod4", 
+                "Hong Kong" = "lightgoldenrod", 
+                "Nigeria" = "forestgreen", 
+                "Japan" = "red","China" = "black", "Russia" = "firebrick",
+                "Ethiopia" = "yellow", "United States of America" = "cornflowerblue",
+                "Other" = "gray")
+
+
 keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
                 "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
                 "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
                 "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
+
+high_income <- c("Australia", "Belgium", "Canada", "Denmark", "France", "Germany", "Italy", "Japan", "Netherlands", "New Zealand", 
+                 "Norway", "Portugal", "Russia", "Spain", "Sweden", "Switzerland", "United Kingdom", "United States of America")
+
+other_income <- c("Bangladesh", "Belarus", "Brazil", "China", "Congo", "Egypt", "Ethiopia", "India", "Indonesia", 
+                  "Iran (Islamic Republic of)", "Mexico", "Nigeria", "Pakistan", "Philippines", "Thailand", "Türkiye", "Viet Nam")
 
 "
 Import data and results
@@ -90,7 +107,8 @@ for (ii in 1:length(import_files)){
 all_decomp_df <- all_decomp_df %>%
   inner_join(unique(mort_df[,c("code", "name")]), by = "code") %>%
   filter(year > 1918) %>%
-  mutate(DeltaLE_c = Δc*LE_c, DeltaLE_C = ΔC*LE_C,
+  mutate(DeltaLE_b = Δb*LE_b, DeltaLE_B = ΔB*LE_B, DeltaLE_d = Δd*LE_d,
+         DeltaLE_c = Δc*LE_c, DeltaLE_C = ΔC*LE_C,
          year_group = case_when(
            year <= 1943 ~ "1918-1943",
            year > 1943 & year <= 1968 ~ "1943-1968",
@@ -246,48 +264,64 @@ rm(p1,p2,p3,decomp_long,change_df,LEgrad_df,Lstargrad_df,hgrad_df)
 "
 Figure 4: 
 "
-decomp_table <- all_decomp_df[which(!is.na(all_decomp_df$DeltaLE_c)),]
-decomp_table <- aggregate(decomp_table[,c("DeltaLE_c", "DeltaLE_C", "ΔLE_mod")],
-                          by = list(name = decomp_table$name, year = decomp_table$year_group), 
-                          FUN = sum, drop = FALSE)
-decomp_table$propLE_c <- round(decomp_table$DeltaLE_c/decomp_table$ΔLE_mod,3)
-decomp_table$propLE_C <- round(decomp_table$DeltaLE_C/decomp_table$ΔLE_mod,3)
-decomp_table <- pivot_wider(decomp_table, id_cols = c(name), names_from = year, 
-                            names_glue = "{.value}_{year}",
-                            values_from = c(propLE_c, propLE_C))
-decomp_table <- decomp_table[,c("name", "propLE_c_1918-1943",  "propLE_C_1918-1943",
-                                "propLE_c_1943-1968", "propLE_C_1943-1968",
-                                "propLE_c_1968-1993", "propLE_C_1968-1993",
-                                "propLE_c_1993-2018", "propLE_C_1993-2018")]
-decomp_table <- merge(decomp_table, all_decomp_df[which(all_decomp_df$year == 2018),c("name", "C")],
-                      by = "name")
-decomp_table$C <- round(decomp_table$C, 1)
+decomp_table <- all_decomp_df %>%
+  filter(!is.na(DeltaLE_c)) %>%
+  group_by(code, name, year_group) %>%
+  summarise(DeltaLE_bB = sum(DeltaLE_b) + sum(DeltaLE_B), DeltaLE_d = sum(DeltaLE_d),
+            DeltaLE_c = sum(DeltaLE_c), DeltaLE_C = sum(DeltaLE_C), ΔLE_mod = sum(ΔLE_mod)) %>%
+  ungroup() %>%
+  mutate(propLE_bB = sprintf(DeltaLE_bB/ΔLE_mod, fmt = '%#.2f'),
+         propLE_d = sprintf(DeltaLE_d/ΔLE_mod, fmt = '%#.2f'),
+         propLE_c = sprintf(DeltaLE_c/ΔLE_mod, fmt = '%#.2f'),
+         propLE_C = sprintf(DeltaLE_C/ΔLE_mod, fmt = '%#.2f')) %>%
+  pivot_wider(id_cols = c(code, name), names_from = year_group, 
+              names_glue = "{.value}_{year_group}",
+              values_from = c(propLE_bB, propLE_d, propLE_c, propLE_C)) %>%
+  select(code, name, 
+         `propLE_bB_1918-1943`, `propLE_bB_1943-1968`, `propLE_bB_1968-1993`, `propLE_bB_1993-2018`,
+         #`propLE_B_1918-1943`, `propLE_B_1943-1968`, `propLE_B_1968-1993`, `propLE_B_1993-2018`,
+         `propLE_d_1918-1943`, `propLE_d_1943-1968`, `propLE_d_1968-1993`, `propLE_d_1993-2018`,
+         `propLE_c_1918-1943`, `propLE_c_1943-1968`, `propLE_c_1968-1993`, `propLE_c_1993-2018`,
+         `propLE_C_1918-1943`, `propLE_C_1943-1968`, `propLE_C_1968-1993`, `propLE_C_1993-2018`) %>%
+  left_join(all_decomp_df[which(all_decomp_df$year == 2018),c("name", "C")]) %>%
+  mutate(C = sprintf(C, fmt = '%#.1f')) 
 
 # Export table as tex
 stargazer(as.matrix(decomp_table), table.placement = "H", column.sep.width = "2")
 # Or plot as heatmap
-as_tibble(decomp_table) %>%
+decomp_table %>%
+  filter(code %in% keep_codes) %>%
   rename(country = name) %>%
+  dplyr::select(-code) %>%
   pivot_longer(cols = -country) %>%
-  mutate(country = factor(country)) %>%
-  mutate(parameter = str_c("Proportion~of~LE~gains~due~to~", str_sub(name, 8, 8), "[t]")) %>%
-  mutate(interval = str_replace(str_sub(name, 10, 18), "\\.", "-")) %>%
+  mutate(income = case_when(country %in% high_income ~ "High~Income", 
+                            country %in% other_income ~ "Other")) %>%
+  mutate(country = factor(country, levels = c(high_income, other_income), ordered = T)) %>%
+  mutate(parameter = case_when(nchar(name) >= 8 ~ str_c("Prop~LE~gains~", str_sub(name, 8, 8), "[t]"),
+                               TRUE ~ "Latest~C[t]")) %>%
+  mutate(interval = str_replace(str_sub(str_replace(name, "B", ""), 10, 18), "\\.", "-")) %>%
   mutate(interval = case_when(interval == "" ~ "Latest", TRUE ~ interval),
-         parameter = case_when(parameter == "Proportion~of~LE~gains~due~to~[t]" ~ "Latest~C[t]", TRUE ~ parameter)) %>%
-  mutate(parameter = factor(parameter, levels = c("Proportion~of~LE~gains~due~to~c[t]", "Proportion~of~LE~gains~due~to~C[t]",
+         parameter = case_when(parameter == "Prop~LE~gains~[t]" ~ "Latest~C[t]", 
+                               parameter == "Prop~LE~gains~b[t]" ~ "Prop~LE~gains~b[t]~and~B[t]", 
+                               TRUE ~ parameter)) %>%
+  mutate(parameter = factor(parameter, levels = c("Prop~LE~gains~b[t]~and~B[t]",
+                                                  "Prop~LE~gains~d[t]", 
+                                                  "Prop~LE~gains~c[t]", "Prop~LE~gains~C[t]",
                                                   "Latest~C[t]"))) %>%
-  mutate(value_latest = case_when(name == "C" ~ value, TRUE ~ NA_real_)) %>%
-  mutate(value = case_when(name == "C" ~ NA_real_, TRUE ~ value)) %>%
-  ggplot(aes(y =fct_rev(country), x = interval)) + theme_bw() + 
-  facet_grid(~parameter, labeller = label_parsed, scales = "free_x", space="free_x") +
-  geom_tile(aes(fill = value), color = "black") +
-  geom_text(aes(label = value), color = "black", size = 2.5) +
-  geom_text(aes(label = value_latest), color = "black", size = 2.5) +
-  scale_fill_gradient2(low = "white", high = "red", na.value = 'white') +  #, midpoint = 0)
+  mutate(value_latest = case_when(name == "C" ~ value, TRUE ~ NA_character_)) %>%
+  mutate(value = case_when(name == "C" ~ NA_character_, TRUE ~ value)) %>%
+  ggplot(aes(y =fct_rev(country), x = interval)) + theme_minimal() + 
+  facet_grid(vars(income), vars(parameter), labeller = label_parsed,
+             scales = "free", space="free") +
   theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(x = "Interval", y = "Country", fill = "Proportion of LE gains \ndue to parameter") 
+  geom_tile(aes(fill = as.numeric(value)), color = "black") +
+  geom_text(aes(label = value), color = "black", size = 3) +
+  geom_text(aes(label = value_latest), color = "black", size = 3) +
+  scale_fill_gradient2(low = "firebrick", high = "forestgreen", na.value = "white", 
+                       mid = "white", midpoint = 0) +  #, midpoint = 0)
+  labs(x = "Interval", y = "", fill = "Proportion \nLE gains \ndue to \nparameter") 
 
-ggsave("figures_paper/decomp_table.pdf", width = 8, height = 8)
+ggsave("figures_paper/decomp_table.pdf", width = 12.2, height = 8)
 rm(decomp_table)
 
 
@@ -298,7 +332,8 @@ rm(decomp_table)
 Figure 5: Evolution of $c$ and $C$ over time
 "
 plot_df <- data.frame(pivot_wider(all_pars_df, id_cols = c(name, code, year, Forecast), 
-                                  names_from = parameter, values_from = median))
+                                  names_from = parameter, values_from = median)) %>%
+  filter(code %in% keep_codes)
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
                              (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
@@ -314,16 +349,16 @@ plot_df$year_label[which(plot_df$year==1963)] <- 1963
 plot_df$year_label[which(plot_df$year==1993)] <- 1993
 plot_df$year_label[which(plot_df$year==2023)] <- 2023
 
-
-
 # Cc path
 plot_df %>%
   ggplot() + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
   geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
-            aes(x = C, y = c, color = name, linetype = Forecast)) + 
+            aes(x = C, y = c, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_path(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = C, y = c, color = name, linetype = Forecast)) + 
+            aes(x = C, y = c, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = C, y = c, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Timing of aging (C)") + ylab("Speed of aging (c)") + 
@@ -337,7 +372,8 @@ rm(plot_df, extra_obs)
 Figure 6: Evolution of L*, C and LE over time
 "
 plot_df <- data.frame(pivot_wider(all_pars_df, id_cols = c(name, code, year, Forecast), 
-                                  names_from = parameter, values_from = median))
+                                  names_from = parameter, values_from = median)) %>%
+  filter(code %in% keep_codes)
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
                              (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
@@ -356,9 +392,11 @@ plot_df$year_label[which(plot_df$year==2023)] <- 2023
 p1 <- ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
   geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
-            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_path(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = LE, y = Lstar_99p9, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("UBAD") + 
@@ -368,9 +406,11 @@ p1 <- ggplot(plot_df) + theme_bw() +
 p2 <- ggplot(plot_df) + theme_bw() + 
   scale_color_manual("Country", values = col_scheme) + 
   geom_path(data = plot_df[which(plot_df$name == "Other"),], alpha = 0.5,
-            aes(x = LE, y = Lstar_99p9-C, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9-C, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_path(data = plot_df[which(plot_df$name != "Other"),],
-            aes(x = LE, y = Lstar_99p9-C, color = name, linetype = Forecast)) + 
+            aes(x = LE, y = Lstar_99p9-C, color = name, linetype = Forecast, 
+                group = interaction(code, Forecast))) + 
   geom_text(data = plot_df[which(plot_df$name != "Other"),],
             aes(x = LE, y = Lstar_99p9-C, color = name, label = year_label), show.legend=FALSE, size = 2) +
   xlab("Life expectancy at birth") + ylab("UBAD - C") + 
@@ -433,7 +473,8 @@ rm(p1,p2)
 "
 Figure 9: Evolution of $h(0)$ over time
 "
-plot_df <- all_pars_df[which(all_pars_df$parameter == "H"),]
+plot_df <- all_pars_df[which(all_pars_df$parameter == "H"),] %>%
+  filter(code %in% keep_codes)
 extra_obs <- plot_df[which((plot_df$year == 2018 & !(plot_df$code %in% c("NZL","RUS")))|
                              (plot_df$year == 2013 & plot_df$code %in% c("NZL","RUS"))),]
 extra_obs$Forecast <- "Estimate"
@@ -471,6 +512,104 @@ ggplot(bp_parests_df) + theme_bw() +
   ylab("Density") + xlab(expression(hat(R)))
 ggsave("figures_paper/rhat_convergence.pdf", width = 4, height = 4)
 
+
+"
+Appendix C: Compare different parameterised mortality functions
+"
+param_gomp = list(C = 85, c = 0.09, d = 0.0004)
+gompertz_example_plot <- tibble(ages = 0:109) %>%
+  mutate(`Age independent (λ)` = param_gomp$d,
+         `Later life (α & β)` = param_gomp$c*exp(param_gomp$c*(ages - param_gomp$C)),
+         total = (`Age independent (λ)` + `Later life (α & β)`)) %>%
+  pivot_longer(cols = c(`Age independent (λ)`, `Later life (α & β)`)) %>%
+  mutate(name = factor(name, levels = c("Age independent (λ)", "Later life (α & β)"), ordered = T)) %>%
+  ggplot(aes(x = ages)) + theme_bw() + 
+  geom_line(aes(y = log(total)), color = "black") + 
+  geom_line(aes(y = log(value), color = name), linetype = "dashed") +
+  coord_cartesian(ylim = c(-10.2, 0)) +
+  scale_color_manual(values = c("forestgreen", "firebrick")) + 
+  labs(x = "Age", y = expression(log(mu(a))), color = "Parts", title = "Gompertz-Makeham") + 
+  theme(legend.position = c(0.33, 0.82), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+#gompertz_example_plot
+
+param_siler = list(B = 3.5, b = 1.5, C = 85, c = 0.09, d = 0.0004)
+siler_example_plot <- tibble(ages = 0:109) %>%
+  mutate(`Infant (b & B)` = param_siler$b*exp(-param_siler$b*(ages + param_siler$B)),
+         `Age independent (d)` = param_siler$d,
+         `Later life (c & C)` = param_siler$c*exp(param_siler$c*(ages - param_siler$C)),
+         total = (`Infant (b & B)` + `Age independent (d)` + `Later life (c & C)`)) %>%
+  pivot_longer(cols = c(`Infant (b & B)`, `Age independent (d)`, `Later life (c & C)`)) %>%
+  mutate(name = factor(name, levels = c("Infant (b & B)", "Age independent (d)", 
+                                        "Later life (c & C)"), ordered = T)) %>%
+  ggplot(aes(x = ages)) + theme_bw() + 
+  geom_line(aes(y = log(total)), color = "black") + 
+  geom_line(aes(y = log(value), color = name), linetype = "dashed") +
+  coord_cartesian(ylim = c(-10.2, 0)) +
+  scale_color_manual(values = c("blue3", "forestgreen", "firebrick")) + 
+  labs(x = "Age", y = expression(log(mu(a))), color = "Parts", title = "Siler") + 
+  theme(legend.position = c(0.33, 0.82), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+#siler_example_plot
+
+param_hp = list(A = 0.0009, B = 0.04, C = 0.1, D = 0.0005, E = 6.0,
+                F = 25.0, G = 0.00009, H = 1.08)
+hp_example_plot <- tibble(ages = 0:109) %>%
+  mutate(`Infant (A, B & C)` = param_hp$A^((ages + param_hp$B)^param_hp$C) ,
+         `Accident hump (D, E & F)` = param_hp$D*exp(-param_hp$E*(log(ages) - log(param_hp$F))^2) ,
+         `Later life (G & H)` = param_hp$G*param_hp$H^(ages),
+         total = (`Infant (A, B & C)` + `Accident hump (D, E & F)` + `Later life (G & H)`)) %>%
+  pivot_longer(cols = c(`Infant (A, B & C)`, `Accident hump (D, E & F)`, `Later life (G & H)`)) %>%
+  mutate(name = factor(name, levels = c("Infant (A, B & C)", "Accident hump (D, E & F)", 
+                                        "Later life (G & H)"), ordered = T)) %>%
+  ggplot(aes(x = ages)) + theme_bw() + 
+  geom_line(aes(y = log(total/(1-total))), color = "black") + 
+  geom_line(aes(y = log(value/(1-value)), color = name), linetype = "dashed") +
+  coord_cartesian(ylim = c(-10.2, 0)) +
+  scale_color_manual(values = c("blue3", "forestgreen", "firebrick")) + 
+  labs(x = "Age", y = expression(log(mu(a))), color = "Parts", title = "Heligman-Pollard") + 
+  theme(legend.position = c(0.33, 0.82), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+#hp_example_plot
+
+ggarrange(gompertz_example_plot, siler_example_plot, hp_example_plot, nrow = 1)
+ggsave("figures_paper/mort_function_comparison.pdf", width = 10, height = 4, device = cairo_pdf)
+
+
+
+
+# Alternative y label : expression(paste("log", bgroup("(", frac(mu(a),1-mu(a)), ")")))
+    
+# Load necessary libraries
+library(ggplot2)
+library(patchwork)
+
+# Sample data
+df <- data.frame(
+  x = rep(1:10, 3),
+  y = c(rnorm(10), rnorm(10, 1), rnorm(10, 2)),
+  group = rep(c("A", "B", "C"), each = 10)
+)
+
+# Create individual plots
+plot_A <- ggplot(df[df$group == "A", ], aes(x, y, color = as.factor(x))) +
+  geom_point() +
+  ggtitle("Facet A") +
+  theme(legend.position = "right")
+
+plot_B <- ggplot(df[df$group == "B", ], aes(x, y, color = as.factor(x))) +
+  geom_point() +
+  ggtitle("Facet B") +
+  theme(legend.position = "right")
+
+plot_C <- ggplot(df[df$group == "C", ], aes(x, y, color = as.factor(x))) +
+  geom_point() +
+  ggtitle("Facet C") +
+  theme(legend.position = "right")
+
+# Combine the plots using patchwork
+combined_plot <- (plot_A | plot_B | plot_C)
+
+# Display the combined plot
+combined_plot
+  
 
 
 "

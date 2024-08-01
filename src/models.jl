@@ -56,6 +56,39 @@ Static Siler model on log data
     #m_dist = exp.(lm_dist)
 end
 
+
+"""
+Static HP model on log data
+A = 0.032, B = 0.929, C = 0.169, D = 0.016, E = 6.0, 
+    F = 25.634, G = 0.002, H = 1.054, σ = 0.0
+"""
+@model function log_hp_static(lm_dist, ages)
+    # The number of observations.
+    N = length(lm_dist)
+    # Our prior beliefs
+    A ~ LogNormal(log(0.03), 2.0)
+    B ~ LogNormal(log(0.9), 1.0)
+    C ~ LogNormal(log(0.2), 2.0)
+    D ~ LogNormal(log(0.02), 1.0)
+    E ~ LogNormal(log(6.0), 1.0)
+    F ~ LogNormal(log(25.0), 1.0)
+    G ~ LogNormal(log(0.002), 1.0)
+    hh ~ 1.0 + LogNormal(log(0.3), 1.0)
+    σ ~ LogNormal(log(0.01), 1.0)
+    # Find mean using the siler mortality function
+    qqq = A.^((ages.+B).^C) .+ D.*exp.(-E.*(log.(ages) .- log.(F)).^2) .+ G.*(hh.^ages)
+    qqq = min.(qqq, [0.99])
+	μs = qqq./(1 .- qqq)
+    μs = max.(μs, [1.0])
+    m_vars = σ.*ones(N)
+    #m_vars[m_vars.<= 1e-10] .= 1e-10
+    # Variance matrix
+    Σ = Diagonal(m_vars)
+    # Draw from normal dist
+    lm_dist ~ MvNormal(log.(μs), Σ)
+    #m_dist = exp.(lm_dist)
+end
+
 """
 Siler model with linear threshold
 """
