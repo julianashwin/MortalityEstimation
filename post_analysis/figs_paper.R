@@ -32,12 +32,12 @@ col_scheme <- c("Australia" = "darkolivegreen4",
                 "Other" = "gray")
 
 
-keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "ITA", "NLD", "NZL_NM", "NOR",
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "HKG", "ITA", "NLD", "NZL_NM", "NOR",
                 "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
                 "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
                 "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
 
-high_income <- c("Australia", "Belgium", "Canada", "Denmark", "France", "Germany", "Italy", "Japan", "Netherlands", "New Zealand", 
+high_income <- c("Australia", "Belgium", "Canada", "Denmark", "France", "Germany", "Hong Kong", "Italy", "Japan", "Netherlands", "New Zealand", 
                  "Norway", "Portugal", "Russia", "Spain", "Sweden", "Switzerland", "United Kingdom", "United States of America")
 
 other_income <- c("Bangladesh", "Belarus", "Brazil", "China", "Congo", "Egypt", "Ethiopia", "India", "Indonesia", 
@@ -132,6 +132,20 @@ forecasts_df <- read.csv("data/results/bp_forecasts.csv")
 ## Forecasts for countries 
 int_forecasts_df <- read.csv("data/results/int_forecasts.csv")
 
+
+"
+Figure 1: Survival rate examples
+"
+survc_example <- read_csv("figures/interpret/survival_c_example.csv")
+survc_example %>%
+  ggplot(aes(x = age)) + theme_bw() +
+  geom_line(aes(y = S_base, color = "Baseline"), size = 1) + 
+  geom_line(aes(y = S_cchange, color = "Change to c"), linetype = "dashed", size = 1) +
+  geom_line(aes(y = S_Cchange, color = "Change to C"), linetype = "dashed", size = 1) + 
+  scale_color_manual(values = c("blue3", "firebrick", "forestgreen")) +
+  labs(x = "Age", y = "Survival Rate", color = "Parameters")
+ggsave("figures_paper/survival_example.pdf", width = 5, height = 3)
+rm(survc_example)
 
 "
 Figure 1: Best practice mortality and life expectancy (1900-2019)
@@ -567,6 +581,7 @@ hp_example_plot <- tibble(ages = 0:109) %>%
   scale_color_manual(values = c("blue3", "forestgreen", "firebrick")) + 
   labs(x = "Age", y = expression(log(mu(a))), color = "Parts", title = "Heligman-Pollard") + 
   theme(legend.position = c(0.33, 0.82), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+# Alternative y label : expression(paste("log", bgroup("(", frac(mu(a),1-mu(a)), ")")))
 #hp_example_plot
 
 ggarrange(gompertz_example_plot, siler_example_plot, hp_example_plot, nrow = 1)
@@ -574,46 +589,12 @@ ggsave("figures_paper/mort_function_comparison.pdf", width = 10, height = 4, dev
 
 
 
-
-# Alternative y label : expression(paste("log", bgroup("(", frac(mu(a),1-mu(a)), ")")))
     
-# Load necessary libraries
-library(ggplot2)
-library(patchwork)
 
-# Sample data
-df <- data.frame(
-  x = rep(1:10, 3),
-  y = c(rnorm(10), rnorm(10, 1), rnorm(10, 2)),
-  group = rep(c("A", "B", "C"), each = 10)
-)
-
-# Create individual plots
-plot_A <- ggplot(df[df$group == "A", ], aes(x, y, color = as.factor(x))) +
-  geom_point() +
-  ggtitle("Facet A") +
-  theme(legend.position = "right")
-
-plot_B <- ggplot(df[df$group == "B", ], aes(x, y, color = as.factor(x))) +
-  geom_point() +
-  ggtitle("Facet B") +
-  theme(legend.position = "right")
-
-plot_C <- ggplot(df[df$group == "C", ], aes(x, y, color = as.factor(x))) +
-  geom_point() +
-  ggtitle("Facet C") +
-  theme(legend.position = "right")
-
-# Combine the plots using patchwork
-combined_plot <- (plot_A | plot_B | plot_C)
-
-# Display the combined plot
-combined_plot
-  
 
 
 "
-Appendix D: 1) Siler parameter drift estimates for best practice mortality
+Appendix D: Figure D.1 Siler parameter drift estimates for best practice mortality
 "
 bp_params_df %>% 
   mutate(parameter = str_replace_all(parameter, "α_", "Drift ")) %>%
@@ -624,12 +605,13 @@ bp_params_df %>%
   ggplot() + theme_bw() + facet_wrap(~parameter, scales = "free_y") + 
   geom_ribbon(aes(x = year, ymin=pc025, ymax=pc975), alpha = 0.2) +
   geom_ribbon(aes(x = year, ymin=pc15, ymax=pc85), alpha = 0.3) + 
+  geom_hline(aes(yintercept = 0), linetype = "dashed") + 
   geom_line(aes(x = year, y = median)) + 
   labs(x = "Year", y = "")
 ggsave("figures_paper/siler_i2drift_drifts.pdf", width = 8, height = 4, device = cairo_pdf)
 
 "
-Appendix D: Table 2) Posterior distributions of variance terms
+Appendix D: Table D.2 Posterior distributions of variance terms
 "
 plot_df <- bp_params_df %>% 
   mutate(parameter = str_replace_all(parameter, "σ", "sigma"),
@@ -642,6 +624,94 @@ stargazer(as.matrix(plot_df), table.placement = "H", label = "tab:variance_terms
           title = "Posterior distributions of variance terms")
 
 rm(plot_df)
+
+
+
+
+"
+Appendix D: Figure D.3 independent periods
+"
+
+parests_compare <- read_csv("figures/benchmark/siler_indep_params_ber.csv") %>%
+  mutate(Model = "Independent", forecast = 0) %>%
+  select(any_of(c(names(bp_params_df), "Model"))) %>%
+  rbind(mutate(bp_params_df, Model = "Dynamic"))
+
+
+parests_compare %>% 
+  filter(year >1900 & year < 2020 & parameter %in% c("b", "B", "c", "C", "d", "σ")) %>%
+  mutate(parameter = factor(parameter, levels =c("b", "B", "c", "C", "d", "σ"), ordered = T)) %>%
+  group_by(parameter) %>%
+  mutate(min_par = min(pc025), max_par = max(pc975)) %>%
+  ungroup() %>%
+  ggplot() + theme_bw() + facet_wrap(~Model+parameter, scales = "free_y", nrow = 2) + 
+  geom_line(aes(x = year, y = median, color = Model)) + 
+  geom_blank(aes(x = year, y = min_par)) + 
+  geom_blank(aes(x = year, y = max_par)) + 
+  geom_ribbon(aes(x = year, ymin=pc025, ymax=pc975, fill = Model), alpha = 0.2) +
+  geom_ribbon(aes(x = year, ymin=pc15, ymax=pc85, fill = Model), alpha = 0.3) + 
+  labs(x = "Year", y = "")
+#ggsave("figures_paper/siler_comp_params_sep.pdf", width = 10, height = 5, device = cairo_pdf)
+
+
+
+parests_compare %>% 
+  filter(year >1900 & year < 2020 & parameter %in% c("b", "B", "c", "C", "d", "σ")) %>%
+  mutate(parameter = factor(parameter, levels =c("b", "c", "d", "B", "C", "σ"), ordered = T)) %>%
+  group_by(parameter) %>%
+  mutate(min_par = min(pc025), max_par = max(pc975)) %>%
+  ungroup() %>%
+  ggplot() + theme_bw() + facet_wrap(~parameter, scales = "free_y", nrow = 2) + 
+  geom_line(aes(x = year, y = median, color = Model)) + 
+  geom_ribbon(aes(x = year, ymin=pc025, ymax=pc975, fill = Model), alpha = 0.2) +
+  geom_ribbon(aes(x = year, ymin=pc15, ymax=pc85, fill = Model), alpha = 0.3) + 
+  labs(x = "Year", y = "")
+ggsave("figures_paper/siler_comp_params_overlay.pdf", width = 8, height = 4, device = cairo_pdf)
+
+
+
+"
+Apendix D: Normality assumption
+"
+library(rstatix)
+library(ggpubr)
+errors_df <- tibble(forecasts_df) %>%
+  filter(est_year == 2018, year <= 2018, !is.na(mx_f)) %>%
+  select(age, year, mortality, mx_f) %>%
+  left_join(select(bp_decomp_df, year, σ)) %>%
+  mutate(lmort_error = log(mx_f) - log(mortality)) 
+
+mean(errors_df$lmort_error)/(sd(errors_df$lmort_error)/sqrt(nrow(errors_df)))
+ks.test(errors_df$lmort_error, "pnorm")
+
+errors_df %>%
+  
+  group_by(year, σ) %>%
+  shapiro_test(lmort_error) %>%
+  ggplot() + 
+  geom_histogram(aes(x = p))
+  arrange(-p)
+  
+errors_df %>%
+  left_join(select(bp_decomp_df, year, σ)) %>%
+  group_by(year, σ) %>%
+  summarise(p = ks.test(lmort_error, rnorm(100,mean(lmort_error), σ))$p.value) %>%
+  arrange(-p)
+  shapiro_test(lmort_error) %>%
+    arrange
+  
+    
+errors_df %>%
+  ggqqplot(x = "lmort_error", facet.by = "year")
+ggsave("figures_paper/residual_qqplot.pdf", width = 12, height = 10, device = cairo_pdf)
+
+
+errors_df %>%
+  ggplot(aes(x = lmort_error)) + theme_bw() + 
+  geom_density()
+
+
+
 
 "
 Appendix D: Table 3) Economic Determinants of Senescent Mortality
@@ -676,6 +746,10 @@ stargazer(models, table.placement = "H",
 
 rm(reg_df, reg_lag_df, models, model1, model2, model3, model4, model5, model6, model7, model8)
 
+
+"
+Appendix D: 1 year periods
+"
 
 
 "
@@ -745,6 +819,7 @@ ggsave("figures_paper/BP_forecast_errors.pdf", width = 8, height = 4, device = c
 Appendix E: Table 4) Increases in LE (years per decade) 
 "
 increase_df <- all_pars_df %>%
+  filter(code %in% keep_codes) %>%
   filter(year %in% c(1988, 1998, 2008, 2018, 2028, 2038, 2048) & 
            parameter == "LE" & 
            name != "Russia" & name != "Ukraine") %>%
@@ -756,10 +831,11 @@ increase_df <- all_pars_df %>%
          `2008-2018` = round(`2018`-`2008`, 3), 
          `2018-2028` = round(`2028`-`2018`, 3), 
          `2028-2038` = round(`2038`-`2028`, 3), 
-         `2038-2048` = round(`2048`-`2038`, 3),
-         `2018-2048` = (`2048`-`2018`)/3,
-         `1988-2018` = (`2018`-`1988`)/3,
-         trend_change = (`2048`-`2018`)/3 - (`2018`-`1988`)/3) %>%
+         `2038-2048` = round(`2048`-`2038`, 3)#,
+         #`2018-2048` = (`2048`-`2018`)/3,
+         #`1988-2018` = (`2018`-`1988`)/3,
+         #trend_change = (`2048`-`2018`)/3 - (`2018`-`1988`)/3
+         ) %>%
   select(-`1988`, -`1998`, -`2008`, -`2018`, -`2028`, -`2038`, -`2048`) %>%
   na.omit() %>%
   pivot_longer(cols = -name, names_to = "Period", values_to = "Change")  %>%
@@ -774,6 +850,78 @@ stargazer(as.matrix(increase_tab_df), table.placement = "H",
           label = "intnlforecast", title = "Increases in LE (years per decade)")
 
 rm(increase_df, increase_table, increase_tab_df)
+
+### High income only
+increase_df <- all_pars_df %>%
+  filter(name %in% high_income) %>%
+  filter(year %in% c(1988, 1998, 2008, 2018, 2028, 2038, 2048) & 
+           parameter == "LE" & 
+           name != "Russia" & name != "Ukraine") %>%
+  mutate(median = round(median, 1)) %>%
+  select(name, year, median) %>%
+  pivot_wider(id_cols = name, names_from = year, values_from = median) %>%
+  mutate(`1989-1999` = round(`1998`-`1988`, 3), 
+         `1999-2009` = round(`2008`-`1998`, 3), 
+         `2009-2019` = round(`2018`-`2008`, 3), 
+         `2019-2029` = round(`2028`-`2018`, 3), 
+         `2029-2039` = round(`2038`-`2028`, 3), 
+         `2039-2049` = round(`2048`-`2038`, 3)#,
+         #`2018-2048` = (`2048`-`2018`)/3,
+         #`1988-2018` = (`2018`-`1988`)/3,
+         #trend_change = (`2048`-`2018`)/3 - (`2018`-`1988`)/3
+         ) %>%
+  select(-`1988`, -`1998`, -`2008`, -`2018`, -`2028`, -`2038`, -`2048`) %>%
+  na.omit() %>%
+  pivot_longer(cols = -name, names_to = "Period", values_to = "Change")  %>%
+  mutate(Change_bucket = cut(Change, breaks = c(-Inf, 0, 0.5, 1, 1.5, 2, 2.5, Inf)))
+
+increase_table <- table(select(increase_df, Period, Change_bucket))
+increase_tab_df <- data.frame(matrix(increase_table, ncol = 7))
+colnames(increase_tab_df) <- colnames(increase_table)
+rownames(increase_tab_df) <- rownames(increase_table)
+
+stargazer(as.matrix(increase_tab_df), table.placement = "H", 
+          label = "highinc_forecast", title = "Increases in LE for high income countries (years per decade)")
+
+rm(increase_df, increase_table, increase_tab_df)
+
+
+### Other income only
+increase_df <- all_pars_df %>%
+  filter(name %in% other_income) %>%
+  filter(year %in% c(1988, 1998, 2008, 2018, 2028, 2038, 2048) & 
+           parameter == "LE" & 
+           name != "Russia" & name != "Ukraine") %>%
+  mutate(median = round(median, 1)) %>%
+  select(name, year, median) %>%
+  pivot_wider(id_cols = name, names_from = year, values_from = median) %>%
+  mutate(`1989-1999` = round(`1998`-`1988`, 3), 
+         `1999-2009` = round(`2008`-`1998`, 3), 
+         `2009-2019` = round(`2018`-`2008`, 3), 
+         `2019-2029` = round(`2028`-`2018`, 3), 
+         `2029-2039` = round(`2038`-`2028`, 3), 
+         `2039-2049` = round(`2048`-`2038`, 3)#,
+         #`2018-2048` = (`2048`-`2018`)/3,
+         #`1988-2018` = (`2018`-`1988`)/3,
+         #trend_change = (`2048`-`2018`)/3 - (`2018`-`1988`)/3
+  ) %>%
+  select(-`1988`, -`1998`, -`2008`, -`2018`, -`2028`, -`2038`, -`2048`) %>%
+  na.omit() %>%
+  pivot_longer(cols = -name, names_to = "Period", values_to = "Change")  %>%
+  mutate(Change_bucket = cut(Change, breaks = c(-Inf, 0, 0.5, 1, 1.5, 2, 2.5, Inf)))
+
+increase_table <- table(select(increase_df, Period, Change_bucket))
+increase_tab_df <- data.frame(matrix(increase_table, ncol = 7))
+colnames(increase_tab_df) <- colnames(increase_table)
+rownames(increase_tab_df) <- rownames(increase_table)
+
+stargazer(as.matrix(increase_tab_df), table.placement = "H", 
+          label = "highinc_forecast", title = "Increases in LE for other income countries (years per decade)")
+
+rm(increase_df, increase_table, increase_tab_df)
+
+
+
 
 
 
@@ -790,6 +938,7 @@ model_cols <- c("Siler" = "purple", "Lee-Carter (demo)" = "red", "Lee-Carter (SM
 # Plot the errors
 fe_mean_plt <-
   tibble(int_forecasts_df) %>%
+  filter(code %in% keep_codes) %>%
   filter(age == 0 & n_ahead > 0) %>%
   ggplot() + theme_bw() + 
   scale_fill_manual("Models", values = model_cols) +
@@ -814,6 +963,7 @@ fe_mean_plt <-
 
 fe_rmse_plt <-
   tibble(int_forecasts_df) %>%
+  filter(code %in% keep_codes) %>%
   filter(age == 0 & n_ahead > 0) %>%
   ggplot() + theme_bw() + 
   scale_fill_manual("Models", values = model_cols) +
@@ -841,25 +991,89 @@ ggsave("figures_paper/country_forecast_errors.pdf", width = 8, height = 4, devic
 
 
 
+### Now do the same but split by income 
+fe_mean_plt <-
+  tibble(int_forecasts_df) %>%
+  filter(code %in% keep_codes) %>%
+  left_join(select(all_decomp_df, code, name)) %>%
+  mutate(income = case_when(name %in% high_income ~ "High~Income", 
+                            name %in% other_income ~ "Other")) %>%
+  filter(age == 0 & n_ahead > 0) %>%
+  ggplot() + theme_bw() + 
+  facet_wrap(~income, ncol = 1) +
+  scale_fill_manual("Models", values = model_cols) +
+  geom_bar(aes(x = n_ahead-1.5, y = siler_fe, fill = "Siler"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = n_ahead-1.0, y = LC_r_fe, fill = "Lee-Carter (demo)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead-0.5, y = (LC_SMM_r_fe), fill = "Lee-Carter (SMM)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+0, y = (LC_dt_r_fe), fill = "Lee-Carter (dt)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+0.5, y = (LC_dxt_r_fe), fill = "Lee-Carter (dxt)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+1.0, y = (LC_e0_r_fe), fill = "Lee-Carter (e0)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+1.5, y = (FDM_r_fe), fill = "FDM"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+2.0, y = (CBD_SMM_r_fe), fill = "CBD"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  xlab("Years ahead") + ylab("Mean Forecast error")+ ggtitle("Bias")
+
+
+fe_rmse_plt <-
+  tibble(int_forecasts_df) %>%
+  filter(code %in% keep_codes) %>%
+  left_join(select(all_decomp_df, code, name)) %>%
+  mutate(income = case_when(name %in% high_income ~ "High~Income", 
+                            name %in% other_income ~ "Other")) %>%
+  filter(age == 0 & n_ahead > 0) %>%
+  ggplot() + theme_bw() + 
+  facet_wrap(~income, ncol = 1) +
+  scale_fill_manual("Models", values = model_cols) +
+  geom_bar(aes(x = n_ahead-1.5, y = sqrt(siler_fe2), fill = "Siler"), 
+           stat = "summary", fun = mean, width = 0.5) +
+  geom_bar(aes(x = n_ahead-1.0, y = sqrt(LC_r_fe2), fill = "Lee-Carter (demo)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead-0.5, y = sqrt(LC_SMM_r_fe2), fill = "Lee-Carter (SMM)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+0, y = sqrt(LC_dt_r_fe2), fill = "Lee-Carter (dt)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+0.5, y = sqrt(LC_dxt_r_fe2), fill = "Lee-Carter (dxt)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+1.0, y = sqrt(LC_e0_r_fe2), fill = "Lee-Carter (e0)"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+1.5, y = sqrt(FDM_r_fe2), fill = "FDM"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  geom_bar(aes(x = n_ahead+2.0, y = sqrt(CBD_SMM_r_fe2), fill = "CBD"), 
+           stat = "summary", fun = mean, width = 0.5, alpha = 0.5) +
+  xlab("Years ahead") + ylab("RMSE")+ ggtitle("RMSE")
+
+ggarrange(fe_mean_plt, fe_rmse_plt, nrow = 1, common.legend = T, legend = "right")
+ggsave("figures_paper/country_incgrps_forecast_errors.pdf", width = 8, height = 6.5, device = cairo_pdf)
+
+
+
 
 "
 Appendix E: Table 5)
 "
-obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
-               int_forecasts_df$est_year > 1960)
-mse_tab <- aggregate(int_forecasts_df[obs,c("siler_fe2","LC_r_fe2", "LC_SMM_r_fe2", 
-                                            "LC_dt_r_fe2", "LC_dxt_r_fe2", 
-                                            "LC_e0_r_fe2", "FDM_r_fe2", "CBD_SMM_r_fe2")], 
-                     by = list(name = int_forecasts_df$name[obs]), FUN = mean,)
+obs <- which()
+mse_tab <- int_forecasts_df %>%
+  filter(code %in% keep_codes) %>%
+  filter(!is.na(siler_fe) & age == 0 & est_year > 1960) %>%
+  mutate(income = case_when(name %in% high_income ~ "High~Income", 
+                            name %in% other_income ~ "Other")) %>%
+  group_by(income, name) %>%
+  summarise(siler_fe2 = sqrt(mean(siler_fe2)), LC_SMM_r_fe2 = sqrt(mean(LC_SMM_r_fe2)), 
+            LC_dt_r_fe2 = sqrt(mean(LC_dt_r_fe2)), LC_dxt_r_fe2 = sqrt(mean(LC_dxt_r_fe2)), 
+            LC_e0_r_fe2 = sqrt(mean(LC_e0_r_fe2)), FDM_r_fe2 = sqrt(mean(FDM_r_fe2)), 
+            CBD_SMM_r_fe2 = sqrt(mean(CBD_SMM_r_fe2))) %>%
+  arrange(income, name)
 rownames(mse_tab) <- NULL
 mse_tab[,2:ncol(mse_tab)] <- sqrt(mse_tab[,2:ncol(mse_tab)])
 stargazer(mse_tab, summary = FALSE, title = "Mean Squared Forecast error by country",
           label = "tab:country_mse", table.placement = "H")
-
-
-
-
-
 
 
 

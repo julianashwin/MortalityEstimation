@@ -210,7 +210,7 @@ Out-of-sample forecasts
 folder = "countries/held-out"
 model = "i2"
 
-for code in country_codes[[8,9,10]]
+for code in country_codes[[11, 12, 13, 14, 15, 16]]
     print("Working on oos forecasts for "*code)
     # Extract and convert relevant data into correct form
     country_df = select_df[(select_df.code .== code), :]

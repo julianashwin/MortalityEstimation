@@ -13,6 +13,7 @@ require(stargazer)
 require(demography)
 require(StMoMo)
 require(qlcMatrix)
+require(tidyverse)
 
 "
 Define color schemes and Lee-Carter function
@@ -30,9 +31,33 @@ model_cols <- c("Siler" = "purple", "Lee-Carter" = "red", "Lee-Carter (StMoMo)" 
                 "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", 
                 "Lee-Carter (e0)" = "blue")
 
+col_scheme <- c("Australia" = "darkolivegreen4", 
+                "India" = "pink",
+                "France" = "blue3", "Mexico" = "darkgoldenrod4", 
+                "Hong Kong" = "lightgoldenrod", 
+                "Nigeria" = "forestgreen", 
+                "Japan" = "red","China" = "black", "Russia" = "firebrick",
+                "Ethiopia" = "yellow", "United States of America" = "cornflowerblue",
+                "Other" = "gray")
+
+
+keep_codes <- c("AUS", "BEL", "CAN", "DNK", "FRA", "HKG", "ITA", "NLD", "NZL_NM", "NOR",
+                "PRT", "RUS", "ESP", "SWE", "CHE", "GBR", "USA", "JPN", "DEU",
+                "IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA")
+
+high_income <- c("Australia", "Belgium", "Canada", "Denmark", "France", "Germany", "Hong Kong", "Italy", "Japan", "Netherlands", "New Zealand", 
+                 "Norway", "Portugal", "Russia", "Spain", "Sweden", "Switzerland", "United Kingdom", "United States of America")
+
+other_income <- c("Bangladesh", "Belarus", "Brazil", "China", "Congo", "Egypt", "Ethiopia", "India", "Indonesia", 
+                  "Iran (Islamic Republic of)", "Mexico", "Nigeria", "Pakistan", "Philippines", "Thailand", "Türkiye", "Viet Nam")
+
+country_names <- c(high_income, other_income)
+
 ## Function to create a dataframe of Lee-Carter fitted values and forecasts 
-#adj <- "e0"
-#cc <- "BP"
+#(mx_matrix, pop_matrix, "dt", "BP", nahead = 6)
+#adj <- "none"
+#cc <- "Australia"
 create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   bp_demdata <- demogdata(data=mx_matrix[,2:ncol(mx_matrix)], 
                           pop = pop_matrix[,2:ncol(mx_matrix)],
@@ -41,7 +66,7 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
                           type= "mortality",label=cc, name="female")
   ## Estimate LCA model
   bp_LC <- lca(bp_demdata, adjust = adj,scale = FALSE)
-  lc_matrix <- cbind(data.frame(age = 0:100), data.frame(exp(bp_LC$fitted$y)))
+  lc_matrix <- cbind(data.frame(age = 0:max(bp_LC$age)), data.frame(exp(bp_LC$fitted$y)))
   lc_demdata <- demogdata(data=lc_matrix[,2:ncol(mx_matrix)], 
                           pop = pop_matrix[1:nrow(lc_matrix),2:ncol(mx_matrix)],
                           ages=lc_matrix$age, 
@@ -51,7 +76,7 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   ## Estimate FDM model Hyndman, R.J., and Ullah, S. (2007) 
   if (adj == "none"){
     bp_fdm <- suppressWarnings(fdm(bp_demdata, order = 6, method = c("M")))
-    fdm_matrix <- cbind(data.frame(age = 0:109), data.frame(exp(bp_fdm$fitted$y)))
+    fdm_matrix <- cbind(data.frame(age = 0:max(bp_fdm$age)), data.frame(exp(bp_fdm$fitted$y)))
     fdm_demdata <- demogdata(data=fdm_matrix[,2:ncol(mx_matrix)], 
                              pop = pop_matrix[1:nrow(fdm_matrix),2:ncol(mx_matrix)],
                              ages=fdm_matrix$age, 
@@ -97,6 +122,7 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   # Estimate forecast
   bp_LC_fc <- forecast(bp_LC, jumpchoice="fit", h = nahead)  
   bp_lt_fc <- lifetable(bp_LC_fc)
+  bp_fdm_lt_fc <- NULL
   if (adj == "none"){
     bp_fdm_lt_fc <- NULL
     try({
@@ -184,6 +210,8 @@ create_LC_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
 
 
 
+#adj = "e0"
+#cc = "BP"
 create_StMoMo_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   # Get data into right formate for StMoMo
   bp_demdata <- demogdata(data=mx_matrix[,2:ncol(mx_matrix)], 
@@ -192,7 +220,7 @@ create_StMoMo_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
                           years = as.numeric(names(mx_matrix[,2:ncol(mx_matrix)])), 
                           type= "mortality",label=cc, name="female")
   bp_smmdata <- central2initial(StMoMoData(bp_demdata))
-  ages.fit <- 0:100
+  ages.fit <- 0:max(bp_smmdata$age)
   wxt <- genWeightMat(ages = ages.fit, years = bp_smmdata$years, clip = 3)
   
   
@@ -209,8 +237,8 @@ create_StMoMo_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   
   # Save forecasts
   LC_rates <- cbind(exp(fitted(LCfit)), LCfor$rate)
-  LC_pops <- cbind(pop_matrix[1:101,2:ncol(mx_matrix)],  1-LCfor$rate)
-  LC_lt <- lifetable(demogdata(data = LC_rates, pop = LC_pops, ages = 0:100, 
+  LC_pops <- cbind(pop_matrix[1:(max(mx_matrix$age)+1),2:ncol(mx_matrix)],  1-LCfor$rate)
+  LC_lt <- lifetable(demogdata(data = LC_rates, pop = LC_pops, ages = 0:max(mx_matrix$age), 
                      years = c(as.numeric(names(mx_matrix[,2:ncol(mx_matrix)])),
                                seq(as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+5, 
                                  as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+30, 5)),
@@ -240,8 +268,8 @@ create_StMoMo_df <- function(mx_matrix, pop_matrix, adj, cc, nahead = 6){
   
   # Save forecasts
   CBD_rates <- cbind(exp(fitted(CBDfit)), CBDfor$rate)
-  CBD_pops <- cbind(pop_matrix[1:101,2:ncol(mx_matrix)],  1-CBDfor$rate)
-  CBD_lt <- lifetable(demogdata(data = CBD_rates, pop = CBD_pops, ages = 0:100, 
+  CBD_pops <- cbind(pop_matrix[1:(max(mx_matrix$age)+1),2:ncol(mx_matrix)],  1-CBDfor$rate)
+  CBD_lt <- lifetable(demogdata(data = CBD_rates, pop = CBD_pops, ages = 0:max(mx_matrix$age), 
                                 years = c(as.numeric(names(mx_matrix[,2:ncol(mx_matrix)])),
                                           seq(as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+5, 
                                               as.numeric(max(names(mx_matrix)[2:ncol(mx_matrix)]))+30, 5)),
@@ -516,6 +544,11 @@ write.csv(forecasts_df, "data/results/bp_forecasts.csv", row.names = F)
 
 
 # Plot the errors
+model_cols <- c("Siler" = "purple", "Lee-Carter" = "red", "Lee-Carter (StMoMo)" = "deeppink", 
+                "FDM" = "forestgreen", "CBD" = "darkorange1",
+                "Lee-Carter (dt)" = "gold", "Lee-Carter (dxt)" = "green", 
+                "Lee-Carter (e0)" = "blue")
+
 fe_full_plt <-
   tibble(forecasts_df) %>%
   filter(age == 0 & n_ahead > 0) %>%
@@ -693,16 +726,14 @@ ggsave("figures/forecasting/LE_all_forecasts.pdf", width = 8, height = 4)
 International Lee-Carter
 "
 # Identify countries
-mort_df$name <- str_replace_all(mort_df$name, " of America", "")
-countries <- unique(mort_df$name)
-
+#mort_df$name <- str_replace_all(mort_df$name, " of America", "")
 #countries <- countries[which(countries %in% names(col_scheme))]
 LC_df <- data.frame()
 
 
-cc <- countries[1]
+cc <- country_names[1]
 yy <- est_years[1]
-for (cc in countries){
+for (cc in country_names){
   print(paste0("Lee-Carter forecasts for ", cc))
   country_df <- mort_df[which(mort_df$name == cc & mort_df$year >= 1900),]
   #bp_df <- mort_df[which(mort_df$name == "New Zealand"),]
@@ -716,13 +747,22 @@ for (cc in countries){
         pop_matrix <- cast(country_df[which(country_df$year <= yy & country_df$year > yy-50),
                                  c("year", "age", "Female")], 
                            age ~ year, value = "Female")
+        if (all(is.na(pop_matrix[,2:ncol(pop_matrix)]))){
+          pop_matrix <- cast(country_df[which(country_df$year <= yy & country_df$year > yy-50),
+                                        c("year", "age", "lx_f")], 
+                             age ~ year, value = "lx_f")
+        }
       } else {
         mx_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "mx_f")], 
                           age ~ year, value = "mx_f")
         pop_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "Female")], 
                            age ~ year, value = "Female")
+        if (all(is.na(pop_matrix[,2:ncol(pop_matrix)]))){
+          pop_matrix <- cast(country_df[which(country_df$year <= yy),c("year", "age", "lx_f")], 
+                             age ~ year, value = "lx_f")
+        }
       }
-      if (ncol(mx_matrix) > 10){
+      if (ncol(mx_matrix) > 6){
         # Carry over pop data if missing
         for (ii in 2:ncol(pop_matrix)){
           pop_matrix[which(is.na(pop_matrix[,ii])),ii] <- pop_matrix[which(is.na(pop_matrix[,ii])),(ii-1)]
@@ -813,9 +853,9 @@ International Siler
 country_siler_df <- data.frame(matrix(NA, nrow = 0, ncol = 7))
 names(country_siler_df) <-c("name","year", "est_year", "age", "mx_siler", "lx_siler", "ex_siler")
 
-cc <- countries[1]
+cc <- country_names[1]
 yy <- est_years[1]
-for (cc in countries){
+for (cc in country_names){
   country_df <- mort_df[which(mort_df$name == cc & mort_df$year >= 1900),]
   code <- unique(country_df$code)
   if (paste0(code,"_LEgrad_oos.csv") %in% dir("figures/countries/held-out/")){
@@ -834,7 +874,6 @@ for (cc in countries){
     siler_df <- data.frame(matrix(NA, nrow = 0, ncol = 6))
     names(siler_df) <-c("year", "est_year", "age", "mx_siler", "lx_siler", "ex_siler")
     
-    yy <- est_years[6]
     for (yy in est_years){
       mx_matrix <- cast(sil_forecasts_df[which(sil_forecasts_df$est_year == yy),c("year", "age", "mortality")], 
                         age ~ year, value = "mortality")

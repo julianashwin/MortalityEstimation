@@ -424,7 +424,7 @@ CSV.write(folder*"siler_"*model*"_LEgrad_oos.csv", LEgrad_oos)
 
 
 """
-Country out-of-sample forecasts
+Process country out-of-sample forecasts
 """
 ## Options
 ndraws = 10 # Number of draws to approximate each future shock
@@ -435,8 +435,12 @@ oos_codes = [ "AUS", "CAN", "CHE", "BEL", "ESP", "FIN", "FRA", "GBR", "USA",
     "NLD", "ITA"]
 oos_codes = ["NZL_NM"]
 
+
+country_codes = ["IND", "CHN", "IDN", "PAK", "NGA", "BRA", "BGD", "MEX", "ETH",
+                "PHL", "EGY", "COG", "VNM", "IRN", "TUR", "THA"]
+
 folder = "figures/countries/held-out/"
-for cc in country_codes[[1,2,3,4,5,6,7]]
+for cc in country_codes[[8,9,10,11,12,13,14,15,16]]
 
     # Country data
     country_df = mort_df[mort_df.code .== cc,:]

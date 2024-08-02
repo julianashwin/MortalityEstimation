@@ -97,6 +97,9 @@ plot!(ber_df_c.age, ber_df_c.S_cchange, linestyle = :dash, label = "Change to c"
 plot!(ber_df_C.age, ber_df_C.S_Cchange, linestyle = :dash, label = "Change to C")
 plot!(legend = :bottomleft, size = (400,300))
 savefig("figures/interpret/survival_c_example.pdf")
+export_schange_df = DataFrame(age = ber_df_c.age, S_base = ber_df_c.S_base, S_cchange = ber_df_c.S_cchange, 
+    S_Cchange = ber_df_C.S_Cchange)
+CSV.write("figures/interpret/survival_c_example.csv", export_schange_df)
 
 ber_df_b, b_plt = param_change_plt(ber_df_1, param_ber_1, :b; LE_change = 5, spec = :Bergeron)
 ber_df_B, B_plt = param_change_plt(ber_df_1, param_ber_1, :B; LE_change = 5, spec = :Bergeron)

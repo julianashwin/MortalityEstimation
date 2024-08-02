@@ -63,9 +63,13 @@ TJK,Tajikistan
 TKM,Turkmenistan
 UZB,Uzbekistan
 CHN,China
+HKG,Hong Kong
 MAC,"China, Macao SAR"
+TWN,Taiwan
 PRK,Dem. People's Republic of Korea
+JPN,Japan
 MNG,Mongolia
+KOR,South Korea
 AFG,Afghanistan
 BGD,Bangladesh
 BTN,Bhutan
@@ -92,6 +96,7 @@ BHR,Bahrain
 CYP,Cyprus
 GEO,Georgia
 IRQ,Iraq
+ISR,Israel
 JOR,Jordan
 KWT,Kuwait
 LBN,Lebanon
@@ -103,25 +108,56 @@ SYR,Syrian Arab Republic
 TUR,Türkiye
 ARE,United Arab Emirates
 YEM,Yemen
+BLR,Belarus
+BGR,Bulgaria
+CZE,Czechia
+HUN,Hungary
+POL,Poland
 MDA,Republic of Moldova
 ROU,Romania
+RUS,Russia
+SVK,Slovakia
+UKR,Ukraine
+DNK,Denmark
+EST,Estonia
 FRO,Faroe Islands
+FIN,Finland
 GGY,Guernsey
+ISL,Iceland
+IRL,Ireland
 IMN,Isle of Man
 JEY,Jersey
+LVA,Latvia
+LTU,Lithuania
+NOR,Norway
+SWE,Sweden
+GBR,United Kingdom
 ALB,Albania
 AND,Andorra
 BIH,Bosnia and Herzegovina
+HRV,Croatia
 GIB,Gibraltar
+GRC,Greece
 VAT,Holy See
+ITA,Italy
 XKX,Kosovo (under UNSC res. 1244)
 MLT,Malta
 MNE,Montenegro
 MKD,North Macedonia
+PRT,Portugal
 SMR,San Marino
 SRB,Serbia
+SVN,Slovenia
+ESP,Spain
+AUT,Austria
+BEL,Belgium
+FRA,France
+DEU,Germany
 LIE,Liechtenstein
+LUX,Luxembourg
 MCO,Monaco
+NLD,Netherlands
+CHE,Switzerland
 AIA,Anguilla
 ATG,Antigua and Barbuda
 ABW,Aruba
@@ -161,6 +197,7 @@ PAN,Panama
 ARG,Argentina
 BOL,Bolivia (Plurinational State of)
 BRA,Brazil
+CHL,Chile
 COL,Colombia
 ECU,Ecuador
 FLK,Falkland Islands (Malvinas)
@@ -172,8 +209,12 @@ SUR,Suriname
 URY,Uruguay
 VEN,Venezuela (Bolivarian Republic of)
 BMU,Bermuda
+CAN,Canada
 GRL,Greenland
 SPM,Saint Pierre and Miquelon
+USA,United States of America
+AUS,Australia
+NZL,New Zealand
 FJI,Fiji
 NCL,New Caledonia
 PNG,Papua New Guinea
