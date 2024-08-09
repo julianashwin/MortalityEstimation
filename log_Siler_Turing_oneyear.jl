@@ -50,7 +50,7 @@ plot(country_df.age, country_df.mx, group = country_df.year, legend = :top)
 # Suprisingly, we actually have some zeros here for small countries (e.g. ISL)
 country_df.mx_f[country_df.mx_f .== 0.0] .=  minimum(country_df.mx_f[country_df.mx_f .> 0.0])
 # Convert this into a matrix of mortality rates over time, age and year vectors
-country_m_data = chunk(country_df.mx, 110)
+country_m_data = chunk(country_df.mx_f, 110)
 country_lm_data = [log.(m_dist) for m_dist in country_m_data]
 country_ages = Int64.(0:maximum(country_df.age))
 country_years = unique(country_df.year)
