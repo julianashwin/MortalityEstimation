@@ -961,6 +961,7 @@ int_forecasts_df <- compute_fe(int_forecasts_df, suffix = "LC_e0_r")
 
 
 write.csv(filter(int_forecasts_df, age == 0), "data/results/int_forecasts.csv", row.names = F)
+#write.csv(int_forecasts_df, "data/results/int_forecasts_full.csv", row.names = F)
 
 # Plot the errors
 obs <- which(!is.na(int_forecasts_df$siler_fe) & int_forecasts_df$age == 0 & 
