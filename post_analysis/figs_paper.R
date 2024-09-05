@@ -140,6 +140,25 @@ forecasts_df <- read.csv("data/results/bp_forecasts.csv")
 ## Forecasts for countries 
 int_forecasts_df <- read.csv("data/results/int_forecasts.csv")
 
+####### Export data for Andrew to play with 
+tib_list <- all_pars_df %>%
+  filter(parameter %in% c("LE", "B", "b", "C", "c", "d", "h", "Lstar_99p9", "Lstar_99", "Lstar_95", "Lstar_90")) %>%
+  mutate(parameter = str_replace(parameter, "B", "big_B"),
+         parameter = str_replace(parameter, "b", "small_b"),
+         parameter = str_replace(parameter, "C", "big_C"),
+         parameter = str_replace(parameter, "c", "small_c")) %>%
+  pivot_wider(id_cols = c(parameter, name), names_from = year, values_from = median) %>%
+  split(f = as.factor(.$parameter))
+
+library(openxlsx)
+blank_excel <- createWorkbook()
+Map(function(df, tab_name){     
+  addWorksheet(blank_excel, tab_name)
+  writeData(blank_excel, tab_name, df)
+}, 
+tib_list, names(tib_list)
+)
+saveWorkbook(blank_excel, file = "data/Andrew_siler_data.xlsx", overwrite = TRUE)
 
 "
 Figure 1: Survival rate examples
