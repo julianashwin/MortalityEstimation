@@ -123,9 +123,29 @@ all_decomp_df <- all_decomp_df %>%
            year > 1943 & year <= 1968 ~ "1943-1968",
            year > 1968 & year <= 1993 ~ "1968-1993",
            year > 1993 & year <= 2018 ~ "1993-2018",
-           TRUE ~ "pred"))
+           TRUE ~ "2018-2048"))
 table(all_decomp_df$year_group)
 rm(country_df)
+
+
+## Import LE gradients for each country
+import_files <- dir("figures/countries/")
+import_files <- import_files[which(str_detect(import_files, "_LEgrads.csv"))]
+all_LEgrads_df <- data.frame(matrix(NA,nrow=0,ncol = 40))
+names(all_LEgrads_df) <- c("code", "age", "year", "LE", "LE_Bs", "LE_bs", "LE_Cs", "LE_cs", "LE_ds", "LE_cC", "Lstar", 
+                           "Lstar_Bs", "Lstar_bs", "Lstar_Cs", "Lstar_cs", "Lstar_ds", "Lstar_cC", "Lmed", "Lmed_Bs", "Lmed_bs", "Lmed_Cs", 
+                           "Lmed_cs", "Lmed_ds", "Lmed_cC", "h", "h_Bs", "h_bs", "h_Cs", "h_cs", "h_ds", "h_cC", 
+                           "H", "H_Bs", "H_bs", "H_Cs", "H_cs", "H_ds", "H_cC", "mortality", "survival")
+for (ii in 1:length(import_files)){
+  filename <- import_files[ii]
+  country_df <- read.csv(paste0("figures/countries/", filename), stringsAsFactors = F)
+  country_df$code <- str_remove(filename, "_i2_decomp_pred.csv")
+  country_df <- country_df[,names(all_LEgrads_df)]
+  all_LEgrads_df <- rbind(all_LEgrads_df, country_df)
+}
+
+rm(country_df)
+
 
 ## Import panel data with econ variables
 all_panel_df <- read_csv("data/clean/siler_econ_panel.csv")
@@ -159,6 +179,94 @@ Map(function(df, tab_name){
 tib_list, names(tib_list)
 )
 saveWorkbook(blank_excel, file = "data/Andrew_siler_data.xlsx", overwrite = TRUE)
+
+
+"
+Convergence correlation table
+"
+conv_corr_tab <- all_pars_df %>%
+  filter(code %in% keep_codes) %>%
+  rbind(mutate(filter(all_pars_df, code %in% keep_codes), name = str_c(name, " (for all)"))) %>%
+  mutate(name = case_when(name == "United States of America" ~ "USA", 
+                             name == "Iran (Islamic Republic of)" ~ "Iran", 
+                             name == "United Kingdom" ~ "UK", 
+                             TRUE ~ name)) %>%
+  mutate(income = case_when(name %in% high_income ~ "High~Income", 
+                            name %in% other_income ~ "Large~Emerging~Economies",
+                            TRUE ~ "All")) %>%
+  mutate(income = factor(income, levels = c("High~Income", "Large~Emerging~Economies", "All"))) %>%
+  filter(parameter %in% c("b", "B", "c", "C", "d", "LE", "h"),
+         year %in% c(1948, 2018)) %>%
+  mutate(parameter = factor(parameter, levels = c("b", "B", "c", "C", "d", "LE", "h"), ordered = T)) %>%
+  group_by(income, name, parameter) %>%
+  mutate(value = median, 
+         initial_value = lag(median, n = 1, order_by = year),
+         change = value - initial_value) %>%
+  select(income, name, parameter, year, value, initial_value, change) %>%
+  filter(year == 2018) %>%
+  group_by(income, parameter) %>%
+  summarise(cor = cor.test(initial_value, change)$estimate, 
+            pval = cor.test(initial_value, change)$p.value)
+
+
+conv_corr_tab %>%
+  mutate(coef_text = sprintf(cor, fmt = '%#.2f')) %>%
+  mutate(coef_text = case_when(pval <= 0.01 ~ str_c(coef_text, "***"),
+                               pval <= 0.05 ~ str_c(coef_text, "**"),
+                               pval <= 0.1 ~ str_c(coef_text, "*"),
+                               TRUE ~ str_c(coef_text, ""))) %>%
+  ggplot(aes(y =fct_rev(income), x = 1)) + theme_bw() + 
+  facet_wrap(~ parameter, nrow = 1) +
+  geom_tile(aes(fill = as.numeric(cor)), color = "black") +
+  geom_text(aes(label = coef_text), color = "black", size = 3) +
+  scale_fill_gradient2(low = "firebrick", high = "forestgreen", na.value = "white", 
+                       mid = "white", midpoint = 0) +  #, midpoint = 0)
+  theme(axis.text.x = element_blank(), axis.ticks = element_blank()) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + 
+  theme(legend.position="none") +
+  labs(x = "", y = " ", fill = "Correlation of initial value and change \nfrom 1950 to present") 
+ggsave("figures_paper/con_corr_table.pdf", width = 7, height = 1.5)
+
+"
+Mortality derivatives
+"
+
+bp_df %>%
+  tibble() %>%
+  filter(year %in% c(1903, 1923, 1943, 1963, 1983, 2003, 2018)) %>%
+  group_by(age)
+
+  mutate(Forecast = case_when(year < 2020 ~ "Estimate",
+                              year >= 2020 ~ "Forecast")) %>%
+  filter(age <= 110) %>%
+  ggplot() + theme_bw() + 
+  geom_line(aes(x = age, y = mu_C, color = year, group = year, linetype = Forecast)) + 
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900, 1950, 2000,2049),
+                        labels=c(1900,1950,2000,2049),
+                        limits=c(1900,2049)) +
+  labs(x = "Age", y = "Gradient")
+
+
+bp_LEgrad_df %>%
+  tibble() %>%
+  left_join(select(bp_decomp_df, year, B, b, C, c, d)) %>%
+  mutate(mu_C = -c^2 * exp(c*(age-C))) %>%
+  select(age, year,  B, b, C, c, d, mu_C) %>%
+  mutate(Forecast = case_when(year < 2020 ~ "Estimate",
+                              year >= 2020 ~ "Forecast")) %>%
+  filter(age <= 110) %>%
+  ggplot() + theme_bw() + 
+  geom_line(aes(x = age, y = mu_C, color = year, group = year, linetype = Forecast)) + 
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  scale_color_gradientn(colours = rainbow(5), name = "Year",
+                        breaks=c(1900, 1950, 2000,2049),
+                        labels=c(1900,1950,2000,2049),
+                        limits=c(1900,2049)) +
+  labs(x = "Age", y = "Gradient")
+
+
 
 "
 Figure 1: Survival rate examples
@@ -332,7 +440,7 @@ decomp_table <- all_decomp_df %>%
                              country == "United Kingdom" ~ "UK", 
                              TRUE ~ country)) %>%
   mutate(income = case_when(country %in% high_income ~ "High~Income", 
-                            country %in% other_income ~ "Other"))
+                            country %in% other_income ~ "Large~Emerging~Economies"))
 
 # Export table as tex
 stargazer(as.matrix(decomp_table), table.placement = "H", column.sep.width = "2")
@@ -375,6 +483,158 @@ decomp_table %>%
 
 ggsave("figures_paper/decomp_table.pdf", width = 12.2, height = 8)
 rm(decomp_table)
+
+
+
+
+"
+Figure xxx: Prop LE gains across countries including the forecast
+"
+decomp_table_preds <- all_decomp_df %>%
+  filter(!is.na(DeltaLE_c)) %>%
+  group_by(code, name, year_group) %>%
+  summarise(DeltaLE_bB = sum(DeltaLE_b) + sum(DeltaLE_B), DeltaLE_d = sum(DeltaLE_d),
+            DeltaLE_c = sum(DeltaLE_c), DeltaLE_C = sum(DeltaLE_C), ΔLE_mod = sum(ΔLE_mod)) %>%
+  ungroup() %>%
+  mutate(propLE_bB = DeltaLE_bB/ΔLE_mod,
+         propLE_d = DeltaLE_d/ΔLE_mod,
+         propLE_c = DeltaLE_c/ΔLE_mod,
+         propLE_C = DeltaLE_C/ΔLE_mod) %>%
+  pivot_wider(id_cols = c(code, name), names_from = year_group, 
+              names_glue = "{.value}_{year_group}",
+              values_from = c(propLE_bB, propLE_d, propLE_c, propLE_C)) %>%
+  select(code, name, 
+         `propLE_bB_1918-1943`, `propLE_bB_1943-1968`, `propLE_bB_1968-1993`, `propLE_bB_1993-2018`, `propLE_bB_2018-2048`,
+         #`propLE_B_1918-1943`, `propLE_B_1943-1968`, `propLE_B_1968-1993`, `propLE_B_1993-2018`,
+         `propLE_d_1918-1943`, `propLE_d_1943-1968`, `propLE_d_1968-1993`, `propLE_d_1993-2018`, `propLE_d_2018-2048`,
+         `propLE_c_1918-1943`, `propLE_c_1943-1968`, `propLE_c_1968-1993`, `propLE_c_1993-2018`, `propLE_c_2018-2048`,
+         `propLE_C_1918-1943`, `propLE_C_1943-1968`, `propLE_C_1968-1993`, `propLE_C_1993-2018`, `propLE_C_2018-2048` ) %>%
+  left_join(all_decomp_df[which(all_decomp_df$year == 2018),c("name", "C")]) %>%
+  filter(code %in% keep_codes) %>%
+  rename(country = name) %>%
+  mutate(country = case_when(country == "United States of America" ~ "USA", 
+                             country == "Iran (Islamic Republic of)" ~ "Iran", 
+                             country == "United Kingdom" ~ "UK", 
+                             TRUE ~ country)) %>%
+  mutate(income = case_when(country %in% high_income ~ "High~Income", 
+                            country %in% other_income ~ "Large~Emerging~Economies"))
+
+# Export table as tex
+stargazer(as.matrix(decomp_table), table.placement = "H", column.sep.width = "2")
+# Or plot as heatmap
+decomp_table_preds %>%
+  rbind(mutate(decomp_table_preds, country = "Average")) %>%
+  dplyr::select(-code) %>%
+  group_by(income, country) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = T))) %>%
+  pivot_longer(cols = -c(income, country)) %>%
+  mutate(country = factor(country, levels = c(high_income, other_income, "Average"), ordered = T)) %>%
+  arrange(country) %>%
+  mutate(parameter = case_when(nchar(name) >= 8 ~ str_c("Prop~LE~gains~", str_sub(name, 8, 8), "[t]"),
+                               TRUE ~ "Latest~C[t]")) %>%
+  mutate(interval = str_replace(str_sub(str_replace(name, "B", ""), 10, 18), "\\.", "-")) %>%
+  mutate(interval = case_when(interval == "" ~ "Latest", TRUE ~ interval),
+         parameter = case_when(parameter == "Prop~LE~gains~[t]" ~ "Latest~C[t]", 
+                               parameter == "Prop~LE~gains~b[t]" ~ "Prop~LE~gains~b[t]~and~B[t]", 
+                               TRUE ~ parameter)) %>%
+  mutate(parameter = factor(parameter, levels = c("Prop~LE~gains~b[t]~and~B[t]",
+                                                  "Prop~LE~gains~d[t]", 
+                                                  "Prop~LE~gains~c[t]", "Prop~LE~gains~C[t]",
+                                                  "Latest~C[t]"))) %>%
+  mutate(value_latest = sprintf(value, fmt = '%#.1f'),
+         value_latest = case_when(name == "C" ~ value_latest, TRUE ~ "")) %>%
+  mutate(value = sprintf(value, fmt = '%#.2f'),
+         value = case_when(name == "C" ~ "", 
+                           value == "NaN" ~ "",
+                           TRUE ~ value)) %>%
+  ggplot(aes(y =fct_rev(country), x = interval)) + theme_minimal() + 
+  facet_grid(vars(income), vars(parameter), labeller = label_parsed,
+             scales = "free", space="free") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  geom_tile(aes(fill = as.numeric(value)), color = "black") +
+  geom_text(aes(label = value), color = "black", size = 3) +
+  geom_text(aes(label = value_latest), color = "black", size = 3) +
+  scale_fill_gradient2(low = "firebrick", high = "forestgreen", na.value = "white", 
+                       mid = "white", midpoint = 0) +  #, midpoint = 0)
+  labs(x = "Interval", y = "", fill = "Proportion \nLE gains \ndue to \nparameter") 
+
+ggsave("figures_paper/decomp_table_preds.pdf", width = 12.2, height = 8)
+rm(decomp_table_preds)
+
+
+
+
+
+"
+Figure xxx: Absolute LE gains across countries including the forecast
+"
+LEchange_table_preds <- all_decomp_df %>%
+  filter(!is.na(DeltaLE_c)) %>%
+  group_by(code, name, year_group) %>%
+  summarise(DeltaLE_bB = sum(DeltaLE_b) + sum(DeltaLE_B), DeltaLE_d = sum(DeltaLE_d),
+            DeltaLE_c = sum(DeltaLE_c), DeltaLE_C = sum(DeltaLE_C), ΔLE_mod = sum(ΔLE_mod)) %>%
+  ungroup() %>%
+  mutate(propLE_bB = DeltaLE_bB,
+         propLE_d = DeltaLE_d,
+         propLE_c = DeltaLE_c,
+         propLE_C = DeltaLE_C) %>%
+  pivot_wider(id_cols = c(code, name), names_from = year_group, 
+              names_glue = "{.value}_{year_group}",
+              values_from = c(propLE_bB, propLE_d, propLE_c, propLE_C)) %>%
+  select(code, name, 
+         `propLE_bB_1918-1943`, `propLE_bB_1943-1968`, `propLE_bB_1968-1993`, `propLE_bB_1993-2018`, `propLE_bB_2018-2048`,
+         #`propLE_B_1918-1943`, `propLE_B_1943-1968`, `propLE_B_1968-1993`, `propLE_B_1993-2018`,
+         `propLE_d_1918-1943`, `propLE_d_1943-1968`, `propLE_d_1968-1993`, `propLE_d_1993-2018`, `propLE_d_2018-2048`,
+         `propLE_c_1918-1943`, `propLE_c_1943-1968`, `propLE_c_1968-1993`, `propLE_c_1993-2018`, `propLE_c_2018-2048`,
+         `propLE_C_1918-1943`, `propLE_C_1943-1968`, `propLE_C_1968-1993`, `propLE_C_1993-2018`, `propLE_C_2018-2048` ) %>%
+  filter(code %in% keep_codes) %>%
+  rename(country = name) %>%
+  mutate(country = case_when(country == "United States of America" ~ "USA", 
+                             country == "Iran (Islamic Republic of)" ~ "Iran", 
+                             country == "United Kingdom" ~ "UK", 
+                             TRUE ~ country)) %>%
+  mutate(income = case_when(country %in% high_income ~ "High~Income", 
+                            country %in% other_income ~ "Large~Emerging~Economies"))
+
+# Export table as tex
+stargazer(as.matrix(decomp_table), table.placement = "H", column.sep.width = "2")
+# Or plot as heatmap
+LEchange_table_preds %>%
+  rbind(mutate(LEchange_table_preds, country = "Average")) %>%
+  dplyr::select(-code) %>%
+  group_by(income, country) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = T))) %>%
+  pivot_longer(cols = -c(income, country)) %>%
+  mutate(country = factor(country, levels = c(high_income, other_income, "Average"), ordered = T)) %>%
+  arrange(country) %>%
+  mutate(parameter = case_when(nchar(name) >= 8 ~ str_c("LE~gains~", str_sub(name, 8, 8), "[t]"))) %>%
+  mutate(interval = str_replace(str_sub(str_replace(name, "B", ""), 10, 18), "\\.", "-")) %>%
+  mutate(interval = case_when(interval == "" ~ "Latest", TRUE ~ interval),
+         parameter = case_when(parameter == "LE~gains~[t]" ~ "Latest~C[t]", 
+                               parameter == "LE~gains~b[t]" ~ "LE~gains~b[t]~and~B[t]", 
+                               TRUE ~ parameter)) %>%
+  mutate(parameter = factor(parameter, levels = c("LE~gains~b[t]~and~B[t]",
+                                                  "LE~gains~d[t]", 
+                                                  "LE~gains~c[t]", "LE~gains~C[t]"))) %>%
+  mutate(value = sprintf(value, fmt = '%#.2f'),
+         value = case_when(name == "C" ~ "", 
+                           value == "NaN" ~ "",
+                           TRUE ~ value)) %>%
+  ggplot(aes(y =fct_rev(country), x = interval)) + theme_minimal() + 
+  facet_grid(vars(income), vars(parameter), labeller = label_parsed,
+             scales = "free", space="free") +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  geom_tile(aes(fill = as.numeric(value)), color = "black") +
+  geom_text(aes(label = value), color = "black", size = 3) +
+  scale_fill_gradient2(low = "firebrick", high = "forestgreen", na.value = "white", 
+                       mid = "white", midpoint = 0) +  #, midpoint = 0)
+  labs(x = "Interval", y = "", fill = "Absolute \nLE gains \ndue to \nparameter") 
+
+ggsave("figures_paper/abs_LEgains_table_preds.pdf", width = 12.2, height = 8)
+rm(decomp_table_preds)
+
+
+
 
 
 "
@@ -1216,12 +1476,10 @@ rownames(increase_tab_df) <- rownames(increase_table)
 stargazer(as.matrix(increase_tab_df), table.placement = "H", 
           label = "intnlforecast", title = "Increases in LE (years per decade)")
 
-rm(increase_df, increase_table, increase_tab_df)
-
 
 increase_df %>%
   mutate(income = case_when(name %in% high_income ~ "High~Income", 
-                            name %in% other_income ~ "Other")) %>%
+                            name %in% other_income ~ "Large~Emerging~Economies")) %>%
   group_by(income, Period, Change_bucket) %>%
   summarise(value = n()) %>%
   ungroup() %>%
@@ -1311,7 +1569,7 @@ fe_mean_plt <-
   filter(code %in% keep_codes) %>%
   left_join(select(all_decomp_df, code, name)) %>%
   mutate(income = case_when(name %in% high_income ~ "High~Income", 
-                            name %in% other_income ~ "Other")) %>%
+                            name %in% other_income ~ "Large~Emerging~Economies")) %>%
   filter(age == 0 & n_ahead > 0) %>%
   ggplot() + theme_bw() + 
   facet_wrap(~income, ncol = 1) +
@@ -1340,7 +1598,7 @@ fe_rmse_plt <-
   filter(code %in% keep_codes) %>%
   left_join(select(all_decomp_df, code, name)) %>%
   mutate(income = case_when(name %in% high_income ~ "High~Income", 
-                            name %in% other_income ~ "Other")) %>%
+                            name %in% other_income ~ "Large~Emerging~Economies")) %>%
   filter(age == 0 & n_ahead > 0) %>%
   ggplot() + theme_bw() + 
   facet_wrap(~income, ncol = 1) +
@@ -1381,7 +1639,7 @@ mse_tab <- int_forecasts_df %>%
                           TRUE ~ name)) %>%
   filter(!is.na(siler_fe) & age == 0 & est_year > 1960) %>%
   mutate(income = case_when(name %in% high_income ~ "High~Income", 
-                            name %in% other_income ~ "Other")) %>%
+                            name %in% other_income ~ "Large~Emerging~Economies")) %>%
   group_by(income, name) %>%
   summarise(Siler = sqrt(mean(siler_fe2)), `LC (demo)` = sqrt(mean(LC_r_fe2)), 
             `LC (SMM)` = sqrt(mean(LC_SMM_r_fe2)), `LC (dt)` = sqrt(mean(LC_dt_r_fe2)),
