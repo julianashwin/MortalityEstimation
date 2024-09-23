@@ -231,32 +231,70 @@ ggsave("figures_paper/con_corr_table.pdf", width = 7, height = 1.5)
 Mortality derivatives
 "
 
-bp_df %>%
+mort_df %>%
   tibble() %>%
-  filter(year %in% c(1903, 1923, 1943, 1963, 1983, 2003, 2018)) %>%
-  group_by(age)
-
+  arrange(code, year, age) %>%
+  filter(code %in% c("USA", "FRA", "JPN", "GBR", "NGA", "CHN")) %>% 
+  #filter(year %in% c(1948, 1968, 1988,2008, 2028, 2048)) %>%
+  group_by(code, year) %>%
+  filter(age != 100) %>%
+  mutate(age = case_when(age == 99 ~ 100, TRUE ~ age)) %>%
+  filter(age %in% c(60, 70, 80, 90, 100)) %>%
   mutate(Forecast = case_when(year < 2020 ~ "Estimate",
                               year >= 2020 ~ "Forecast")) %>%
-  filter(age <= 110) %>%
+  filter(age <= 110, year <= 2020, year >= 1950) %>%
+  group_by(code, age) %>%
+  mutate(mx_first = first(mx_f), 
+         mort_growth = (mx_f) - (lag(mx_f, n = 1)),
+         mx_norm = mx_f - mx_first) %>%
+  ungroup() %>%
   ggplot() + theme_bw() + 
-  geom_line(aes(x = age, y = mu_C, color = year, group = year, linetype = Forecast)) + 
+  facet_wrap(~name) +
+  geom_smooth(aes(x = year, y = mx_norm, color = age, group = age), se = F) + 
+  geom_point(aes(x = year, y = mx_norm, color = age, group = age), alpha = 0.2, size = 1) + 
   geom_hline(yintercept=0, linetype="dashed", color = "black") +
-  scale_color_gradientn(colours = rainbow(5), name = "Year",
-                        breaks=c(1900, 1950, 2000,2049),
-                        labels=c(1900,1950,2000,2049),
-                        limits=c(1900,2049)) +
-  labs(x = "Age", y = "Gradient")
+  scale_color_gradientn(colours = rainbow(5), name = "Age") +
+  labs(x = "Year", y = "Change in mortality rate relative to 1950")
 
+
+
+mort_df %>%
+  tibble() %>%
+  arrange(code, year, age) %>%
+  filter(code %in% c("USA", "FRA", "JPN", "GBR", "NGA", "CHN")) %>% 
+  #filter(year %in% c(1948, 1968, 1988,2008, 2028, 2048)) %>%
+  group_by(code, year) %>%
+  filter(age != 100) %>%
+  mutate(age = case_when(age == 99 ~ 100, TRUE ~ age)) %>%
+  filter(age %in% c(60, 70, 80, 90, 100)) %>%
+  mutate(Forecast = case_when(year < 2020 ~ "Estimate",
+                              year >= 2020 ~ "Forecast")) %>%
+  filter(age <= 110, year <= 2020, year >= 1950) %>%
+  group_by(code, age) %>%
+  mutate(mx_first = first(mx_f), 
+         mort_growth = (mx_f) - (lag(mx_f, n = 1)),
+         mx_norm = mx_f - mx_first) %>%
+  ungroup() %>%
+  ggplot() + theme_bw() + 
+  facet_wrap(~name) +
+  geom_smooth(aes(x = year, y = mx_f, color = age, group = age), se = F) + 
+  geom_point(aes(x = year, y = mx_f, color = age, group = age), alpha = 0.2, size = 1) + 
+  geom_hline(yintercept=0, linetype="dashed", color = "black") +
+  scale_color_gradientn(colours = rainbow(5), name = "Age") +
+  labs(x = "Year", y = "Mortality rate")
 
 bp_LEgrad_df %>%
   tibble() %>%
+  arrange(age, year) %>%
+  filter(year %in% c(1948, 1968, 1988,2008, 2028, 2048)) %>%
   left_join(select(bp_decomp_df, year, B, b, C, c, d)) %>%
   mutate(mu_C = -c^2 * exp(c*(age-C))) %>%
   select(age, year,  B, b, C, c, d, mu_C) %>%
   mutate(Forecast = case_when(year < 2020 ~ "Estimate",
                               year >= 2020 ~ "Forecast")) %>%
   filter(age <= 110) %>%
+  group_by(age) %>%
+  mutate(mu_C_growth = log(mu_C/lag(mu_C, n = 1))) %>%
   ggplot() + theme_bw() + 
   geom_line(aes(x = age, y = mu_C, color = year, group = year, linetype = Forecast)) + 
   geom_hline(yintercept=0, linetype="dashed", color = "black") +
@@ -343,6 +381,16 @@ p_lower <- ggarrange(p3, p4, p5, nrow = 1, ncol=3, common.legend = TRUE,
 ggarrange(p_upper, p_lower, nrow = 2, ncol=1, common.legend = FALSE)
 ggsave("figures_paper/best_practice_5y_summary.pdf", width = 9, height = 6)
 rm(p1,p2,p3,p4,p5,p_upper, p_lower)
+
+
+bp_df %>%
+  filter(year > 1900 & age == 0) %>%
+  ggplot() + theme_bw() +
+  geom_smooth(aes(x = year, y = l_90_f), method = "loess") +
+  geom_point(aes(x = year, y = l_90_f, color = name)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_color_discrete(name = "Country") + ggtitle("UBAD (90%)") +
+  xlab("Year") + ylab("UBAD (90%)")
 
 "
 Figure 3: Siler parameter estimates for best practice mortality (1900-2019)
@@ -703,6 +751,19 @@ rm(plot_df, extra_obs)
 "
 Figure 7: Evolution of L*, C and LE over time
 "
+Lstar_df <- all_pars_df %>%
+  tibble() %>%
+  filter(code %in% keep_codes) %>%
+  filter(str_detect(parameter, "Lstar"))
+Lstar_df %>%
+  pivot_wider(id_cols = c("code", "year"), names_from = "parameter", values_from = "median") %>%
+  filter(year == 2018) %>%
+  arrange(-Lstar_90) %>%
+  mutate(Lstar_90 = sprintf(Lstar_90, fmt = '%#.2f'),
+         Lstar_95 = sprintf(Lstar_95, fmt = '%#.2f'),
+         Lstar_99 = sprintf(Lstar_99, fmt = '%#.2f'),
+         Lstar_99p9 = sprintf(Lstar_99p9, fmt = '%#.2f'))
+
 plot_df <- data.frame(pivot_wider(all_pars_df, id_cols = c(name, code, year, Forecast), 
                                   names_from = parameter, values_from = median)) %>%
   filter(code %in% keep_codes) %>%
