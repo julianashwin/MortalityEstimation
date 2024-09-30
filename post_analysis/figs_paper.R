@@ -1508,6 +1508,10 @@ Appendix F: Table 4) Increases in LE (years per decade)
 "
 increase_df <- all_pars_df %>%
   filter(code %in% keep_codes) %>%
+  mutate(name = case_when(name == "United States of America" ~ "USA", 
+                          name == "Iran (Islamic Republic of)" ~ "Iran", 
+                          name == "United Kingdom" ~ "UK", 
+                          TRUE ~ name)) %>%
   filter(year %in% c(1988, 1998, 2008, 2018, 2028, 2038, 2048) & 
            parameter == "LE" & 
            name != "Russia" & name != "Ukraine") %>%
@@ -1527,7 +1531,9 @@ increase_df <- all_pars_df %>%
   select(-`1988`, -`1998`, -`2008`, -`2018`, -`2028`, -`2038`, -`2048`) %>%
   na.omit() %>%
   pivot_longer(cols = -name, names_to = "Period", values_to = "Change")  %>%
-  mutate(Change_bucket = cut(Change, breaks = c(-Inf, 0, 0.5, 1, 1.5, 2, 2.5, Inf)))
+  mutate(Change_bucket = cut(Change, breaks = c(-Inf, 0, 0.5, 1, 1.5, 2, 2.5, Inf))) %>%
+  mutate(income = case_when(name %in% high_income ~ "High~Income", 
+                            name %in% other_income ~ "Large~Emerging~Economies"))
 
 increase_table <- table(select(increase_df, Period, Change_bucket))
 increase_tab_df <- data.frame(matrix(increase_table, ncol = 7))
@@ -1539,22 +1545,21 @@ stargazer(as.matrix(increase_tab_df), table.placement = "H",
 
 
 increase_df %>%
-  mutate(income = case_when(name %in% high_income ~ "High~Income", 
-                            name %in% other_income ~ "Large~Emerging~Economies")) %>%
+  rbind(mutate(increase_df, income = "All~countries")) %>%
   group_by(income, Period, Change_bucket) %>%
   summarise(value = n()) %>%
   ungroup() %>%
   complete(income, Period, Change_bucket) %>%
   replace_na(list(value = 0)) %>%
   ggplot(aes(y =fct_rev(Period), x = Change_bucket)) + theme_bw() + 
-  facet_wrap(vars(income), labeller = label_parsed, nrow = 2) +
+  facet_wrap(vars(income), labeller = label_parsed, nrow = 1) +
   theme(axis.text.x=element_text(angle=45,hjust=1)) +
   geom_tile(aes(fill = as.numeric(value)), color = "black") +
   geom_text(aes(label = value), color = "black", size = 3) +
   scale_fill_gradient2(low = "firebrick", high = "forestgreen", na.value = "white", 
                        mid = "white", midpoint = 0, guide = "none") +  #, midpoint = 0)
   labs(x = "Increase in LE (years per decade)", y = "Period") 
-ggsave("figures_paper/LE_increase_table.pdf", width = 6, height = 4, device = cairo_pdf)
+ggsave("figures_paper/LE_increase_table.pdf", width = 8, height = 2, device = cairo_pdf)
 
 rm(increase_df, increase_table, increase_tab_df)
 
